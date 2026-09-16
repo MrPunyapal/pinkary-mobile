@@ -1,0 +1,30 @@
+<?php
+
+use App\NativeComponents\Login;
+use Illuminate\Support\Facades\Http;
+use Native\Mobile\Testing\Native;
+
+it('shows a validation message for invalid login input', function (): void {
+    Native::test(Login::class)
+        ->input('email', 'not-an-email')
+        ->tap('Log in')
+        ->assertSee('valid email');
+});
+
+it('stores the token and opens the profile after login', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    Http::fake([
+        'https://pinkary.test/api/v1/auth/login' => Http::response([
+            'token' => 'test-token',
+            'data' => [],
+        ]),
+    ]);
+
+    Native::test(Login::class)
+        ->input('email', 'pinkary@example.com')
+        ->input('password', 'password')
+        ->tap('Log in')
+        ->assertReplacedWith('/profile');
+
+    expect(session('pinkary_api_token'))->toBe('test-token');
+});
