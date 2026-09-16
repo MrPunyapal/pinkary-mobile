@@ -22,11 +22,11 @@ jobs:
 
     steps:
       - name: Check out Pinkary Mobile
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Build NativePHP Android application
         id: build
-        uses: mrpunyapal/nativephp-build-action@main
+        uses: mrpunyapal/nativephp-build-action@1cbf226fdd419d52e2a26b795975f05479f7334a # main
         with:
           platform: android
           build-type: ${{ inputs.build-type }}
@@ -36,7 +36,7 @@ jobs:
           key-password: ${{ secrets.ANDROID_KEY_PASSWORD }}
 
       - name: Upload Android artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: pinkary-android-${{ inputs.build-type }}
           path: ${{ steps.build.outputs.artifact }}
