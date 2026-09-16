@@ -14,8 +14,7 @@ Or in Laravel Herd’s site wizard, pick a **community / custom starter kit** an
 
 For contributors working on this repo itself: clone, `composer install`, copy `.env.example`, `php artisan key:generate`, then `php artisan migrate`.
 
-1. Create an admin user via the [Filament docs](https://filamentphp.com/docs/panels/installation#creating-a-user)
-2. For native work, follow [NativePHP Mobile v4](https://nativephp.com/docs/mobile/4/getting-started/installation) (`php artisan native:install`, then `php artisan native:run`)
+1. For native work, follow [NativePHP Mobile v4](https://nativephp.com/docs/mobile/4/getting-started/installation) (`php artisan native:install`, then `php artisan native:run`)
 
 Herd tip: the site is `http://my-app.test` (or your project name).
 
@@ -24,7 +23,6 @@ Herd tip: the site is `http://my-app.test` (or your project name).
 | Surface | Path | Ships on device? |
 | --- | --- | --- |
 | SuperNative screens | `app/NativeComponents`, `resources/views/native`, `routes/web.php` | Yes |
-| Filament admin | `app/Providers/Filament`, `/admin` | No (excluded in `config/nativephp.php`) |
 | MCP | `app/Mcp`, `routes/ai.php` | No |
 | Sanctum API | `routes/api.php`, `config/sanctum.php` | No (wired, not demoed) |
 

@@ -2,19 +2,17 @@
     "$schema": "https://getcomposer.org/schema.json",
     "name": "nativephp/superstack",
     "type": "project",
-    "description": "Super Stack \u2014 open-source Laravel starter with Filament, NativePHP SuperNative, and MCP",
+    "description": "Pinkary Mobile — NativePHP mobile client for Pinkary",
     "keywords": [
         "laravel",
-        "filament",
         "nativephp",
         "mcp",
-        "superstack",
+        "pinkary",
         "starter-kit"
     ],
     "license": "MIT",
     "require": {
         "php": "^8.4",
-        "filament/filament": "^5.0",
         "laravel/framework": "^13.17",
         "laravel/mcp": "^0.9.5",
         "laravel/sanctum": "^4.0",
@@ -66,8 +64,7 @@
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
-            "@php artisan package:discover --ansi",
-            "@php artisan filament:upgrade"
+            "@php artisan package:discover --ansi"
         ],
         "post-update-cmd": [
             "@php artisan vendor:publish --tag=laravel-assets --ansi --force"

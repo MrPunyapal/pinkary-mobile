@@ -265,14 +265,10 @@ return [
         'AGENTS.md',
         'CLAUDE.md',
 
-        // Filament admin + MCP + Sanctum API surface (web-only for this kit)
-        'app/Providers/Filament',
+        // MCP + Sanctum API surface (web-only for this kit)
         'app/Mcp',
         'routes/ai.php',
         'config/sanctum.php',
-        'public/css/filament',
-        'public/js/filament',
-        'public/fonts/filament',
         'public/fonts-manifest.dev.json',
     ],
 
@@ -346,8 +342,8 @@ return [
         |
         */
         'theme' => [
-            'color_primary' => env('NATIVEPHP_ANDROID_COLOR_PRIMARY', '#04ABA6'),
-            'color_primary_night' => env('NATIVEPHP_ANDROID_COLOR_PRIMARY_NIGHT', '#FFFFFF'),
+            'color_primary' => env('NATIVEPHP_ANDROID_COLOR_PRIMARY', '#DB2777'),
+            'color_primary_night' => env('NATIVEPHP_ANDROID_COLOR_PRIMARY_NIGHT', '#DB2777'),
             'color_on_primary' => env('NATIVEPHP_ANDROID_COLOR_ON_PRIMARY', '#FFFFFF'),
         ],
 

@@ -42,9 +42,11 @@ final class PinkaryApi
     /**
      * Load the recent answered feed for the authenticated user.
      */
-    public function feed(string $token): Response
+    public function feed(string $token, string $tab = 'recent'): Response
     {
-        return $this->request()->withToken($token)->get('/api/v1/feed');
+        return $this->request()->withToken($token)->get('/api/v1/feed', [
+            'tab' => $tab,
+        ]);
     }
 
     /**

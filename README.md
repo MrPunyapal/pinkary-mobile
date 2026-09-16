@@ -1,85 +1,89 @@
-# Super Stack
+# Pinkary Mobile
 
-Open-source Laravel starter kit with **Filament**, **NativePHP SuperNative**, and **Laravel MCP**.
+Pinkary in your pocket — an official Android app for [Pinkary](https://pinkary.com), built with Laravel and [NativePHP](https://nativephp.com). The screens are written in Blade and rendered as real native UI (Jetpack Compose on Android, SwiftUI on iOS).
 
-![Super Stack home](docs/images/home.png)
+## Status
 
-![Filament admin sign in](docs/images/admin-login.png)
+- Android development builds work on GitHub Actions.
+- The iOS side is not configured yet.
 
-## Stack
+## Build an APK
 
-| Piece | Package |
+1. Open [Build Android](https://github.com/pinkary-project/pinkary-mobile/actions/workflows/build-android.yml).
+2. Choose **Run workflow**, set `build-type: debug` (default), and run.
+3. Download the `pinkary-android-debug` artifact ZIP, extract the APK, and install it on a device.
+
+Debug builds generate a temporary keystore on the runner — for development/testing only, never for a store release. Release and bundle builds require these GitHub Secrets:
+
+| Secret | Purpose |
 | --- | --- |
-| Laravel | [`laravel/framework`](https://laravel.com/docs) |
-| Admin | [`filament/filament`](https://filamentphp.com/docs) (panel at `/admin`) |
-| API auth | [`laravel/sanctum`](https://laravel.com/docs/sanctum) — wired, not demoed |
-| Mobile / SuperNative | [`nativephp/mobile`](https://nativephp.com/docs/mobile/4/getting-started/introduction) |
-| Native UI | [`nativephp/mobile-ui`](https://github.com/NativePHP/mobile-ui) |
-| Web UI (browser EDGE) | [`nativephp/web-ui`](https://packagist.org/packages/nativephp/web-ui) |
-| MCP server | [`laravel/mcp`](https://laravel.com/docs/mcp) — no auth added |
+| `ANDROID_KEYSTORE_BASE64` | Upload signing keystore (base64) |
+| `ANDROID_KEYSTORE_PASSWORD` | Keystore password |
+| `ANDROID_KEY_ALIAS` | Key alias |
+| `ANDROID_KEY_PASSWORD` | Key password |
+
+The first GitHub-hosted build takes ~9 minutes (Gradle downloads and compiles the NativePHP Android toolchain); later builds are faster with runner caches.
 
 ## Requirements
 
-- PHP 8.4+ (Herd recommended)
-- Composer
-- Node (optional, for Vite)
-- Xcode / Android Studio for native runs ([NativePHP Mobile v4 environment](https://nativephp.com/docs/mobile/4/getting-started/environment))
+- PHP 8.4+ and Composer
+- Node (for Vite assets)
+- Android Studio (for native runs/builds) — see the [NativePHP Mobile v4 environment guide](https://nativephp.com/docs/mobile/4/getting-started/environment)
 
-## Quick start
-
-### Laravel installer
+## Local development
 
 ```bash
-laravel new my-app --using=nativephp/superstack
-```
-
-### Laravel Herd
-
-In Herd’s site creation wizard, choose a **community / custom starter kit** and enter `nativephp/superstack`.
-
-### After create
-
-```bash
-cd my-app
+composer install
+npm install
+npm run build
 php artisan migrate
-# NativePHP (re-run after upgrades)
-php artisan native:install both --no-interaction
+php artisan native:install --no-interaction
 ```
 
-Create a Filament admin user with the [Filament installation docs](https://filamentphp.com/docs/panels/installation#creating-a-user) (`php artisan make:filament-user`).
+Add these to the mobile `.env` (see `.env.example`):
 
-With Laravel Herd, the site is available at `http://my-app.test` (or whatever you named the project).
-
-- Home (SuperNative via Web UI): [http://superstack.test](http://superstack.test)
-- Admin panel: [http://superstack.test/admin](http://superstack.test/admin)
-- API: Sanctum is installed (`routes/api.php`) — wired for token auth, not demoed with sample endpoints beyond `/api/user`
-
-## MCP
-
-Routes live in `routes/ai.php`. **No authentication is configured** on the MCP server — fine for local exploration, not production-ready as-is.
-
-- Web: `POST /mcp/superstack`
-- Local: `php artisan mcp:start superstack`
-
-Starter tool: `app-info` (`App\Mcp\Tools\AppInfoTool`) — returns app + package versions.
-
-```bash
-php artisan mcp:inspector mcp/superstack
+```env
+PINKARY_API_URL=https://pinkary.com
+NATIVEPHP_RUNNING=true
 ```
 
-See the [Laravel MCP docs](https://laravel.com/docs/mcp) for servers, tools, and auth options.
-
-## Native / SuperNative
-
-Home is a SuperNative screen (`Route::native`). On a phone, [NativePHP Mobile v4](https://nativephp.com/docs/mobile/4/getting-started/introduction) renders it natively; in the browser, Web UI renders the same Blade as HTML.
+Run the app:
 
 ```bash
 php artisan native:run
 ```
 
-See [Installation](https://nativephp.com/docs/mobile/4/getting-started/installation) and [SuperNative](https://nativephp.com/docs/mobile/4/architecture/super-native).
+Notes:
 
-`NATIVEPHP_APP_ID` defaults to `com.superstack.app` in `.env`. The `nativephp/` directory is gitignored — regenerate with `php artisan native:install`.
+- The generated `storage/framework/native_routes.json` is local runtime output — keep it uncommitted.
+- The mobile bundle keeps `routes/api.php`, which Laravel requires during bootstrap.
+- Release and bundle builds are signed via the GitHub Secrets listed above; debug builds sign with a temporary keystore.
+
+## Architecture
+
+- `app/NativeComponents/` — one class per screen (`Welcome`, `Login`, `Register`, `Home` (feed), `Profile`). Each extends `Native\Mobile\Edge\NativeComponent`, holds screen state, calls the API, and renders a Blade view.
+- `resources/views/native/*.blade.php` — the screen markup, written with `<native:*>` components from `nativephp/mobile-ui`. Visual styling is theme-driven: colors, radii, and typography come from `config/native-ui.php`, not per-element hex values.
+- `resources/views/components/` — shared pieces (`post`, `post-author`, `pinkary-logo`).
+- `app/Services/PinkaryApi.php` — thin HTTP client for `PINKARY_API_URL` (`/api/v1/...` endpoints on the Pinkary web app). The token is stored in the session; an unauthorized feed response logs the user out.
+- `routes/web.php` — `Route::native(...)` registrations for the five screens.
+- `tests/Feature/*Test.php` — in-process NativePHP tests (no device needed). Run with `php artisan test`.
+
+## API endpoints used
+
+All require a Sanctum token from `POST /api/v1/auth/login` (or `.../auth/register`):
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/v1/feed` | Answered feed for the authenticated user (`?tab=recent`, `following`, or `trending`) |
+| `GET /api/v1/profile` | Authenticated user's profile |
+| `POST /api/v1/auth/logout` | Revoke the current token |
+
+The server-side implementation lives in the Pinkary web repository (`API` branch at the time of writing, not pushed) — `app/Http/Controllers/Api/*`, `app/Http/Resources/QuestionResource.php`.
+
+## Repository map
+
+- Mobile app: `pinkary-project/pinkary-mobile`, branch `main`
+- Reusable build action: `MrPunyapal/nativephp-build-action`, branch `main`, pinned to commit `18e8bc2bc9b2189a2a0d727a43048895472487b5` (installs the Android SDK without the obsolete `tools` package and supports projects without `package-lock.json`)
 
 ## License
 

@@ -49,7 +49,7 @@ return [
 
         'light' => [
             // Primary brand color — used for filled buttons, active states, key accents.
-            'primary' => '#0F766E',
+            'primary' => '#DB2777',
             'on-primary' => '#FFFFFF',
 
             // Secondary / muted action color.
@@ -81,29 +81,29 @@ return [
             'on-success' => '#FFFFFF',
 
             // Tertiary accent — for highlights, badges, emphasis not covered by primary.
-            'accent' => '#C2410C',
+            'accent' => '#DB2777',
             'on-accent' => '#FFFFFF',
         ],
 
         'dark' => [
             // Leave empty or partial to auto-derive from `light` (luminance inversion).
             // Specify any token here to override the derived value.
-            'primary' => '#14B8A6',
+            'primary' => '#DB2777',
             'on-primary' => '#FFFFFF',
 
-            'secondary' => '#94A3B8',
-            'on-secondary' => '#0F172A',
+            'secondary' => '#151C2A',
+            'on-secondary' => '#F8FAFC',
 
-            'surface' => '#1E293B',
+            'surface' => '#07101F',
             'on-surface' => '#F8FAFC',
-            'background' => '#0F172A',
+            'background' => '#060C18',
             'on-background' => '#F8FAFC',
 
-            'surface-variant' => '#334155',
+            'surface-variant' => '#151C2A',
             'on-surface-variant' => '#94A3B8',
 
-            'outline' => '#475569',
-            'outline-variant' => '#334155',
+            'outline' => '#334155',
+            'outline-variant' => '#1E293B',
 
             'destructive' => '#F87171',
             'on-destructive' => '#0F172A',
@@ -111,8 +111,8 @@ return [
             'success' => '#4ADE80',
             'on-success' => '#052E16',
 
-            'accent' => '#FDBA74',
-            'on-accent' => '#0F172A',
+            'accent' => '#F6339A',
+            'on-accent' => '#060C18',
         ],
 
         // Corner radii (points / dp).

@@ -12,7 +12,7 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 
-#[Description('Returns Super Stack app name, environment, and key package versions (Laravel, Filament, NativePHP Mobile, Laravel MCP).')]
+#[Description('Returns Super Stack app name, environment, and key package versions (Laravel, NativePHP Mobile, Laravel MCP).')]
 #[IsReadOnly]
 class AppInfoTool extends Tool
 {
@@ -23,7 +23,6 @@ class AppInfoTool extends Tool
     {
         $packages = [
             'laravel/framework' => Application::VERSION,
-            'filament/filament' => InstalledVersions::getPrettyVersion('filament/filament'),
             'nativephp/mobile' => InstalledVersions::getPrettyVersion('nativephp/mobile'),
             'laravel/mcp' => InstalledVersions::getPrettyVersion('laravel/mcp'),
         ];

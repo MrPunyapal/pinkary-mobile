@@ -17,6 +17,8 @@ final class Home extends NativeComponent
 
     public string $errorMessage = '';
 
+    public string $tab = 'recent';
+
     public function navTitle(): string
     {
         return 'Feed';
@@ -32,7 +34,54 @@ final class Home extends NativeComponent
             return;
         }
 
-        $response = app(PinkaryApi::class)->feed($token);
+        $this->loadFeed($token);
+    }
+
+    public function showRecent(): void
+    {
+        $this->switchTab('recent');
+    }
+
+    public function showFollowing(): void
+    {
+        $this->switchTab('following');
+    }
+
+    public function showTrending(): void
+    {
+        $this->switchTab('trending');
+    }
+
+    public function profile(): void
+    {
+        $this->navigate($this->route('mobile.profile'));
+    }
+
+    public function render(): View
+    {
+        return view('native.home');
+    }
+
+    private function switchTab(string $tab): void
+    {
+        $token = $this->token();
+
+        if ($token === null) {
+            $this->replace($this->route('mobile.home'));
+
+            return;
+        }
+
+        $this->tab = $tab;
+        $this->loadFeed($token);
+    }
+
+    private function loadFeed(string $token): void
+    {
+        $this->loading = true;
+        $this->errorMessage = '';
+
+        $response = app(PinkaryApi::class)->feed($token, $this->tab);
 
         if ($response->unauthorized()) {
             session()->forget('pinkary_api_token');
@@ -52,16 +101,6 @@ final class Home extends NativeComponent
         $posts = $response->json('data', []);
         $this->posts = $posts;
         $this->loading = false;
-    }
-
-    public function profile(): void
-    {
-        $this->navigate($this->route('mobile.profile'));
-    }
-
-    public function render(): View
-    {
-        return view('native.home');
     }
 
     private function token(): ?string
