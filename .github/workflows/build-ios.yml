@@ -1,0 +1,43 @@
+name: Build iOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      export-method:
+        description: iOS export method
+        required: true
+        default: app-store
+        type: choice
+        options:
+          - app-store
+          - ad-hoc
+          - development
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+      - name: Check out Pinkary Mobile
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Build NativePHP iOS application
+        id: build
+        uses: mrpunyapal/nativephp-build-action@b186b745121fa9e113970fe17325f668d7f550eb # main
+        with:
+          platform: ios
+          build-type: release
+          ios-certificate: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          ios-certificate-password: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          ios-provisioning-profile: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          ios-team-id: ${{ secrets.APPLE_TEAM_ID }}
+          ios-export-method: ${{ inputs.export-method }}
+
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pinkary-ios-${{ inputs.export-method }}
+          path: ${{ steps.build.outputs.artifact }}
