@@ -26,7 +26,7 @@ jobs:
 
       - name: Build NativePHP Android application
         id: build
-        uses: mrpunyapal/nativephp-build-action@ce697f07e406c499de2467ea072fb993b4dada0b # main
+        uses: mrpunyapal/nativephp-build-action@dac18e9c3178ae83e4d3175d1269cf56506ad8cf # main
         with:
           platform: android
           build-type: ${{ inputs.build-type }}
