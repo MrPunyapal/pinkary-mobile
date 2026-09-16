@@ -6,9 +6,10 @@ on:
       build-type:
         description: Android artifact to build
         required: true
-        default: release
+        default: debug
         type: choice
         options:
+          - debug
           - release
           - bundle
 
