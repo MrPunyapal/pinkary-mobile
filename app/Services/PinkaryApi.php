@@ -40,6 +40,14 @@ final class PinkaryApi
     }
 
     /**
+     * Load the recent answered feed for the authenticated user.
+     */
+    public function feed(string $token): Response
+    {
+        return $this->request()->withToken($token)->get('/api/v1/feed');
+    }
+
+    /**
      * Revoke the current access token.
      */
     public function logout(string $token): Response

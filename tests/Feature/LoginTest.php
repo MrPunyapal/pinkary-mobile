@@ -11,7 +11,7 @@ it('shows a validation message for invalid login input', function (): void {
         ->assertSee('valid email');
 });
 
-it('stores the token and opens the profile after login', function (): void {
+it('stores the token and opens the feed after login', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     Http::fake([
         'https://pinkary.test/api/v1/auth/login' => Http::response([
@@ -24,7 +24,7 @@ it('stores the token and opens the profile after login', function (): void {
         ->input('email', 'pinkary@example.com')
         ->input('password', 'password')
         ->tap('Log in')
-        ->assertReplacedWith('/profile');
+        ->assertReplacedWith('/feed');
 
     expect(session('pinkary_api_token'))->toBe('test-token');
 });

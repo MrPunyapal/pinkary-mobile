@@ -47,7 +47,7 @@ final class Login extends NativeComponent
 
         if ($response->successful() && is_string($token = $response->json('token'))) {
             session(['pinkary_api_token' => $token]);
-            $this->replace($this->route('mobile.profile'));
+            $this->replace($this->route('mobile.feed'));
 
             return;
         }

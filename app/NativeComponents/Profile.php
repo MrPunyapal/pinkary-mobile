@@ -36,7 +36,7 @@ final class Profile extends NativeComponent
         }
 
         session()->forget('pinkary_api_token');
-        $this->replace($this->route('mobile.home'));
+        $this->replace($this->route('mobile.feed'));
     }
 
     private function loadProfile(): void

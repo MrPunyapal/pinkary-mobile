@@ -1,5 +1,6 @@
 <?php
 
+use App\NativeComponents\Home;
 use App\NativeComponents\Login;
 use App\NativeComponents\Profile;
 use App\NativeComponents\Register;
@@ -20,3 +21,4 @@ Route::native('/', Welcome::class)->name('mobile.home');
 Route::native('/login', Login::class)->name('mobile.login');
 Route::native('/register', Register::class)->name('mobile.register');
 Route::native('/profile', Profile::class)->name('mobile.profile');
+Route::native('/feed', Home::class)->name('mobile.feed');
