@@ -1,32 +1,166 @@
-<native:top-bar title="Profile">
-    <native:top-bar-action id="logout" label="Log out" @tap="logout" />
+@php
+    $isMe = (bool) data_get($profile, 'is_me', false);
+    $followed = (bool) data_get($profile, 'followed_by_me', false);
+    $company = (bool) data_get($profile, 'verification.company', false);
+    $verified = (bool) data_get($profile, 'verification.profile', false);
+
+    // Same abbreviation the web's stat pills use (toFixed(1): "1.0K").
+    $abbreviate = function (mixed $value): string {
+        $number = (int) $value;
+
+        if ($number < 1000) {
+            return (string) $number;
+        }
+
+        $symbols = ['', 'K', 'M', 'B', 'T'];
+        $tier = (int) (log10(abs($number)) / 3);
+
+        if ($tier <= 0) {
+            return (string) $number;
+        }
+
+        return number_format($number / (10 ** ($tier * 3)), 1).$symbols[$tier];
+    };
+
+    $followers = (int) data_get($profile, 'stats.followers', 0);
+    $following = (int) data_get($profile, 'stats.following', 0);
+    $posts = (int) data_get($profile, 'stats.posts', 0);
+    $views = (int) data_get($profile, 'stats.views', 0);
+    $links = array_values(array_filter(
+        (array) data_get($profile, 'links', []),
+        fn (mixed $link): bool => is_array($link) && ($link['url'] ?? '') !== ''
+    ));
+@endphp
+
+<native:top-bar title="{{ $isMe ? 'Profile' : '@'.data_get($profile, 'username', '') }}" back>
+    @if ($isMe)
+        <native:top-bar-action id="logout" label="Log out" :ios="\App\Icons\Ios::RectanglePortraitAndArrowRight" :android="\App\Icons\Android::Logout" @tap="logout" />
+    @endif
 </native:top-bar>
 
 <native:scroll-view class="w-full h-full bg-theme-background">
-    <native:column class="w-full px-6 py-6 gap-5 safe-area-bottom">
+    <native:column class="w-full px-4 py-4 gap-4">
         @if ($loading)
-            <native:column class="w-full gap-3">
-                <native:text class="text-base text-theme-on-surface-variant">Loading your profile…</native:text>
+            <native:column class="w-full items-center gap-3 py-10">
                 <native:activity-indicator />
+                <native:text class="text-sm text-theme-on-surface-variant">Loading this profile…</native:text>
             </native:column>
         @elseif ($errorMessage !== '')
-            <native:column class="w-full p-4 rounded-xl bg-theme-destructive/15 border border-theme-destructive">
+            <native:column class="w-full p-4 gap-3 rounded-md bg-theme-destructive/15 border border-theme-destructive">
                 <native:text class="text-sm text-theme-destructive">{{ $errorMessage }}</native:text>
+                <native:pressable class="self-start py-1" @tap="retry">
+                    <native:text class="text-sm font-semibold text-theme-destructive">Try again</native:text>
+                </native:pressable>
             </native:column>
         @else
-            <native:column class="w-full gap-2 p-5 bg-theme-surface rounded-3xl border border-theme-outline">
-                <native:text class="text-3xl font-bold text-theme-on-surface">{{ data_get($profile, 'name') }}</native:text>
-                <native:text class="text-base text-theme-primary">{{ '@'.data_get($profile, 'username') }}</native:text>
-                @if (data_get($profile, 'bio'))
-                    <native:text class="text-base leading-relaxed text-theme-on-surface-variant">{{ data_get($profile, 'bio') }}</native:text>
+            <native:row class="w-full items-center justify-between">
+                <native:row class="items-center gap-2">
+                    <native:pressable class="w-11 h-11 items-center justify-center rounded-md bg-theme-surface border border-theme-outline-variant" a11y-label="Share profile">
+                        <native:icon :ios="\App\Icons\Ios::SquareAndArrowUp" :android="\App\Icons\AndroidOutlined::Share" :size="20" color="#94A3B8" />
+                    </native:pressable>
+                    <native:pressable class="w-11 h-11 items-center justify-center rounded-md bg-theme-surface border border-theme-outline-variant" a11y-label="Show profile QR code">
+                        <native:icon :ios="\App\Icons\Ios::Qrcode" :android="\App\Icons\AndroidOutlined::QrCode" :size="20" color="#94A3B8" />
+                    </native:pressable>
+                </native:row>
+                @if ($isMe)
+                    <native:pressable class="w-11 h-11 items-center justify-center rounded-full bg-theme-primary shadow-lg" @tap="compose" a11y-label="Share an update">
+                        <native:icon :ios="\App\Icons\Ios::Pencil" :android="\App\Icons\AndroidOutlined::Edit" :size="20" color="#FFFFFF" />
+                    </native:pressable>
                 @endif
+            </native:row>
+
+            <native:column class="w-full items-center gap-0 p-4 rounded-md bg-theme-surface border border-theme-outline-variant">
+                @unless ($isMe)
+                    <native:row class="w-full justify-end">
+                        <native:pressable class="px-4 py-2 rounded-full bg-theme-primary {{ $followBusy ? 'opacity-40' : '' }}" @tap="toggleFollow" a11y-label="{{ $followed ? 'Unfollow' : 'Follow' }}">
+                            <native:text class="text-sm font-medium text-white">{{ $followBusy ? '…' : ($followed ? 'Following' : 'Follow') }}</native:text>
+                        </native:pressable>
+                    </native:row>
+                @endunless
+
+                @if (data_get($profile, 'avatar'))
+                    <native:image src="{{ data_get($profile, 'avatar') }}" alt="{{ data_get($profile, 'username', '') }}" class="w-20 h-20 {{ $company ? 'rounded-3xl' : 'rounded-full' }} border border-theme-outline" />
+                @else
+                    <native:column class="w-20 h-20 items-center justify-center {{ $company ? 'rounded-3xl' : 'rounded-full' }} bg-theme-avatar border border-theme-outline">
+                        <native:text class="text-2xl text-theme-on-avatar">{{ strtoupper(substr((string) data_get($profile, 'name', '?'), 0, 1)) }}</native:text>
+                    </native:column>
+                @endif
+
+                <native:row class="w-full items-center justify-center gap-1.5 mt-4">
+                    <native:text class="text-2xl font-semibold text-theme-on-surface">{{ data_get($profile, 'name') }}</native:text>
+                    @if ($verified || $company)
+                        <native:icon :ios="\App\Icons\Ios::CheckmarkSealFill" :android="\App\Icons\Android::Verified" :size="24" color="#EC4899" />
+                    @endif
+                </native:row>
+
+                <native:row class="items-center px-3 py-1 mt-2 rounded-full bg-theme-surface-variant border border-theme-outline-variant">
+                    <native:text class="text-sm text-theme-on-surface-variant">{{ '@'.data_get($profile, 'username') }}</native:text>
+                </native:row>
+
+                @if (data_get($profile, 'bio'))
+                    <native:text class="text-sm text-center leading-relaxed text-theme-on-surface mt-3">{{ data_get($profile, 'bio') }}</native:text>
+                @elseif ($isMe)
+                    <native:text class="text-sm text-center text-theme-on-surface-variant mt-3">Tell people about yourself</native:text>
+                @endif
+
+                <native:row class="items-center justify-center gap-2 mt-4 flex-wrap">
+                    @if ($followers > 0)
+                        <native:row class="items-center px-3 py-1 rounded-full bg-theme-surface-variant border border-theme-outline-variant">
+                            <native:text class="text-sm text-theme-on-surface-variant">{{ $abbreviate($followers) }} {{ $followers === 1 ? 'Follower' : 'Followers' }}</native:text>
+                        </native:row>
+                    @endif
+                    @if ($following > 0)
+                        <native:row class="items-center px-3 py-1 rounded-full bg-theme-surface-variant border border-theme-outline-variant">
+                            <native:text class="text-sm text-theme-on-surface-variant">{{ $abbreviate($following) }} Following</native:text>
+                        </native:row>
+                    @endif
+                    @if ($posts > 0)
+                        <native:row class="items-center px-3 py-1 rounded-full bg-theme-surface-variant border border-theme-outline-variant">
+                            <native:text class="text-sm text-theme-on-surface-variant">{{ $abbreviate($posts) }} {{ $posts === 1 ? 'Post' : 'Posts' }}</native:text>
+                        </native:row>
+                    @endif
+                    <native:row class="items-center px-3 py-1 rounded-full bg-theme-surface-variant border border-theme-outline-variant">
+                        <native:text class="text-sm text-theme-on-surface-variant">{{ $abbreviate($views) }} {{ $views === 1 ? 'View' : 'Views' }}</native:text>
+                    </native:row>
+                </native:row>
             </native:column>
 
-            <native:column class="w-full gap-3 p-5 bg-theme-surface rounded-3xl border border-theme-outline">
-                <native:text class="text-sm font-semibold uppercase tracking-widest text-theme-on-surface-variant">Account</native:text>
-                <native:text class="text-base text-theme-on-surface">{{ data_get($profile, 'email') }}</native:text>
-                <native:text class="text-sm text-theme-on-surface-variant">Member since {{ data_get($profile, 'member_since.human') }}</native:text>
-            </native:column>
+            @if (count($links) > 0)
+                <native:column class="w-full gap-2">
+                    @foreach ($links as $link)
+                        <native:pressable class="w-full items-center py-3 rounded-md bg-theme-primary" style="background: linear-gradient(90deg, #2f7df6, #a21cff)" @tap="openUserLink({{ (int) data_get($link, 'id', 0) }})" a11y-label="Open {{ data_get($link, 'description', 'link') }}">
+                            <native:text class="text-sm font-bold text-white">{{ data_get($link, 'description', '') }}</native:text>
+                        </native:pressable>
+                    @endforeach
+                </native:column>
+            @elseif ($isMe)
+                <native:column class="w-full items-center gap-2 p-5 rounded-md bg-theme-surface border border-dashed border-theme-outline">
+                    <native:text class="text-lg font-medium text-theme-on-surface">No links yet.</native:text>
+                    <native:text class="text-sm text-center text-theme-on-surface-variant">Add your first link to complete the profile card.</native:text>
+                </native:column>
+            @endif
+
+            @if ($isMe)
+                <native:column class="w-full gap-3 p-5 bg-theme-surface rounded-md border border-theme-outline-variant">
+                    <native:text class="text-sm font-semibold uppercase tracking-widest text-theme-on-surface-variant">Account</native:text>
+                    <native:text class="text-base text-theme-on-surface">{{ data_get($profile, 'email') }}</native:text>
+                    <native:text class="text-sm text-theme-on-surface-variant">Member since {{ data_get($profile, 'member_since.human') }}</native:text>
+                </native:column>
+            @endif
+
+            @if ($isMe)
+                <native:pressable class="w-full gap-3 p-4 rounded-md bg-theme-surface border border-theme-outline-variant" @tap="compose" a11y-label="Share an update">
+                    <native:row class="items-center gap-3">
+                        @if (data_get($profile, 'avatar'))
+                            <native:image src="{{ data_get($profile, 'avatar') }}" alt="You" class="w-9 h-9 rounded-full border border-theme-outline" />
+                        @endif
+                        <native:text class="text-sm text-theme-on-surface-variant">Share an update...</native:text>
+                    </native:row>
+                    <native:button variant="secondary" @tap="compose">Post</native:button>
+                </native:pressable>
+            @endif
         @endif
+
+        <native:column class="w-full h-20" />
     </native:column>
 </native:scroll-view>

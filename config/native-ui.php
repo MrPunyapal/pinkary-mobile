@@ -48,8 +48,8 @@ return [
     'theme' => [
 
         'light' => [
-            // Primary brand color — used for filled buttons, active states, key accents.
-            'primary' => '#DB2777',
+            // Primary brand color — Pinkary pink, used for filled buttons, active states, key accents.
+            'primary' => '#EC4899',
             'on-primary' => '#FFFFFF',
 
             // Secondary / muted action color.
@@ -59,13 +59,26 @@ return [
             // Surface = cards, sheets, dialogs. Background = page root.
             'surface' => '#FFFFFF',
             'on-surface' => '#0F172A',
-            'background' => '#F8FAFC',
+            'background' => '#F1F5F9',
             'on-background' => '#0F172A',
 
             // Surface variant = filled text fields, muted tonal surfaces.
             // on-surface-variant = muted label/hint text on those surfaces.
             'surface-variant' => '#F1F5F9',
             'on-surface-variant' => '#475569',
+
+            // Question bubble = asked-question card (slate-50 on web).
+            'bubble' => '#F8FAFC',
+            'on-bubble' => '#0F172A',
+
+            // Avatar fallback fill (slate-100 on web).
+            'avatar' => '#F1F5F9',
+            'on-avatar' => '#475569',
+
+            // Poll bar: track (slate-200 / slate-800) and idle fill (slate-400 / slate-600).
+            // The voted fill reuses primary; text on it is white in both modes.
+            'poll-track' => '#E2E8F0',
+            'poll-fill' => '#94A3B8',
 
             // Outline = neutral borders (text fields, dividers, cards).
             // outline-variant = softer edges: hairline dividers, card seams.
@@ -81,14 +94,15 @@ return [
             'on-success' => '#FFFFFF',
 
             // Tertiary accent — for highlights, badges, emphasis not covered by primary.
-            'accent' => '#DB2777',
+            'accent' => '#EC4899',
             'on-accent' => '#FFFFFF',
         ],
 
         'dark' => [
             // Leave empty or partial to auto-derive from `light` (luminance inversion).
             // Specify any token here to override the derived value.
-            'primary' => '#DB2777',
+            // Pink stays identical in both modes on web.
+            'primary' => '#EC4899',
             'on-primary' => '#FFFFFF',
 
             'secondary' => '#151C2A',
@@ -102,6 +116,15 @@ return [
             'surface-variant' => '#151C2A',
             'on-surface-variant' => '#94A3B8',
 
+            'bubble' => '#0B1324',
+            'on-bubble' => '#F8FAFC',
+
+            'avatar' => '#10182B',
+            'on-avatar' => '#94A3B8',
+
+            'poll-track' => '#1E293B',
+            'poll-fill' => '#475569',
+
             'outline' => '#334155',
             'outline-variant' => '#1E293B',
 
@@ -111,8 +134,8 @@ return [
             'success' => '#4ADE80',
             'on-success' => '#052E16',
 
-            'accent' => '#F6339A',
-            'on-accent' => '#060C18',
+            'accent' => '#EC4899',
+            'on-accent' => '#FFFFFF',
         ],
 
         // Corner radii (points / dp).

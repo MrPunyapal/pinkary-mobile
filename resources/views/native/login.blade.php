@@ -1,17 +1,15 @@
-<native:top-bar title="Log in" back />
-
 <native:scroll-view class="w-full h-full bg-theme-background">
-    <native:column class="w-full px-5 py-8 gap-8 safe-area-bottom">
-        <x-pinkary-logo class="w-full" />
+    <native:column class="w-full items-center px-5 py-8 gap-8 safe-area safe-area-bottom">
+        <x-pinkary-logo height="56" />
 
-        <native:column class="w-full p-6 gap-6 rounded-lg bg-theme-surface border border-theme-outline-variant">
+        <native:column class="w-full p-6 gap-6 rounded-md bg-theme-surface border border-theme-outline-variant shadow-lg">
             <native:column class="w-full gap-2">
                 <native:text class="text-2xl font-semibold text-theme-on-surface">Log in</native:text>
                 <native:text class="text-base text-theme-on-surface-variant">Continue to your Pinkary account.</native:text>
             </native:column>
 
             @if ($errorMessage !== '')
-                <native:column class="w-full p-4 rounded-lg bg-theme-destructive/15 border border-theme-destructive">
+                <native:column class="w-full p-4 rounded-md bg-theme-destructive/15 border border-theme-destructive">
                     <native:text class="text-sm text-theme-destructive">{{ $errorMessage }}</native:text>
                 </native:column>
             @endif
