@@ -249,7 +249,7 @@ it('shows the following feed when switching tabs', function (): void {
     ]);
 
     Native::test(Home::class)
-        ->changeTab('tabChanged', 1)
+        ->call('tabChanged', 1)
         ->assertSet('tab', 'following')
         ->assertSee('A compiler for the mobile age.');
 });
@@ -270,7 +270,7 @@ it('shows the trending feed when switching tabs', function (): void {
     ]);
 
     Native::test(Home::class)
-        ->changeTab('tabChanged', 2)
+        ->call('tabChanged', 2)
         ->assertSet('tab', 'trending')
         ->assertSee('The whole feed is talking about it.');
 });
@@ -304,7 +304,7 @@ it('shows a tailored empty state for the following tab', function (): void {
     ]);
 
     Native::test(Home::class)
-        ->changeTab('tabChanged', 1)
+        ->call('tabChanged', 1)
         ->assertSee('Your following feed is empty.')
         ->assertSee('Follow more people');
 });
@@ -318,7 +318,7 @@ it('shows the web empty copy on the recent and trending tabs', function (): void
 
     Native::test(Home::class)
         ->assertSee('There are no questions to show.')
-        ->changeTab('tabChanged', 2)
+        ->call('tabChanged', 2)
         ->assertSee('There are no trending questions right now.');
 });
 
@@ -693,7 +693,7 @@ it('clamps an unknown tab index to recent', function (): void {
     ]);
 
     Native::test(Home::class)
-        ->changeTab('tabChanged', 9)
+        ->call('tabChanged', 9)
         ->assertSet('tab', 'recent')
         ->assertSet('selectedTab', 0);
 });

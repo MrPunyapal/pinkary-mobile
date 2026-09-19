@@ -12,11 +12,13 @@
             </native:row>
         </native:pressable>
 
-        <native:tab-row class="w-full" native:model="selectedTab" @change="tabChanged">
-            <native:tab label="Recent" />
-            <native:tab label="Following" />
-            <native:tab label="Trending" />
-        </native:tab-row>
+        <native:row class="w-full items-center justify-center gap-1 px-4 py-2.5 bg-theme-surface border-b border-theme-outline-variant">
+            @foreach (['Recent', 'Following', 'Trending'] as $index => $label)
+                <native:pressable class="px-4 py-1.5 rounded-full {{ $selectedTab === $index ? 'bg-theme-primary' : '' }}" @tap="tabChanged({{ $index }})" a11y-label="Show {{ $label }} feed">
+                    <native:text class="text-sm {{ $selectedTab === $index ? 'text-white font-semibold' : 'text-theme-on-surface-variant' }}">{{ $label }}</native:text>
+                </native:pressable>
+            @endforeach
+        </native:row>
 
         @if ($loading)
             <native:column class="w-full items-center gap-3 px-5 py-10">
