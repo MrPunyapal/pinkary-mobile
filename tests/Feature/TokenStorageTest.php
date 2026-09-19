@@ -1,6 +1,17 @@
 <?php
 
 use App\Services\TokenStorage;
+use Native\Mobile\Testing\FakeBridge;
+
+beforeEach(function (): void {
+    // Pin the bridge to its in-test fake so secure-storage calls resolve
+    // deterministically instead of reaching the live Jump bridge over TCP.
+    FakeBridge::enable();
+});
+
+afterEach(function (): void {
+    FakeBridge::disable();
+});
 
 it('stores the token so it can be read back', function (): void {
     app(TokenStorage::class)->store('test-token');

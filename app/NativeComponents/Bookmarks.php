@@ -116,6 +116,35 @@ final class Bookmarks extends NativeComponent
         $this->reactBookmark($this->posts[$index], $id, $this->token());
     }
 
+    /**
+     * Share the post through the system sheet, mirroring the web's
+     * share menu (which copies/shares the question URL).
+     */
+    public function sharePost(string $id): void
+    {
+        if ($id === '') {
+            return;
+        }
+
+        foreach ($this->posts as $post) {
+            $candidates = array_merge([$post], (array) data_get($post, 'thread.posts', []));
+
+            foreach ($candidates as $candidate) {
+                if ((string) data_get($candidate, 'id') !== $id) {
+                    continue;
+                }
+
+                $this->shareQuestion(
+                    (string) data_get($candidate, 'to.username', ''),
+                    $id,
+                    (string) (data_get($candidate, 'answer') ?? data_get($candidate, 'content')),
+                );
+
+                return;
+            }
+        }
+    }
+
     public function votePoll(string $id, int $optionId): void
     {
         $index = $this->postIndex($id);

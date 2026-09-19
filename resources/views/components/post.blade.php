@@ -62,7 +62,7 @@
 
 <native:column class="w-full gap-3 px-4 py-3 bg-theme-background border-b border-theme-outline-variant">
     @unless ($sharedUpdate)
-        <native:column class="w-full gap-2 p-0">
+        <native:column class="w-full gap-2 px-3 py-2.5 rounded-md bg-theme-surface-variant border border-theme-outline-variant">
             <native:row class="w-full items-start justify-between gap-3">
                 <native:column class="flex-1 min-w-0">
                     @if ($anonymous)
@@ -94,7 +94,7 @@
             <native:column class="items-center gap-0 shrink-0">
                 <native:pressable @tap="openProfile('{{ data_get($post, 'to.username', '') }}')" a11y-label="Open {{ '@'.data_get($post, 'to.username', '') }}’s profile">
                     @if (data_get($post, 'to.avatar'))
-                        <native:image src="{{ data_get($post, 'to.avatar') }}" alt="{{ data_get($post, 'to.username', '') }}" class="w-10 h-10 {{ data_get($post, 'to.company_verified') ? 'rounded-2xl' : 'rounded-full' }} border border-theme-outline" />
+                        <native:image src="{{ data_get($post, 'to.avatar') }}" alt="{{ data_get($post, 'to.username', '') }}" class="w-10 h-10 object-cover {{ data_get($post, 'to.company_verified') ? 'rounded-2xl' : 'rounded-full' }} border border-theme-outline" />
                     @else
                         <native:column class="w-10 h-10 items-center justify-center {{ data_get($post, 'to.company_verified') ? 'rounded-2xl' : 'rounded-full' }} bg-theme-avatar border border-theme-outline">
                             <native:text class="text-sm text-theme-on-avatar">{{ strtoupper(substr((string) data_get($post, 'to.name', '?'), 0, 1)) }}</native:text>
@@ -106,30 +106,29 @@
                 @endif
             </native:column>
 
-            <native:column class="flex-1 gap-2 min-w-0">
-                <native:row class="w-full items-center gap-1.5">
-                    <native:pressable @tap="openProfile('{{ data_get($post, 'to.username', '') }}')" a11y-label="Open {{ '@'.data_get($post, 'to.username', '') }}’s profile">
+            <native:column class="flex-1 gap-1.5 min-w-0">
+                <native:row class="w-full items-center justify-between gap-2">
+                    <native:pressable class="flex-1 min-w-0" @tap="openProfile('{{ data_get($post, 'to.username', '') }}')" a11y-label="Open {{ '@'.data_get($post, 'to.username', '') }}’s profile">
                         <native:row class="items-center gap-1.5">
                             <native:text class="text-sm font-medium text-theme-on-surface shrink-0">{{ data_get($post, 'to.name') }}</native:text>
                             @if (data_get($post, 'to.verified') || data_get($post, 'to.company_verified'))
                                 <native:icon :ios="\App\Icons\Ios::CheckmarkSealFill" :android="\App\Icons\Android::Verified" :size="14" color="#EC4899" />
                             @endif
+                            <native:text class="text-sm text-theme-on-surface-variant truncate">{{ '@'.data_get($post, 'to.username') }}</native:text>
                         </native:row>
                     </native:pressable>
-                    <native:text class="text-xs text-theme-on-surface-variant truncate">{{ '@'.data_get($post, 'to.username') }}</native:text>
-                </native:row>
-
-                <native:row class="w-full items-center gap-1.5">
-                    @if (is_array($channel) && ($channel['name'] ?? '') !== '')
-                        <native:row class="items-center gap-1 px-1.5 py-0.5 rounded-md bg-theme-surface-variant border border-theme-outline-variant shrink-0">
-                            <native:icon :ios="\App\Icons\Ios::Tag" :android="\App\Icons\AndroidOutlined::Sell" :size="12" color="#EC4899" />
-                            <native:text class="text-xs text-theme-on-surface-variant">{{ $channel['name'] }}</native:text>
-                        </native:row>
-                        <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
-                    @endif
-                    @if ($timestamp !== '')
-                        <native:text class="text-xs text-theme-on-surface-variant shrink-0">{{ $edited ? 'Edited: ' : '' }}{{ $timestamp }}</native:text>
-                    @endif
+                    <native:row class="items-center gap-1.5 shrink-0">
+                        @if (is_array($channel) && ($channel['name'] ?? '') !== '')
+                            <native:row class="items-center gap-1 px-1.5 py-0.5 rounded-md bg-theme-surface-variant border border-theme-outline-variant">
+                                <native:icon :ios="\App\Icons\Ios::Tag" :android="\App\Icons\AndroidOutlined::Sell" :size="12" color="#EC4899" />
+                                <native:text class="text-xs text-theme-on-surface-variant">{{ $channel['name'] }}</native:text>
+                            </native:row>
+                            <native:column class="w-1 h-1 rounded-full bg-theme-outline" />
+                        @endif
+                        @if ($timestamp !== '')
+                            <native:text class="text-xs text-theme-on-surface-variant">{{ $edited ? 'Edited: ' : '' }}{{ $timestamp }}</native:text>
+                        @endif
+                    </native:row>
                 </native:row>
 
                 <native:pressable @tap="openDetail('{{ $postId }}')" a11y-label="Open post">
@@ -137,14 +136,14 @@
                 </native:pressable>
 
                 @foreach ($images as $src)
-                    <native:image src="{{ $src }}" alt="Post image" class="w-full h-48 rounded-md border border-theme-outline-variant" />
+                    <native:image src="{{ $src }}" alt="Post image" class="w-full h-48 object-cover rounded-md border border-theme-outline-variant" />
                 @endforeach
 
                 @if (is_array($preview) && ($preview['url'] ?? '') !== '')
                     <native:pressable @tap="openLink('{{ $preview['url'] }}')" a11y-label="Open link: {{ $preview['host'] ?? $preview['url'] }}">
                         <native:column class="w-full gap-0 rounded-md border border-theme-outline-variant overflow-hidden">
                             @if (($preview['image'] ?? null) !== null && $preview['image'] !== '')
-                                <native:image src="{{ $preview['image'] }}" alt="{{ $preview['title'] ?? $preview['url'] }}" class="w-full h-36" />
+                                <native:image src="{{ $preview['image'] }}" alt="{{ $preview['title'] ?? $preview['url'] }}" class="w-full h-36 object-cover" />
                             @endif
                             <native:column class="w-full gap-0.5 px-3 py-2 bg-theme-bubble">
                                 <native:text class="text-xs font-semibold text-theme-on-surface">{{ $preview['title'] ?? $preview['url'] }}</native:text>
@@ -194,7 +193,7 @@
                 <native:icon :ios="\App\Icons\Ios::Globe" :android="\App\Icons\AndroidOutlined::Language" :size="16" color="#64748B" dark-color="#94A3B8" />
             </native:pressable>
             <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
-            <native:pressable class="ml-auto" @tap="toggleBookmark('{{ $postId }}')" a11y-label="{{ $bookmarked ? 'Remove bookmark' : 'Bookmark this post' }}">
+            <native:pressable @tap="toggleBookmark('{{ $postId }}')" a11y-label="{{ $bookmarked ? 'Remove bookmark' : 'Bookmark this post' }}">
                 <native:row class="items-center gap-1.5">
                     @if ($bookmarked)
                         <native:icon :ios="\App\Icons\Ios::BookmarkFill" :android="\App\Icons\Android::Bookmark" :size="16" color="#EC4899" />
@@ -205,6 +204,9 @@
                         <native:text class="text-xs text-theme-on-surface-variant">{{ $abbreviate($bookmarksCount) }}</native:text>
                     @endif
                 </native:row>
+            </native:pressable>
+            <native:pressable class="ml-auto" @tap="sharePost('{{ $postId }}')" a11y-label="Share this post">
+                <native:icon :ios="\App\Icons\Ios::Paperplane" :android="\App\Icons\AndroidOutlined::Send" :size="16" color="#64748B" dark-color="#94A3B8" />
             </native:pressable>
         </native:row>
     @endif

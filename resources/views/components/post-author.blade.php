@@ -3,7 +3,7 @@
 <native:row class="w-full items-center gap-3">
     @if (data_get($author, 'avatar'))
         <native:pressable @tap="openProfile('{{ data_get($author, 'username', '') }}')" a11y-label="Open {{ '@'.data_get($author, 'username', '') }}’s profile">
-            <native:image src="{{ data_get($author, 'avatar') }}" alt="{{ data_get($author, 'username', '') }}" class="w-10 h-10 {{ data_get($author, 'company_verified') ? 'rounded-md' : 'rounded-full' }} border border-theme-outline" />
+            <native:image src="{{ data_get($author, 'avatar') }}" alt="{{ data_get($author, 'username', '') }}" class="w-10 h-10 object-cover {{ data_get($author, 'company_verified') ? 'rounded-md' : 'rounded-full' }} border border-theme-outline" />
         </native:pressable>
     @else
         <native:pressable @tap="openProfile('{{ data_get($author, 'username', '') }}')" a11y-label="Open {{ '@'.data_get($author, 'username', '') }}’s profile">

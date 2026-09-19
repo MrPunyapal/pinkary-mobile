@@ -70,4 +70,4 @@
     </native:column>
 </native:scroll-view>
 
-<native:fab icon="add" @tap="compose" />
+<native:fab icon="edit" @tap="compose" />

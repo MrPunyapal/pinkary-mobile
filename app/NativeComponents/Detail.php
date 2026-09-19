@@ -116,6 +116,41 @@ final class Detail extends NativeComponent
         $this->reactOnLoadedPost($id, 'bookmark');
     }
 
+    /**
+     * Share the post through the system sheet, mirroring the web's
+     * share menu (which copies/shares the question URL).
+     */
+    public function sharePost(string $id): void
+    {
+        if ($id === '') {
+            return;
+        }
+
+        $candidates = array_merge([$this->post], (array) $this->thread);
+
+        foreach ((array) $this->comments as $comment) {
+            $candidates[] = $comment;
+
+            foreach ((array) data_get($comment, 'thread.posts', []) as $nested) {
+                $candidates[] = $nested;
+            }
+        }
+
+        foreach ($candidates as $candidate) {
+            if (! is_array($candidate) || (string) data_get($candidate, 'id') !== $id) {
+                continue;
+            }
+
+            $this->shareQuestion(
+                (string) data_get($candidate, 'to.username', ''),
+                $id,
+                (string) (data_get($candidate, 'answer') ?? data_get($candidate, 'content')),
+            );
+
+            return;
+        }
+    }
+
     public function openLink(string $url): void
     {
         $this->openExternalLink($url);
