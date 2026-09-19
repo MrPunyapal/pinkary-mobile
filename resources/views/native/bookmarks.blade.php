@@ -21,7 +21,7 @@
             </native:column>
         @else
             @foreach ($posts as $post)
-                <x-post :post="$post" />
+                <x-post :post="$post" :expanded="in_array((string) data_get($post, 'id'), array_map('strval', $expanded), true)" />
             @endforeach
 
             @if ($hasMore)

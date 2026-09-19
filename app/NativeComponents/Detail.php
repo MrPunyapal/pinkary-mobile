@@ -48,6 +48,9 @@ final class Detail extends NativeComponent
 
     public bool $commentsFailed = false;
 
+    /** @var list<string> */
+    public array $expanded = [];
+
     public function navTitle(): string
     {
         return 'Post';
@@ -122,33 +125,17 @@ final class Detail extends NativeComponent
      */
     public function sharePost(string $id): void
     {
-        if ($id === '') {
+        $post = $this->readDetailPost($id);
+
+        if ($post === null) {
             return;
         }
 
-        $candidates = array_merge([$this->post], (array) $this->thread);
-
-        foreach ((array) $this->comments as $comment) {
-            $candidates[] = $comment;
-
-            foreach ((array) data_get($comment, 'thread.posts', []) as $nested) {
-                $candidates[] = $nested;
-            }
-        }
-
-        foreach ($candidates as $candidate) {
-            if (! is_array($candidate) || (string) data_get($candidate, 'id') !== $id) {
-                continue;
-            }
-
-            $this->shareQuestion(
-                (string) data_get($candidate, 'to.username', ''),
-                $id,
-                (string) (data_get($candidate, 'answer') ?? data_get($candidate, 'content')),
-            );
-
-            return;
-        }
+        $this->shareQuestion(
+            (string) data_get($post, 'to.username', ''),
+            $id,
+            (string) (data_get($post, 'answer') ?? data_get($post, 'content')),
+        );
     }
 
     public function openLink(string $url): void
@@ -167,48 +154,46 @@ final class Detail extends NativeComponent
 
     public function translatePost(string $id, string $field = 'answer'): void
     {
-        if ($id !== '' && (string) data_get($this->post, 'id') === $id) {
-            $this->translateHtml(data_get($this->post, $field));
+        $post = $this->readDetailPost($id);
 
+        if ($post === null) {
             return;
         }
 
-        foreach ($this->thread as $ancestor) {
-            if ($id !== '' && (string) data_get($ancestor, 'id') === $id) {
-                $this->translateHtml(data_get($ancestor, $field));
+        $this->translateHtml(data_get($post, $field));
+    }
 
-                return;
-            }
-        }
-
-        foreach ($this->comments as $comment) {
-            if ($id !== '' && (string) data_get($comment, 'id') === $id) {
-                $this->translateHtml(data_get($comment, $field));
-
-                return;
-            }
-        }
+    /**
+     * Toggle Show more/less for a long answer, like the web's
+     * showMore component.
+     */
+    public function toggleShowMore(string $id): void
+    {
+        $this->toggleExpandedId($id);
     }
 
     public function votePoll(string $id, int $optionId): void
     {
-        if ($id !== '' && (string) data_get($this->post, 'id') === $id) {
-            $this->voteOnPoll($this->post, $id, $optionId, $this->token());
+        if ($id === '') {
+            return;
+        }
+
+        $token = $this->token();
+
+        $posts = [$this->post];
+
+        if ($this->voteOnPostPayload($posts, $id, $optionId, $token)) {
+            $this->post = $posts[0];
+            $this->syncThreadMirror();
 
             return;
         }
 
-        foreach ($this->thread as $index => $ancestor) {
-            if ($id !== '' && (string) data_get($ancestor, 'id') === $id) {
-                $this->voteOnPoll($this->thread[$index], $id, $optionId, $this->token());
-
-                return;
-            }
-        }
-
         foreach ($this->comments as $index => $comment) {
-            if ($id !== '' && (string) data_get($comment, 'id') === $id) {
-                $this->voteOnPoll($this->comments[$index], $id, $optionId, $this->token());
+            $list = [$comment];
+
+            if ($this->voteOnPostPayload($list, $id, $optionId, $token)) {
+                $this->comments[$index] = $list[0];
 
                 return;
             }
@@ -323,28 +308,32 @@ final class Detail extends NativeComponent
     }
 
     /**
-     * Route a like/bookmark tap to the thread, the main post,
-     * or the matching comment.
+     * Route a like/bookmark tap to the rendered post payload, its
+     * rendered ancestors, or the matching comment (including a
+     * comment's own nested ancestors).
      */
     private function reactOnLoadedPost(string $id, string $kind): void
     {
-        if ($id !== '' && (string) data_get($this->post, 'id') === $id) {
-            $this->react($this->post, $id, $kind);
+        if ($id === '') {
+            return;
+        }
+
+        $token = $this->token();
+
+        $posts = [$this->post];
+
+        if ($this->reactOnPostPayload($posts, $id, $kind, $token)) {
+            $this->post = $posts[0];
+            $this->syncThreadMirror();
 
             return;
         }
 
-        foreach ($this->thread as $index => $ancestor) {
-            if ($id !== '' && (string) data_get($ancestor, 'id') === $id) {
-                $this->react($this->thread[$index], $id, $kind);
-
-                return;
-            }
-        }
-
         foreach ($this->comments as $index => $comment) {
-            if ($id !== '' && (string) data_get($comment, 'id') === $id) {
-                $this->react($this->comments[$index], $id, $kind);
+            $list = [$comment];
+
+            if ($this->reactOnPostPayload($list, $id, $kind, $token)) {
+                $this->comments[$index] = $list[0];
 
                 return;
             }
@@ -352,14 +341,43 @@ final class Detail extends NativeComponent
     }
 
     /**
-     * @param  array<string, mixed>  $post
+     * Read any rendered row on the screen: the post, its ancestors,
+     * or a comment (including a comment's nested ancestors).
+     *
+     * @return array<string, mixed>|null
      */
-    private function react(array &$post, string $id, string $kind): void
+    private function readDetailPost(string $id): ?array
     {
-        if ($kind === 'like') {
-            $this->reactLike($post, $id, $this->token());
-        } else {
-            $this->reactBookmark($post, $id, $this->token());
+        $found = $this->readPostPayload([$this->post], $id);
+
+        if ($found !== null) {
+            return $found;
+        }
+
+        foreach ($this->comments as $comment) {
+            $found = $this->readPostPayload([$comment], $id);
+
+            if ($found !== null) {
+                return $found;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Keep the detached thread mirror consistent with the rendered
+     * ancestors after a mutation (the blade renders post.thread.posts).
+     */
+    private function syncThreadMirror(): void
+    {
+        $rendered = array_values(array_filter(
+            (array) data_get($this->post, 'thread.posts', []),
+            fn (mixed $ancestor): bool => is_array($ancestor)
+        ));
+
+        if ($rendered !== []) {
+            $this->thread = $rendered;
         }
     }
 

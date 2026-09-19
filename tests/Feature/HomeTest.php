@@ -249,7 +249,7 @@ it('shows the following feed when switching tabs', function (): void {
     ]);
 
     Native::test(Home::class)
-        ->call('tabChanged', 1)
+        ->call('showFollowing')
         ->assertSet('tab', 'following')
         ->assertSee('A compiler for the mobile age.');
 });
@@ -270,7 +270,7 @@ it('shows the trending feed when switching tabs', function (): void {
     ]);
 
     Native::test(Home::class)
-        ->call('tabChanged', 2)
+        ->call('showTrending')
         ->assertSet('tab', 'trending')
         ->assertSee('The whole feed is talking about it.');
 });
@@ -304,7 +304,7 @@ it('shows a tailored empty state for the following tab', function (): void {
     ]);
 
     Native::test(Home::class)
-        ->call('tabChanged', 1)
+        ->call('showFollowing')
         ->assertSee('Your following feed is empty.')
         ->assertSee('Follow more people');
 });
@@ -318,7 +318,7 @@ it('shows the web empty copy on the recent and trending tabs', function (): void
 
     Native::test(Home::class)
         ->assertSee('There are no questions to show.')
-        ->call('tabChanged', 2)
+        ->call('showTrending')
         ->assertSee('There are no trending questions right now.');
 });
 
@@ -685,7 +685,7 @@ it('reverts the bookmark when the server rejects it', function (): void {
     expect($test->get('posts')[0]['metrics']['bookmarked'])->toBeFalse();
 });
 
-it('clamps an unknown tab index to recent', function (): void {
+it('resets the list when switching tabs so the change is always visible', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     session(['pinkary_api_token' => 'test-token']);
     Http::fake([
@@ -693,7 +693,71 @@ it('clamps an unknown tab index to recent', function (): void {
     ]);
 
     Native::test(Home::class)
-        ->call('tabChanged', 9)
+        ->call('showTrending')
+        ->assertSet('tab', 'trending')
+        ->assertSet('selectedTab', 2)
+        ->call('showRecent')
         ->assertSet('tab', 'recent')
         ->assertSet('selectedTab', 0);
+});
+
+it('toggles likes on nested thread ancestors like the web', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
+            'id' => 'q2',
+            'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+            'to' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+            'content' => '__UPDATE__',
+            'answer' => 'Second post.',
+            'thread' => [
+                'parent_id' => 'q1',
+                'root_id' => 'q1',
+                'posts' => [[
+                    'id' => 'q1',
+                    'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+                    'to' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+                    'content' => '__UPDATE__',
+                    'answer' => 'First post.',
+                    'metrics' => ['likes' => 0, 'comments' => 0, 'liked' => false, 'bookmarked' => false],
+                ]],
+                'more' => false,
+                'more_id' => null,
+            ],
+            'metrics' => ['likes' => 0, 'comments' => 0, 'liked' => false, 'bookmarked' => false],
+        ]]]),
+        'https://pinkary.test/api/v1/questions/q1/like' => Http::response(['data' => ['liked' => true, 'likes' => 1]]),
+    ]);
+
+    $test = Native::test(Home::class)
+        ->assertSee('First post.')
+        ->press("toggleLike('q1')");
+
+    expect($test->get('posts')[0]['thread']['posts'][0]['metrics'])->toMatchArray(['liked' => true, 'likes' => 1]);
+});
+
+it('clamps long answers with Show more and Show less like the web', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    $long = rtrim(str_repeat('Long answer sentence. ', 40));
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
+            'id' => 'q9',
+            'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+            'to' => ['name' => 'Pinkary', 'username' => 'pinkary'],
+            'content' => 'Tell me everything.',
+            'answer' => $long,
+            'metrics' => ['likes' => 0, 'comments' => 0],
+        ]]]),
+    ]);
+
+    Native::test(Home::class)
+        ->assertSee('Show more')
+        ->assertDontSee($long)
+        ->call('toggleShowMore', 'q9')
+        ->assertSee('Show less')
+        ->assertSee($long)
+        ->call('toggleShowMore', 'q9')
+        ->assertSee('Show more');
 });

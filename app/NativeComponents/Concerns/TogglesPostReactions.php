@@ -139,6 +139,142 @@ trait TogglesPostReactions
     }
 
     /**
+     * Locate a post by id across a feed list, including nested thread
+     * ancestors. Returns [top-level index, nested key|null].
+     *
+     * @param  list<array<string, mixed>>  $posts
+     * @return array{0: int, 1: int|string|null}|null
+     */
+    private function locateNestedPost(array $posts, string $id): ?array
+    {
+        if ($id === '') {
+            return null;
+        }
+
+        foreach ($posts as $index => $post) {
+            if (! is_array($post)) {
+                continue;
+            }
+
+            if ((string) data_get($post, 'id') === $id) {
+                return [$index, null];
+            }
+
+            foreach ((array) data_get($post, 'thread.posts', []) as $key => $ancestor) {
+                if (is_array($ancestor) && (string) data_get($ancestor, 'id') === $id) {
+                    return [$index, $key];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Read a loaded post (top-level or nested thread ancestor) by id.
+     * Returns a copy — mutations must go through the react/vote helpers.
+     *
+     * @param  list<array<string, mixed>>  $posts
+     * @return array<string, mixed>|null
+     */
+    private function readPostPayload(array $posts, string $id): ?array
+    {
+        $location = $this->locateNestedPost($posts, $id);
+
+        if ($location === null) {
+            return null;
+        }
+
+        [$index, $key] = $location;
+
+        $post = $posts[$index];
+
+        if ($key === null) {
+            return $post;
+        }
+
+        $ancestor = $post['thread']['posts'][$key] ?? null;
+
+        return is_array($ancestor) ? $ancestor : null;
+    }
+
+    /**
+     * Route a like/bookmark tap to a feed list, reaching nested thread
+     * ancestors too (the web renders every chained post with live buttons).
+     *
+     * @param  list<array<string, mixed>>  $posts
+     */
+    private function reactOnPostPayload(array &$posts, string $id, string $kind, ?string $token): bool
+    {
+        $location = $this->locateNestedPost($posts, $id);
+
+        if ($location === null) {
+            return false;
+        }
+
+        [$index, $key] = $location;
+
+        if ($key === null) {
+            $target = &$posts[$index];
+        } else {
+            $target = &$posts[$index]['thread']['posts'][$key];
+        }
+
+        if ($kind === 'like') {
+            $this->reactLike($target, $id, $token);
+        } elseif ($kind === 'bookmark') {
+            $this->reactBookmark($target, $id, $token);
+        } else {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Route a poll vote to a feed list, reaching nested thread
+     * ancestors too.
+     *
+     * @param  list<array<string, mixed>>  $posts
+     */
+    private function voteOnPostPayload(array &$posts, string $id, int $optionId, ?string $token): bool
+    {
+        $location = $this->locateNestedPost($posts, $id);
+
+        if ($location === null) {
+            return false;
+        }
+
+        [$index, $key] = $location;
+
+        if ($key === null) {
+            $this->voteOnPoll($posts[$index], $id, $optionId, $token);
+        } else {
+            $this->voteOnPoll($posts[$index]['thread']['posts'][$key], $id, $optionId, $token);
+        }
+
+        return true;
+    }
+
+    /**
+     * Toggle an id in the screen's $expanded list (Show more/less),
+     * mirroring the web's showMore Alpine component.
+     */
+    private function toggleExpandedId(string $id): void
+    {
+        if ($id === '') {
+            return;
+        }
+
+        /** @var list<string> $expanded */
+        $expanded = isset($this->expanded) && is_array($this->expanded) ? $this->expanded : [];
+
+        $this->expanded = in_array($id, $expanded, true)
+            ? array_values(array_diff($expanded, [$id]))
+            : [...$expanded, $id];
+    }
+
+    /**
      * Share the post through the system sheet, mirroring the web's
      * share menu (which copies/shares the question URL).
      */

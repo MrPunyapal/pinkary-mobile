@@ -29,6 +29,9 @@ final class Bookmarks extends NativeComponent
 
     public string $loadMoreError = '';
 
+    /** @var list<string> */
+    public array $expanded = [];
+
     public function navTitle(): string
     {
         return 'Bookmarks';
@@ -85,35 +88,32 @@ final class Bookmarks extends NativeComponent
 
     public function translatePost(string $id, string $field = 'answer'): void
     {
-        $index = $this->postIndex($id);
+        $post = $this->readPostPayload($this->posts, $id);
 
-        if ($index === null) {
+        if ($post === null) {
             return;
         }
 
-        $this->translateHtml(data_get($this->posts[$index], $field));
+        $this->translateHtml(data_get($post, $field));
+    }
+
+    /**
+     * Toggle Show more/less for a long answer, like the web's
+     * showMore component.
+     */
+    public function toggleShowMore(string $id): void
+    {
+        $this->toggleExpandedId($id);
     }
 
     public function toggleLike(string $id): void
     {
-        $index = $this->postIndex($id);
-
-        if ($index === null) {
-            return;
-        }
-
-        $this->reactLike($this->posts[$index], $id, $this->token());
+        $this->reactOnPostPayload($this->posts, $id, 'like', $this->token());
     }
 
     public function toggleBookmark(string $id): void
     {
-        $index = $this->postIndex($id);
-
-        if ($index === null) {
-            return;
-        }
-
-        $this->reactBookmark($this->posts[$index], $id, $this->token());
+        $this->reactOnPostPayload($this->posts, $id, 'bookmark', $this->token());
     }
 
     /**
@@ -122,38 +122,22 @@ final class Bookmarks extends NativeComponent
      */
     public function sharePost(string $id): void
     {
-        if ($id === '') {
+        $post = $this->readPostPayload($this->posts, $id);
+
+        if ($post === null) {
             return;
         }
 
-        foreach ($this->posts as $post) {
-            $candidates = array_merge([$post], (array) data_get($post, 'thread.posts', []));
-
-            foreach ($candidates as $candidate) {
-                if ((string) data_get($candidate, 'id') !== $id) {
-                    continue;
-                }
-
-                $this->shareQuestion(
-                    (string) data_get($candidate, 'to.username', ''),
-                    $id,
-                    (string) (data_get($candidate, 'answer') ?? data_get($candidate, 'content')),
-                );
-
-                return;
-            }
-        }
+        $this->shareQuestion(
+            (string) data_get($post, 'to.username', ''),
+            $id,
+            (string) (data_get($post, 'answer') ?? data_get($post, 'content')),
+        );
     }
 
     public function votePoll(string $id, int $optionId): void
     {
-        $index = $this->postIndex($id);
-
-        if ($index === null) {
-            return;
-        }
-
-        $this->voteOnPoll($this->posts[$index], $id, $optionId, $this->token());
+        $this->voteOnPostPayload($this->posts, $id, $optionId, $this->token());
     }
 
     public function loadMore(): void
@@ -230,21 +214,6 @@ final class Bookmarks extends NativeComponent
         $this->hasMore = $response->json('links.next') !== null;
         $this->loadMoreError = '';
         $this->loading = false;
-    }
-
-    private function postIndex(string $id): ?int
-    {
-        if ($id === '') {
-            return null;
-        }
-
-        foreach ($this->posts as $index => $post) {
-            if ((string) data_get($post, 'id') === $id) {
-                return $index;
-            }
-        }
-
-        return null;
     }
 
     private function token(): ?string

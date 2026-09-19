@@ -15,7 +15,7 @@
                 </native:pressable>
             </native:column>
         @else
-            <x-thread-post :post="$post" />
+            <x-thread-post :post="$post" :expanded-ids="$expanded" />
 
             <native:column class="w-full px-5 py-4 gap-3 bg-theme-surface border-b border-theme-outline-variant">
                 @if ($commentError !== '')
@@ -38,7 +38,7 @@
                 <native:column class="w-full px-2 py-4">
                     <native:column class="w-full gap-3 p-4 rounded-md bg-theme-bubble border border-theme-outline-variant">
                         @forelse ($comments as $comment)
-                            <x-post :post="$comment" />
+                            <x-post :post="$comment" :expanded="in_array((string) data_get($comment, 'id'), array_map('strval', $expanded), true)" />
                         @empty
                             @if ($commentsFailed)
                                 <native:column class="w-full items-center gap-2 px-5 py-10">

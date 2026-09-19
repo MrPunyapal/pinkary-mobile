@@ -25,6 +25,9 @@ final class Home extends NativeComponent
 
     public int $selectedTab = 0;
 
+    /** @var list<string> */
+    public array $expanded = [];
+
     public int $page = 1;
 
     public bool $hasMore = false;
@@ -46,21 +49,37 @@ final class Home extends NativeComponent
         $this->loadFeed($this->token());
     }
 
-    public function tabChanged(int $index): void
+    /**
+     * Explicit per-tab handlers (no callback args) so every pill tap
+     * resolves to a plain method call on the device.
+     */
+    public function showRecent(): void
     {
-        $index = isset(self::TABS[$index]) ? $index : 0;
-        $this->selectedTab = $index;
-        $this->switchTab(self::TABS[$index]);
+        $this->switchTab(0);
+    }
+
+    public function showFollowing(): void
+    {
+        $this->switchTab(1);
+    }
+
+    public function showTrending(): void
+    {
+        $this->switchTab(2);
+    }
+
+    /**
+     * Toggle Show more/less for a long answer, like the web's
+     * showMore component (600px clamp with a pink toggle button).
+     */
+    public function toggleShowMore(string $id): void
+    {
+        $this->toggleExpandedId($id);
     }
 
     public function retry(): void
     {
         $this->loadFeed($this->token());
-    }
-
-    public function profile(): void
-    {
-        $this->navigate($this->route('mobile.profile'));
     }
 
     public function openSearch(): void
@@ -104,54 +123,38 @@ final class Home extends NativeComponent
 
     public function translatePost(string $id, string $field = 'answer'): void
     {
-        $index = $this->postIndex($id);
+        $post = $this->readPostPayload($this->posts, $id);
 
-        if ($index === null) {
+        if ($post === null) {
             return;
         }
 
-        $this->translateHtml(data_get($this->posts[$index], $field));
+        $this->translateHtml(data_get($post, $field));
     }
 
     public function votePoll(string $id, int $optionId): void
     {
-        $index = $this->postIndex($id);
-
-        if ($index === null) {
-            return;
-        }
-
-        $this->voteOnPoll($this->posts[$index], $id, $optionId, $this->token());
+        $this->voteOnPostPayload($this->posts, $id, $optionId, $this->token());
     }
 
     /**
      * Toggle the authenticated user's like, updating the row optimistically
      * and reconciling with the server response (reverting on failure).
+     * Nested thread ancestors resolve too.
      */
     public function toggleLike(string $id): void
     {
-        $index = $this->postIndex($id);
-
-        if ($index === null) {
-            return;
-        }
-
-        $this->reactLike($this->posts[$index], $id, $this->token());
+        $this->reactOnPostPayload($this->posts, $id, 'like', $this->token());
     }
 
     /**
      * Toggle the authenticated user's bookmark, updating the row
-     * optimistically and reverting on failure.
+     * optimistically and reverting on failure. Nested thread
+     * ancestors resolve too.
      */
     public function toggleBookmark(string $id): void
     {
-        $index = $this->postIndex($id);
-
-        if ($index === null) {
-            return;
-        }
-
-        $this->reactBookmark($this->posts[$index], $id, $this->token());
+        $this->reactOnPostPayload($this->posts, $id, 'bookmark', $this->token());
     }
 
     /**
@@ -160,27 +163,17 @@ final class Home extends NativeComponent
      */
     public function sharePost(string $id): void
     {
-        if ($id === '') {
+        $post = $this->readPostPayload($this->posts, $id);
+
+        if ($post === null) {
             return;
         }
 
-        foreach ($this->posts as $post) {
-            $candidates = array_merge([$post], (array) data_get($post, 'thread.posts', []));
-
-            foreach ($candidates as $candidate) {
-                if ((string) data_get($candidate, 'id') !== $id) {
-                    continue;
-                }
-
-                $this->shareQuestion(
-                    (string) data_get($candidate, 'to.username', ''),
-                    $id,
-                    (string) (data_get($candidate, 'answer') ?? data_get($candidate, 'content')),
-                );
-
-                return;
-            }
-        }
+        $this->shareQuestion(
+            (string) data_get($post, 'to.username', ''),
+            $id,
+            (string) (data_get($post, 'answer') ?? data_get($post, 'content')),
+        );
     }
 
     /**
@@ -226,9 +219,19 @@ final class Home extends NativeComponent
         return view('native.home');
     }
 
-    private function switchTab(string $tab): void
+    private function switchTab(int $index): void
     {
-        $this->tab = $tab;
+        $index = isset(self::TABS[$index]) ? $index : 0;
+        $this->selectedTab = $index;
+        $this->tab = self::TABS[$index];
+
+        // Reset first so the switch is always visible (spinner), even
+        // when the incoming page overlaps the previous tab's posts.
+        $this->posts = [];
+        $this->page = 1;
+        $this->hasMore = false;
+        $this->loadMoreError = '';
+
         $this->loadFeed($this->token());
     }
 
@@ -260,24 +263,6 @@ final class Home extends NativeComponent
         $this->hasMore = $response->json('links.next') !== null;
         $this->loadMoreError = '';
         $this->loading = false;
-    }
-
-    /**
-     * Find a loaded post by its API id.
-     */
-    private function postIndex(string $id): ?int
-    {
-        if ($id === '') {
-            return null;
-        }
-
-        foreach ($this->posts as $index => $post) {
-            if ((string) data_get($post, 'id') === $id) {
-                return $index;
-            }
-        }
-
-        return null;
     }
 
     private function token(): ?string

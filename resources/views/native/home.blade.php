@@ -1,8 +1,3 @@
-<native:top-bar title="Feed">
-    <native:top-bar-action id="compose" label="New" :ios="\App\Icons\Ios::SquareAndPencil" :android="\App\Icons\Android::Edit" @tap="compose" />
-    <native:top-bar-action id="profile" label="Profile" :ios="\App\Icons\Ios::Person" :android="\App\Icons\Android::Person" @tap="profile" />
-</native:top-bar>
-
 <native:scroll-view class="w-full h-full bg-theme-background">
     <native:column class="w-full gap-0">
         <native:pressable class="w-full px-4 py-3 bg-theme-surface border-b border-theme-outline-variant" @tap="openSearch" a11y-label="Search users or hashtags">
@@ -13,11 +8,15 @@
         </native:pressable>
 
         <native:row class="w-full items-center justify-center gap-1 px-4 py-2.5 bg-theme-surface border-b border-theme-outline-variant">
-            @foreach (['Recent', 'Following', 'Trending'] as $index => $label)
-                <native:pressable class="px-4 py-1.5 rounded-full {{ $selectedTab === $index ? 'bg-theme-primary' : '' }}" @tap="tabChanged({{ $index }})" a11y-label="Show {{ $label }} feed">
-                    <native:text class="text-sm {{ $selectedTab === $index ? 'text-white font-semibold' : 'text-theme-on-surface-variant' }}">{{ $label }}</native:text>
-                </native:pressable>
-            @endforeach
+            <native:pressable class="px-4 py-1.5 rounded-full {{ $tab === 'recent' ? 'bg-theme-primary' : '' }}" @tap="showRecent" a11y-label="Show Recent feed">
+                <native:text class="text-sm {{ $tab === 'recent' ? 'text-white font-semibold' : 'text-theme-on-surface-variant' }}">Recent</native:text>
+            </native:pressable>
+            <native:pressable class="px-4 py-1.5 rounded-full {{ $tab === 'following' ? 'bg-theme-primary' : '' }}" @tap="showFollowing" a11y-label="Show Following feed">
+                <native:text class="text-sm {{ $tab === 'following' ? 'text-white font-semibold' : 'text-theme-on-surface-variant' }}">Following</native:text>
+            </native:pressable>
+            <native:pressable class="px-4 py-1.5 rounded-full {{ $tab === 'trending' ? 'bg-theme-primary' : '' }}" @tap="showTrending" a11y-label="Show Trending feed">
+                <native:text class="text-sm {{ $tab === 'trending' ? 'text-white font-semibold' : 'text-theme-on-surface-variant' }}">Trending</native:text>
+            </native:pressable>
         </native:row>
 
         @if ($loading)
@@ -51,7 +50,7 @@
             </native:column>
         @else
             @foreach ($posts as $post)
-                <x-thread-post :post="$post" />
+                <x-thread-post :post="$post" :expanded-ids="$expanded" />
             @endforeach
 
             @if ($hasMore)

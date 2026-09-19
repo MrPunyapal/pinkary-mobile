@@ -1,4 +1,4 @@
-@props(['post', 'inThread' => false, 'bare' => false])
+@props(['post', 'inThread' => false, 'bare' => false, 'expanded' => false])
 
 @php
     $anonymous = (bool) data_get($post, 'anonymously', false);
@@ -59,6 +59,14 @@
     $bookmarksCount = (int) data_get($post, 'metrics.bookmarks', 0);
     $viewsCount = (int) data_get($post, 'views', 0);
 
+    // Long answers clamp like the web's showMore (600px) with a pink
+    // Show more / Show less toggle; the question box always shows fully.
+    $answerLimit = 600;
+    $answerLong = mb_strlen($answerText) > $answerLimit;
+    $answerShown = $expanded || ! $answerLong
+        ? $answerText
+        : mb_substr($answerText, 0, $answerLimit).'…';
+
     // Bare posts render inside a thread-post card (like the web's x-thread):
     // no padding or border of their own — the card owns the frame and the
     // rail bridges connect the avatars into one continuous line.
@@ -85,7 +93,7 @@
                 </native:column>
                 @if ($questionText !== '' && $questionText !== '__UPDATE__')
                     <native:pressable class="py-1 shrink-0" @tap="translatePost('{{ $postId }}', 'content')" a11y-label="Translate question">
-                        <native:icon :ios="\App\Icons\Ios::Globe" :android="\App\Icons\AndroidOutlined::Language" :size="16" color="#64748B" dark-color="#94A3B8" />
+                        <native:icon :ios="\App\Icons\Ios::CharacterBubble" :android="\App\Icons\AndroidOutlined::Translate" :size="16" color="#64748B" dark-color="#94A3B8" />
                     </native:pressable>
                 @endif
             </native:row>
@@ -97,8 +105,8 @@
     @endunless
 
     @if ($hasAnswer)
-        <native:row class="w-full gap-3">
-            <native:column class="items-center gap-0 shrink-0">
+        <native:row class="w-full items-stretch gap-3">
+            <native:column class="items-center gap-0 shrink-0 w-10">
                 <native:pressable @tap="openProfile('{{ data_get($post, 'to.username', '') }}')" a11y-label="Open {{ '@'.data_get($post, 'to.username', '') }}’s profile">
                     @if (data_get($post, 'to.avatar'))
                         <native:image src="{{ data_get($post, 'to.avatar') }}" alt="{{ data_get($post, 'to.username', '') }}" class="w-10 h-10 object-cover {{ data_get($post, 'to.company_verified') ? 'rounded-2xl' : 'rounded-full' }} border border-theme-outline" />
@@ -139,8 +147,16 @@
                 </native:row>
 
                 <native:pressable @tap="openDetail('{{ $postId }}')" a11y-label="Open post">
-                    <native:text class="text-base leading-relaxed text-theme-on-surface">{{ $answerText }}</native:text>
+                    <native:text class="text-base leading-relaxed text-theme-on-surface">{{ $answerShown }}</native:text>
                 </native:pressable>
+
+                @if ($answerLong)
+                    <native:row class="w-full justify-end">
+                        <native:pressable class="py-0.5" @tap="toggleShowMore('{{ $postId }}')" a11y-label="{{ $expanded ? 'Show less' : 'Show more' }}">
+                            <native:text class="text-sm font-medium text-theme-primary">{{ $expanded ? 'Show less' : 'Show more' }}</native:text>
+                        </native:pressable>
+                    </native:row>
+                @endif
 
                 @foreach ($images as $src)
                     <native:image src="{{ $src }}" alt="Post image" class="w-full h-48 object-cover rounded-md border border-theme-outline-variant" />
@@ -195,7 +211,7 @@
                     @endif
                     <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
                     <native:pressable @tap="translatePost('{{ $postId }}', 'answer')" a11y-label="Translate answer">
-                        <native:icon :ios="\App\Icons\Ios::Globe" :android="\App\Icons\AndroidOutlined::Language" :size="16" color="#64748B" dark-color="#94A3B8" />
+                        <native:icon :ios="\App\Icons\Ios::CharacterBubble" :android="\App\Icons\AndroidOutlined::Translate" :size="16" color="#64748B" dark-color="#94A3B8" />
                     </native:pressable>
                     <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
                     <native:pressable @tap="toggleBookmark('{{ $postId }}')" a11y-label="{{ $bookmarked ? 'Remove bookmark' : 'Bookmark this post' }}">
