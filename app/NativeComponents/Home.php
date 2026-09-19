@@ -6,6 +6,7 @@ namespace App\NativeComponents;
 
 use App\NativeComponents\Concerns\TogglesPostReactions;
 use App\Services\PinkaryApi;
+use App\Services\TokenStorage;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
 
@@ -172,7 +173,7 @@ final class Home extends NativeComponent
         $this->loadingMore = false;
 
         if ($response->unauthorized() && $token !== null) {
-            session()->forget('pinkary_api_token');
+            app(TokenStorage::class)->clear();
             $this->replace($this->route('mobile.login'));
 
             return;
@@ -210,7 +211,7 @@ final class Home extends NativeComponent
         $response = app(PinkaryApi::class)->feed($token, $this->tab);
 
         if ($response->unauthorized() && $token !== null) {
-            session()->forget('pinkary_api_token');
+            app(TokenStorage::class)->clear();
             $this->replace($this->route('mobile.login'));
 
             return;
@@ -252,7 +253,7 @@ final class Home extends NativeComponent
 
     private function token(): ?string
     {
-        $token = session('pinkary_api_token');
+        $token = app(TokenStorage::class)->get();
 
         return is_string($token) && $token !== '' ? $token : null;
     }

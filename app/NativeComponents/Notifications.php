@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\NativeComponents;
 
 use App\Services\PinkaryApi;
+use App\Services\TokenStorage;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
 
@@ -121,7 +122,7 @@ final class Notifications extends NativeComponent
         $this->markingRead = false;
 
         if ($response->unauthorized()) {
-            session()->forget('pinkary_api_token');
+            app(TokenStorage::class)->clear();
             $this->replace($this->route('mobile.login'));
 
             return;
@@ -159,7 +160,7 @@ final class Notifications extends NativeComponent
         $this->loadingMore = false;
 
         if ($response->unauthorized()) {
-            session()->forget('pinkary_api_token');
+            app(TokenStorage::class)->clear();
             $this->replace($this->route('mobile.login'));
 
             return;
@@ -190,7 +191,7 @@ final class Notifications extends NativeComponent
         $response = app(PinkaryApi::class)->notifications($token);
 
         if ($response->unauthorized()) {
-            session()->forget('pinkary_api_token');
+            app(TokenStorage::class)->clear();
             $this->replace($this->route('mobile.login'));
 
             return;
@@ -214,7 +215,7 @@ final class Notifications extends NativeComponent
 
     private function token(): ?string
     {
-        $token = session('pinkary_api_token');
+        $token = app(TokenStorage::class)->get();
 
         return is_string($token) && $token !== '' ? $token : null;
     }

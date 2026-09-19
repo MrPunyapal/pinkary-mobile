@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\NativeComponents\Concerns;
 
 use App\Services\PinkaryApi;
+use App\Services\TokenStorage;
 use Native\Mobile\Browser;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Share;
@@ -42,7 +43,7 @@ trait TogglesPostReactions
             : app(PinkaryApi::class)->like($token, $id);
 
         if ($response->unauthorized()) {
-            session()->forget('pinkary_api_token');
+            app(TokenStorage::class)->clear();
             $this->replace($this->route('mobile.login'));
 
             return;
@@ -87,7 +88,7 @@ trait TogglesPostReactions
             : app(PinkaryApi::class)->bookmark($token, $id);
 
         if ($response->unauthorized()) {
-            session()->forget('pinkary_api_token');
+            app(TokenStorage::class)->clear();
             $this->replace($this->route('mobile.login'));
 
             return;
@@ -119,7 +120,7 @@ trait TogglesPostReactions
         $response = app(PinkaryApi::class)->votePoll($token, $id, $optionId);
 
         if ($response->unauthorized()) {
-            session()->forget('pinkary_api_token');
+            app(TokenStorage::class)->clear();
             $this->replace($this->route('mobile.login'));
 
             return;

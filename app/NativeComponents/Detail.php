@@ -6,6 +6,7 @@ namespace App\NativeComponents;
 
 use App\NativeComponents\Concerns\TogglesPostReactions;
 use App\Services\PinkaryApi;
+use App\Services\TokenStorage;
 use App\Support\ApiErrors;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
@@ -215,7 +216,7 @@ final class Detail extends NativeComponent
         $this->commentBusy = false;
 
         if ($response->unauthorized()) {
-            session()->forget('pinkary_api_token');
+            app(TokenStorage::class)->clear();
             $this->replace($this->route('mobile.login'));
 
             return;
@@ -262,7 +263,7 @@ final class Detail extends NativeComponent
         $this->loadingMoreComments = false;
 
         if ($response->unauthorized()) {
-            session()->forget('pinkary_api_token');
+            app(TokenStorage::class)->clear();
             $this->replace($this->route('mobile.login'));
 
             return;
@@ -335,7 +336,7 @@ final class Detail extends NativeComponent
         $response = app(PinkaryApi::class)->show($token, $this->id);
 
         if ($response->unauthorized()) {
-            session()->forget('pinkary_api_token');
+            app(TokenStorage::class)->clear();
             $this->replace($this->route('mobile.login'));
 
             return;
@@ -365,7 +366,7 @@ final class Detail extends NativeComponent
         $comments = app(PinkaryApi::class)->comments($token, $this->id);
 
         if ($comments->unauthorized()) {
-            session()->forget('pinkary_api_token');
+            app(TokenStorage::class)->clear();
             $this->replace($this->route('mobile.login'));
 
             return;
@@ -382,7 +383,7 @@ final class Detail extends NativeComponent
 
     private function token(): ?string
     {
-        $token = session('pinkary_api_token');
+        $token = app(TokenStorage::class)->get();
 
         return is_string($token) && $token !== '' ? $token : null;
     }

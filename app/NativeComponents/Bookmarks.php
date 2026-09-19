@@ -6,6 +6,7 @@ namespace App\NativeComponents;
 
 use App\NativeComponents\Concerns\TogglesPostReactions;
 use App\Services\PinkaryApi;
+use App\Services\TokenStorage;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
 
@@ -148,7 +149,7 @@ final class Bookmarks extends NativeComponent
         $this->loadingMore = false;
 
         if ($response->unauthorized()) {
-            session()->forget('pinkary_api_token');
+            app(TokenStorage::class)->clear();
             $this->replace($this->route('mobile.login'));
 
             return;
@@ -180,7 +181,7 @@ final class Bookmarks extends NativeComponent
         $response = app(PinkaryApi::class)->bookmarks($token);
 
         if ($response->unauthorized()) {
-            session()->forget('pinkary_api_token');
+            app(TokenStorage::class)->clear();
             $this->replace($this->route('mobile.login'));
 
             return;
@@ -219,7 +220,7 @@ final class Bookmarks extends NativeComponent
 
     private function token(): ?string
     {
-        $token = session('pinkary_api_token');
+        $token = app(TokenStorage::class)->get();
 
         return is_string($token) && $token !== '' ? $token : null;
     }

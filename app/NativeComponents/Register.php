@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\NativeComponents;
 
 use App\Services\PinkaryApi;
+use App\Services\TokenStorage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
@@ -68,7 +69,7 @@ final class Register extends NativeComponent
         ]);
 
         if ($response->successful() && is_string($token = $response->json('token'))) {
-            session(['pinkary_api_token' => $token]);
+            app(TokenStorage::class)->store($token);
             $this->replace($this->route('mobile.feed'));
 
             return;
