@@ -1,4 +1,4 @@
-@props(['post', 'inThread' => false])
+@props(['post', 'inThread' => false, 'bare' => false])
 
 @php
     $anonymous = (bool) data_get($post, 'anonymously', false);
@@ -58,9 +58,16 @@
     $likesCount = (int) data_get($post, 'metrics.likes', 0);
     $bookmarksCount = (int) data_get($post, 'metrics.bookmarks', 0);
     $viewsCount = (int) data_get($post, 'views', 0);
+
+    // Bare posts render inside a thread-post card (like the web's x-thread):
+    // no padding or border of their own — the card owns the frame and the
+    // rail bridges connect the avatars into one continuous line.
+    $frameClass = $bare
+        ? 'w-full gap-3'
+        : 'w-full gap-3 px-4 py-3 bg-theme-background border-b border-theme-outline-variant';
 @endphp
 
-<native:column class="w-full gap-3 px-4 py-3 bg-theme-background border-b border-theme-outline-variant">
+<native:column class="{{ $frameClass }}">
     @unless ($sharedUpdate)
         <native:column class="w-full gap-2 px-3 py-2.5 rounded-md bg-theme-surface-variant border border-theme-outline-variant">
             <native:row class="w-full items-start justify-between gap-3">
@@ -102,7 +109,7 @@
                     @endif
                 </native:pressable>
                 @if ($inThread)
-                    <native:column class="w-0.5 flex-1 min-h-4 bg-theme-outline-variant" />
+                    <native:column class="w-0.5 flex-1 min-h-4 bg-theme-outline" />
                 @endif
             </native:column>
 

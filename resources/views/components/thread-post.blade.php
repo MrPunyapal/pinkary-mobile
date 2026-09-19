@@ -13,14 +13,21 @@
         && ($threadPosts[0]['id'] ?? null) === data_get($post, 'thread.root_id');
 @endphp
 
-<native:column class="w-full gap-0">
-    @foreach ($threadPosts as $index => $ancestor)
-        <x-post :post="$ancestor" :in-thread="true" />
-        @if ($linkAfterFirst && $index === 0)
-            <x-post-divider :link="$threadMoreId" />
-        @else
-            <x-post-divider />
-        @endif
-    @endforeach
+@if (count($threadPosts) === 0)
     <x-post :post="$post" :in-thread="false" />
-</native:column>
+@else
+    {{-- One connected card like the web's x-thread: the frame and the
+        single bottom border live here, chained posts render bare and the
+        rail bridges stitch their avatars into one continuous line. --}}
+    <native:column class="w-full gap-0 px-4 py-3 bg-theme-background border-b border-theme-outline-variant">
+        @foreach ($threadPosts as $index => $ancestor)
+            <x-post :post="$ancestor" :in-thread="true" :bare="true" />
+            @if ($linkAfterFirst && $index === 0)
+                <x-post-divider :link="$threadMoreId" />
+            @else
+                <x-post-divider />
+            @endif
+        @endforeach
+        <x-post :post="$post" :in-thread="false" :bare="true" />
+    </native:column>
+@endif
