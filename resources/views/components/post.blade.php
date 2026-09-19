@@ -163,58 +163,58 @@
                 @if (is_array($poll) && $poll !== [])
                     <x-post-poll :poll="$poll" :post-id="$postId" />
                 @endif
-            </native:column>
-        </native:row>
 
-        <native:row class="w-full items-center gap-3">
-            <native:pressable @tap="openDetail('{{ $postId }}')" a11y-label="Open comments">
-                <native:row class="items-center gap-1.5">
-                    <native:icon :ios="\App\Icons\Ios::BubbleLeftAndBubbleRight" :android="\App\Icons\AndroidOutlined::ChatBubbleOutline" :size="16" color="#64748B" dark-color="#94A3B8" />
-                    @if ($commentsCount > 0)
-                        <native:text class="text-xs text-theme-on-surface-variant">{{ $abbreviate($commentsCount) }}</native:text>
+                <native:row class="w-full items-center gap-3 pt-1">
+                    <native:pressable @tap="openDetail('{{ $postId }}')" a11y-label="Open comments">
+                        <native:row class="items-center gap-1.5">
+                            <native:icon :ios="\App\Icons\Ios::BubbleLeftAndBubbleRight" :android="\App\Icons\AndroidOutlined::ChatBubbleOutline" :size="16" color="#64748B" dark-color="#94A3B8" />
+                            @if ($commentsCount > 0)
+                                <native:text class="text-xs text-theme-on-surface-variant">{{ $abbreviate($commentsCount) }}</native:text>
+                            @endif
+                        </native:row>
+                    </native:pressable>
+                    <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
+                    <native:pressable @tap="toggleLike('{{ $postId }}')" a11y-label="{{ $liked ? 'Unlike this post' : 'Like this post' }}">
+                        <native:row class="items-center gap-1.5">
+                            @if ($liked)
+                                <native:icon :ios="\App\Icons\Ios::HeartFill" :android="\App\Icons\Android::Favorite" :size="16" color="#EC4899" />
+                            @else
+                                <native:icon :ios="\App\Icons\Ios::Heart" :android="\App\Icons\AndroidOutlined::FavoriteBorder" :size="16" color="#64748B" dark-color="#94A3B8" />
+                            @endif
+                            @if ($likesCount > 0)
+                                <native:text class="text-xs {{ $liked ? 'text-theme-primary' : 'text-theme-on-surface-variant' }}">{{ $abbreviate($likesCount) }}</native:text>
+                            @endif
+                        </native:row>
+                    </native:pressable>
+                    @if ($viewsCount > 0)
+                        <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
+                        <native:row class="items-center gap-1.5">
+                            <native:icon :ios="\App\Icons\Ios::ChartBar" :android="\App\Icons\Android::BarChart" :size="16" color="#64748B" dark-color="#94A3B8" />
+                            <native:text class="text-xs text-theme-on-surface-variant">{{ $abbreviate($viewsCount) }}</native:text>
+                        </native:row>
                     @endif
+                    <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
+                    <native:pressable @tap="translatePost('{{ $postId }}', 'answer')" a11y-label="Translate answer">
+                        <native:icon :ios="\App\Icons\Ios::Globe" :android="\App\Icons\AndroidOutlined::Language" :size="16" color="#64748B" dark-color="#94A3B8" />
+                    </native:pressable>
+                    <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
+                    <native:pressable @tap="toggleBookmark('{{ $postId }}')" a11y-label="{{ $bookmarked ? 'Remove bookmark' : 'Bookmark this post' }}">
+                        <native:row class="items-center gap-1.5">
+                            @if ($bookmarked)
+                                <native:icon :ios="\App\Icons\Ios::BookmarkFill" :android="\App\Icons\Android::Bookmark" :size="16" color="#EC4899" />
+                            @else
+                                <native:icon :ios="\App\Icons\Ios::Bookmark" :android="\App\Icons\AndroidOutlined::Bookmark" :size="16" color="#64748B" dark-color="#94A3B8" />
+                            @endif
+                            @if ($bookmarksCount > 0)
+                                <native:text class="text-xs text-theme-on-surface-variant">{{ $abbreviate($bookmarksCount) }}</native:text>
+                            @endif
+                        </native:row>
+                    </native:pressable>
+                    <native:pressable class="ml-auto" @tap="sharePost('{{ $postId }}')" a11y-label="Share this post">
+                        <native:icon :ios="\App\Icons\Ios::Paperplane" :android="\App\Icons\AndroidOutlined::Send" :size="16" color="#64748B" dark-color="#94A3B8" />
+                    </native:pressable>
                 </native:row>
-            </native:pressable>
-            <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
-            <native:pressable @tap="toggleLike('{{ $postId }}')" a11y-label="{{ $liked ? 'Unlike this post' : 'Like this post' }}">
-                <native:row class="items-center gap-1.5">
-                    @if ($liked)
-                        <native:icon :ios="\App\Icons\Ios::HeartFill" :android="\App\Icons\Android::Favorite" :size="16" color="#EC4899" />
-                    @else
-                        <native:icon :ios="\App\Icons\Ios::Heart" :android="\App\Icons\AndroidOutlined::FavoriteBorder" :size="16" color="#64748B" dark-color="#94A3B8" />
-                    @endif
-                    @if ($likesCount > 0)
-                        <native:text class="text-xs {{ $liked ? 'text-theme-primary' : 'text-theme-on-surface-variant' }}">{{ $abbreviate($likesCount) }}</native:text>
-                    @endif
-                </native:row>
-            </native:pressable>
-            @if ($viewsCount > 0)
-                <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
-                <native:row class="items-center gap-1.5">
-                    <native:icon :ios="\App\Icons\Ios::ChartBar" :android="\App\Icons\Android::BarChart" :size="16" color="#64748B" dark-color="#94A3B8" />
-                    <native:text class="text-xs text-theme-on-surface-variant">{{ $abbreviate($viewsCount) }}</native:text>
-                </native:row>
-            @endif
-            <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
-            <native:pressable @tap="translatePost('{{ $postId }}', 'answer')" a11y-label="Translate answer">
-                <native:icon :ios="\App\Icons\Ios::Globe" :android="\App\Icons\AndroidOutlined::Language" :size="16" color="#64748B" dark-color="#94A3B8" />
-            </native:pressable>
-            <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
-            <native:pressable @tap="toggleBookmark('{{ $postId }}')" a11y-label="{{ $bookmarked ? 'Remove bookmark' : 'Bookmark this post' }}">
-                <native:row class="items-center gap-1.5">
-                    @if ($bookmarked)
-                        <native:icon :ios="\App\Icons\Ios::BookmarkFill" :android="\App\Icons\Android::Bookmark" :size="16" color="#EC4899" />
-                    @else
-                        <native:icon :ios="\App\Icons\Ios::Bookmark" :android="\App\Icons\AndroidOutlined::Bookmark" :size="16" color="#64748B" dark-color="#94A3B8" />
-                    @endif
-                    @if ($bookmarksCount > 0)
-                        <native:text class="text-xs text-theme-on-surface-variant">{{ $abbreviate($bookmarksCount) }}</native:text>
-                    @endif
-                </native:row>
-            </native:pressable>
-            <native:pressable class="ml-auto" @tap="sharePost('{{ $postId }}')" a11y-label="Share this post">
-                <native:icon :ios="\App\Icons\Ios::Paperplane" :android="\App\Icons\AndroidOutlined::Send" :size="16" color="#64748B" dark-color="#94A3B8" />
-            </native:pressable>
+            </native:column>
         </native:row>
     @endif
 </native:column>
