@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\NativeComponents;
 
 use App\NativeComponents\Concerns\TogglesPostReactions;
+use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
 use App\Services\TokenStorage;
 use Illuminate\View\View;
@@ -13,6 +14,7 @@ use Native\Mobile\Edge\NativeComponent;
 final class Home extends NativeComponent
 {
     use TogglesPostReactions;
+    use UsesAppMenu;
 
     /** @var list<array<string, mixed>> */
     public array $posts = [];
@@ -82,20 +84,16 @@ final class Home extends NativeComponent
         $this->loadFeed($this->token());
     }
 
-    public function openSearch(): void
+    /**
+     * Pull-to-refresh from the feed (native refreshable wrapper),
+     * resetting pagination like a fresh tab visit.
+     */
+    public function refreshFeed(): void
     {
-        $this->navigate($this->route('mobile.search'));
-    }
-
-    public function compose(): void
-    {
-        if ($this->token() === null) {
-            $this->replace($this->route('mobile.login'));
-
-            return;
-        }
-
-        $this->navigate($this->route('mobile.compose'));
+        $this->page = 1;
+        $this->hasMore = false;
+        $this->loadMoreError = '';
+        $this->loadFeed($this->token());
     }
 
     public function openDetail(string $id): void

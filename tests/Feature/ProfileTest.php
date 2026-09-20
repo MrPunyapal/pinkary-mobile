@@ -51,13 +51,15 @@ it('renders the authenticated profile card like the web', function (): void {
     ]);
 
     Native::test(Profile::class)
+        ->assertMissingElement('top_bar')
         ->assertSee('Pinkary User')
         ->assertSee('@pinkaryuser')
         ->assertSee('Building in public.')
         ->assertSee('1.5K Followers')
         ->assertSee('34 Posts')
         ->assertSee('Website')
-        ->assertSee('pinkary@example.com');
+        ->assertSee('pinkary@example.com')
+        ->assertSee('Log out');
 });
 
 it('shows the empty-links hint on your own card only', function (): void {

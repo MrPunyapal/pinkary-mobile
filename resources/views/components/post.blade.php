@@ -11,24 +11,6 @@
     // words the web shows, without the markup.
     $plainText = fn (mixed $html): string => trim(html_entity_decode(strip_tags((string) $html), ENT_QUOTES, 'UTF-8'));
 
-    // Mirrors web resources/js/abbreviate.js exactly (toFixed(1) keeps "1.0K").
-    $abbreviate = function (mixed $value): string {
-        $number = (int) $value;
-
-        if ($number < 1000) {
-            return (string) $number;
-        }
-
-        $symbols = ['', 'K', 'M', 'B', 'T'];
-        $tier = (int) (log10(abs($number)) / 3);
-
-        if ($tier <= 0) {
-            return (string) $number;
-        }
-
-        return number_format($number / (10 ** ($tier * 3)), 1).$symbols[$tier];
-    };
-
     // Same clock as the web feed: short diffForHumans with an Edited prefix.
     $shortTime = function (?string $iso): string {
         if ($iso === null || $iso === '') {
@@ -82,9 +64,7 @@
                 <native:column class="flex-1 min-w-0">
                     @if ($anonymous)
                         <native:row class="w-full items-center gap-3">
-                            <native:column class="w-8 h-8 items-center justify-center rounded-full border border-theme-outline">
-                                <native:text class="text-sm text-theme-on-surface-variant">?</native:text>
-                            </native:column>
+                            <x-avatar :anonymous="true" :size="8" />
                             <native:text class="text-sm font-medium text-theme-on-surface-variant">Anonymously</native:text>
                         </native:row>
                     @else
@@ -92,9 +72,7 @@
                     @endif
                 </native:column>
                 @if ($questionText !== '' && $questionText !== '__UPDATE__')
-                    <native:pressable class="py-1 shrink-0" @tap="translatePost('{{ $postId }}', 'content')" a11y-label="Translate question">
-                        <native:icon :ios="\App\Icons\Ios::CharacterBubble" :android="\App\Icons\AndroidOutlined::Translate" :size="16" color="#64748B" dark-color="#94A3B8" />
-                    </native:pressable>
+                    <x-post-action type="translate" :post-id="$postId" field="content" />
                 @endif
             </native:row>
 
@@ -105,23 +83,12 @@
     @endunless
 
     @if ($hasAnswer)
-        <native:row class="w-full items-stretch gap-3">
-            <native:column class="items-center gap-0 shrink-0 w-10">
-                <native:pressable @tap="openProfile('{{ data_get($post, 'to.username', '') }}')" a11y-label="Open {{ '@'.data_get($post, 'to.username', '') }}’s profile">
-                    @if (data_get($post, 'to.avatar'))
-                        <native:image src="{{ data_get($post, 'to.avatar') }}" alt="{{ data_get($post, 'to.username', '') }}" class="w-10 h-10 object-cover {{ data_get($post, 'to.company_verified') ? 'rounded-2xl' : 'rounded-full' }} border border-theme-outline" />
-                    @else
-                        <native:column class="w-10 h-10 items-center justify-center {{ data_get($post, 'to.company_verified') ? 'rounded-2xl' : 'rounded-full' }} bg-theme-avatar border border-theme-outline">
-                            <native:text class="text-sm text-theme-on-avatar">{{ strtoupper(substr((string) data_get($post, 'to.name', '?'), 0, 1)) }}</native:text>
-                        </native:column>
-                    @endif
-                </native:pressable>
-                @if ($inThread)
-                    <native:column class="w-0.5 flex-1 min-h-4 bg-theme-outline" />
-                @endif
+        <native:column class="w-full gap-0">
+        <native:row class="w-full items-start gap-3">
+            <native:column class="w-10 items-center shrink-0">
+                <x-avatar :user="data_get($post, 'to', [])" />
             </native:column>
-
-            <native:column class="flex-1 gap-1.5 min-w-0">
+            <native:column class="flex-1 min-w-0">
                 <native:row class="w-full items-center justify-between gap-2">
                     <native:pressable class="flex-1 min-w-0" @tap="openProfile('{{ data_get($post, 'to.username', '') }}')" a11y-label="Open {{ '@'.data_get($post, 'to.username', '') }}’s profile">
                         <native:row class="items-center gap-1.5">
@@ -145,92 +112,65 @@
                         @endif
                     </native:row>
                 </native:row>
-
-                <native:pressable @tap="openDetail('{{ $postId }}')" a11y-label="Open post">
-                    <native:text class="text-base leading-relaxed text-theme-on-surface">{{ $answerShown }}</native:text>
-                </native:pressable>
-
-                @if ($answerLong)
-                    <native:row class="w-full justify-end">
-                        <native:pressable class="py-0.5" @tap="toggleShowMore('{{ $postId }}')" a11y-label="{{ $expanded ? 'Show less' : 'Show more' }}">
-                            <native:text class="text-sm font-medium text-theme-primary">{{ $expanded ? 'Show less' : 'Show more' }}</native:text>
-                        </native:pressable>
-                    </native:row>
-                @endif
-
-                @foreach ($images as $src)
-                    <native:image src="{{ $src }}" alt="Post image" class="w-full h-48 object-cover rounded-md border border-theme-outline-variant" />
-                @endforeach
-
-                @if (is_array($preview) && ($preview['url'] ?? '') !== '')
-                    <native:pressable @tap="openLink('{{ $preview['url'] }}')" a11y-label="Open link: {{ $preview['host'] ?? $preview['url'] }}">
-                        <native:column class="w-full gap-0 rounded-md border border-theme-outline-variant overflow-hidden">
-                            @if (($preview['image'] ?? null) !== null && $preview['image'] !== '')
-                                <native:image src="{{ $preview['image'] }}" alt="{{ $preview['title'] ?? $preview['url'] }}" class="w-full h-36 object-cover" />
-                            @endif
-                            <native:column class="w-full gap-0.5 px-3 py-2 bg-theme-bubble">
-                                <native:text class="text-xs font-semibold text-theme-on-surface">{{ $preview['title'] ?? $preview['url'] }}</native:text>
-                                <native:text class="text-xs text-theme-on-surface-variant">{{ $preview['host'] ?? '' }}</native:text>
-                            </native:column>
-                        </native:column>
-                    </native:pressable>
-                @endif
-
-                @if (is_array($poll) && $poll !== [])
-                    <x-post-poll :poll="$poll" :post-id="$postId" />
-                @endif
-
-                <native:row class="w-full items-center gap-3 pt-1">
-                    <native:pressable @tap="openDetail('{{ $postId }}')" a11y-label="Open comments">
-                        <native:row class="items-center gap-1.5">
-                            <native:icon :ios="\App\Icons\Ios::BubbleLeftAndBubbleRight" :android="\App\Icons\AndroidOutlined::ChatBubbleOutline" :size="16" color="#64748B" dark-color="#94A3B8" />
-                            @if ($commentsCount > 0)
-                                <native:text class="text-xs text-theme-on-surface-variant">{{ $abbreviate($commentsCount) }}</native:text>
-                            @endif
-                        </native:row>
-                    </native:pressable>
-                    <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
-                    <native:pressable @tap="toggleLike('{{ $postId }}')" a11y-label="{{ $liked ? 'Unlike this post' : 'Like this post' }}">
-                        <native:row class="items-center gap-1.5">
-                            @if ($liked)
-                                <native:icon :ios="\App\Icons\Ios::HeartFill" :android="\App\Icons\Android::Favorite" :size="16" color="#EC4899" />
-                            @else
-                                <native:icon :ios="\App\Icons\Ios::Heart" :android="\App\Icons\AndroidOutlined::FavoriteBorder" :size="16" color="#64748B" dark-color="#94A3B8" />
-                            @endif
-                            @if ($likesCount > 0)
-                                <native:text class="text-xs {{ $liked ? 'text-theme-primary' : 'text-theme-on-surface-variant' }}">{{ $abbreviate($likesCount) }}</native:text>
-                            @endif
-                        </native:row>
-                    </native:pressable>
-                    @if ($viewsCount > 0)
-                        <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
-                        <native:row class="items-center gap-1.5">
-                            <native:icon :ios="\App\Icons\Ios::ChartBar" :android="\App\Icons\Android::BarChart" :size="16" color="#64748B" dark-color="#94A3B8" />
-                            <native:text class="text-xs text-theme-on-surface-variant">{{ $abbreviate($viewsCount) }}</native:text>
-                        </native:row>
-                    @endif
-                    <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
-                    <native:pressable @tap="translatePost('{{ $postId }}', 'answer')" a11y-label="Translate answer">
-                        <native:icon :ios="\App\Icons\Ios::CharacterBubble" :android="\App\Icons\AndroidOutlined::Translate" :size="16" color="#64748B" dark-color="#94A3B8" />
-                    </native:pressable>
-                    <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
-                    <native:pressable @tap="toggleBookmark('{{ $postId }}')" a11y-label="{{ $bookmarked ? 'Remove bookmark' : 'Bookmark this post' }}">
-                        <native:row class="items-center gap-1.5">
-                            @if ($bookmarked)
-                                <native:icon :ios="\App\Icons\Ios::BookmarkFill" :android="\App\Icons\Android::Bookmark" :size="16" color="#EC4899" />
-                            @else
-                                <native:icon :ios="\App\Icons\Ios::Bookmark" :android="\App\Icons\AndroidOutlined::Bookmark" :size="16" color="#64748B" dark-color="#94A3B8" />
-                            @endif
-                            @if ($bookmarksCount > 0)
-                                <native:text class="text-xs text-theme-on-surface-variant">{{ $abbreviate($bookmarksCount) }}</native:text>
-                            @endif
-                        </native:row>
-                    </native:pressable>
-                    <native:pressable class="ml-auto" @tap="sharePost('{{ $postId }}')" a11y-label="Share this post">
-                        <native:icon :ios="\App\Icons\Ios::Paperplane" :android="\App\Icons\AndroidOutlined::Send" :size="16" color="#64748B" dark-color="#94A3B8" />
-                    </native:pressable>
-                </native:row>
             </native:column>
         </native:row>
+
+        {{-- Stack ignores absolute children. A relative column with
+            top-0 + bottom-0 stretches the rail to the body height. --}}
+        <native:column class="relative w-full">
+            @if ($inThread)
+                <x-thread-rail />
+            @endif
+            <native:row class="w-full items-start gap-3">
+                <native:column class="w-10 shrink-0" />
+                <native:column class="flex-1 gap-1.5 min-w-0">
+                    <native:pressable @tap="openDetail('{{ $postId }}')" a11y-label="Open post">
+                        <native:text class="text-base leading-relaxed text-theme-on-surface">{{ $answerShown }}</native:text>
+                    </native:pressable>
+
+                    @if ($answerLong)
+                        <x-show-more :post-id="$postId" :expanded="$expanded" />
+                    @endif
+
+                    @foreach ($images as $src)
+                        <native:image src="{{ $src }}" alt="Post image" class="w-full h-48 object-cover rounded-md border border-theme-outline-variant" />
+                    @endforeach
+
+                    @if (is_array($preview) && ($preview['url'] ?? '') !== '')
+                        <native:pressable @tap="openLink('{{ $preview['url'] }}')" a11y-label="Open link: {{ $preview['host'] ?? $preview['url'] }}">
+                            <native:column class="w-full gap-0 rounded-md border border-theme-outline-variant overflow-hidden">
+                                @if (($preview['image'] ?? null) !== null && $preview['image'] !== '')
+                                    <native:image src="{{ $preview['image'] }}" alt="{{ $preview['title'] ?? $preview['url'] }}" class="w-full h-36 object-cover" />
+                                @endif
+                                <native:column class="w-full gap-0.5 px-3 py-2 bg-theme-bubble">
+                                    <native:text class="text-xs font-semibold text-theme-on-surface">{{ $preview['title'] ?? $preview['url'] }}</native:text>
+                                    <native:text class="text-xs text-theme-on-surface-variant">{{ $preview['host'] ?? '' }}</native:text>
+                                </native:column>
+                            </native:column>
+                        </native:pressable>
+                    @endif
+
+                    @if (is_array($poll) && $poll !== [])
+                        <x-post-poll :poll="$poll" :post-id="$postId" />
+                    @endif
+
+                    <native:row class="w-full items-center gap-3 pt-1">
+                        <x-post-action type="comments" :post-id="$postId" :count="$commentsCount" />
+                        <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
+                        <x-post-action type="like" :post-id="$postId" :count="$likesCount" :active="$liked" />
+                        @if ($viewsCount > 0)
+                            <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
+                            <x-post-action type="views" :count="$viewsCount" />
+                        @endif
+                        <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
+                        <x-post-action type="translate" :post-id="$postId" />
+                        <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
+                        <x-post-action type="bookmark" :post-id="$postId" :count="$bookmarksCount" :active="$bookmarked" />
+                        <x-post-action type="share" :post-id="$postId" :end="true" />
+                    </native:row>
+                </native:column>
+            </native:row>
+        </native:column>
+        </native:column>
     @endif
 </native:column>

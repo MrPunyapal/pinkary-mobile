@@ -9,6 +9,7 @@ use App\NativeComponents\Notifications;
 use App\NativeComponents\Profile;
 use App\NativeComponents\Register;
 use App\NativeComponents\Search;
+use App\NativeComponents\Settings;
 use App\NativeLayout\MobileLayout;
 use Illuminate\Support\Facades\Route;
 
@@ -35,6 +36,7 @@ Route::nativeGroup(MobileLayout::class, function (): void {
     Route::native('/bookmarks', Bookmarks::class)->name('mobile.bookmarks');
     Route::native('/notifications', Notifications::class)->name('mobile.notifications');
     Route::native('/profile', Profile::class)->name('mobile.profile');
+    Route::native('/settings', Settings::class)->name('mobile.settings');
     Route::native('/user/{username}', Profile::class)->name('mobile.user');
     Route::native('/question/{id}', Detail::class)->name('mobile.detail');
 });

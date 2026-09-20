@@ -1,7 +1,7 @@
-<native:top-bar title="Bookmarks" />
-
 <native:scroll-view class="w-full h-full bg-theme-background">
     <native:column class="w-full gap-0">
+        <x-page-heading title="Bookmarks" />
+
         @if ($loading)
             <native:column class="w-full items-center gap-3 px-5 py-10">
                 <native:activity-indicator />
@@ -15,13 +15,10 @@
                 </native:pressable>
             </native:column>
         @elseif (count($posts) === 0)
-            <native:column class="w-full items-center gap-2 px-5 py-10">
-                <native:text class="text-lg font-medium text-theme-on-surface">No bookmarks yet.</native:text>
-                <native:text class="text-sm text-center text-theme-on-surface-variant">Posts you save for later will show up here.</native:text>
-            </native:column>
+            <x-empty-state title="No bookmarks yet." subtitle="Posts you save for later will show up here." />
         @else
             @foreach ($posts as $post)
-                <x-post :post="$post" :expanded="in_array((string) data_get($post, 'id'), array_map('strval', $expanded), true)" />
+                <x-thread-post :post="$post" :expanded-ids="$expanded" />
             @endforeach
 
             @if ($hasMore)

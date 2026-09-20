@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\NativeComponents;
 
 use App\NativeComponents\Concerns\TogglesPostReactions;
+use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
 use App\Services\TokenStorage;
 use App\Support\ApiErrors;
@@ -16,6 +17,7 @@ final class Detail extends NativeComponent
     public const int MAX_COMMENT_LENGTH = 1000;
 
     use TogglesPostReactions;
+    use UsesAppMenu;
 
     public string $id = '';
 

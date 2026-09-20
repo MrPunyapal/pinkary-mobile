@@ -35,31 +35,27 @@
             </native:column>
 
             @if (count($comments) > 0 || $commentsFailed)
-                <native:column class="w-full px-2 py-4">
-                    <native:column class="w-full gap-3 p-4 rounded-md bg-theme-bubble border border-theme-outline-variant">
-                        @forelse ($comments as $comment)
-                            <x-post :post="$comment" :expanded="in_array((string) data_get($comment, 'id'), array_map('strval', $expanded), true)" />
-                        @empty
-                            @if ($commentsFailed)
-                                <native:column class="w-full items-center gap-2 px-5 py-10">
-                                    <native:text class="text-sm text-center text-theme-destructive">Comments could not be loaded.</native:text>
-                                    <native:pressable class="py-1" @tap="retry">
-                                        <native:text class="text-sm font-semibold text-theme-destructive">Try again</native:text>
-                                    </native:pressable>
-                                </native:column>
-                            @endif
-                        @endforelse
+                @forelse ($comments as $comment)
+                    <x-post :post="$comment" :expanded="in_array((string) data_get($comment, 'id'), array_map('strval', $expanded), true)" />
+                @empty
+                    @if ($commentsFailed)
+                        <native:column class="w-full items-center gap-2 px-5 py-10">
+                            <native:text class="text-sm text-center text-theme-destructive">Comments could not be loaded.</native:text>
+                            <native:pressable class="py-1" @tap="retry">
+                                <native:text class="text-sm font-semibold text-theme-destructive">Try again</native:text>
+                            </native:pressable>
+                        </native:column>
+                    @endif
+                @endforelse
 
-                        @if ($hasMoreComments)
-                            <native:column class="w-full items-center gap-2 px-5 py-5">
-                                @if ($loadMoreCommentsError !== '')
-                                    <native:text class="text-sm text-center text-theme-destructive">{{ $loadMoreCommentsError }}</native:text>
-                                @endif
-                                <native:button variant="secondary" :disabled="$loadingMoreComments" @tap="loadMoreComments">{{ $loadingMoreComments ? 'Loading…' : 'Load more comments' }}</native:button>
-                            </native:column>
+                @if ($hasMoreComments)
+                    <native:column class="w-full items-center gap-2 px-5 py-5">
+                        @if ($loadMoreCommentsError !== '')
+                            <native:text class="text-sm text-center text-theme-destructive">{{ $loadMoreCommentsError }}</native:text>
                         @endif
+                        <native:button variant="secondary" :disabled="$loadingMoreComments" @tap="loadMoreComments">{{ $loadingMoreComments ? 'Loading…' : 'Load more comments' }}</native:button>
                     </native:column>
-                </native:column>
+                @endif
             @endif
         @endif
 

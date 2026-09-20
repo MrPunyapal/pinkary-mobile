@@ -82,6 +82,7 @@ it('lists web-style rows and opens the question', function (): void {
         ->assertSee('Ada Lovelace')
         ->assertSee('answered your question:')
         ->assertSee('What are you building?')
+        ->assertSee('Ignore all')
         ->press("open('n1')")
         ->assertNavigatedTo('/question/q9');
 
@@ -171,6 +172,27 @@ it('clears results when the query is emptied', function (): void {
         ->set('query', 'x')
         ->set('query', '')
         ->assertSee('Search people by name');
+});
+
+it('uses in-content headings instead of a native top bar on tab screens', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/bookmarks*' => Http::response(['data' => []]),
+        'https://pinkary.test/api/v1/notifications*' => Http::response(['data' => [], 'meta' => ['unread_count' => 0]]),
+    ]);
+
+    Native::test(Bookmarks::class)
+        ->assertMissingElement('top_bar')
+        ->assertSee('Bookmarks');
+
+    Native::test(Notifications::class)
+        ->assertMissingElement('top_bar')
+        ->assertSee('Notifications');
+
+    Native::test(Search::class)
+        ->assertMissingElement('top_bar')
+        ->assertSee('Search users or hashtags');
 });
 
 it('resolves the tabbed routes', function (): void {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\NativeComponents;
 
+use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
 use App\Services\TokenStorage;
 use Illuminate\View\View;
@@ -11,6 +12,8 @@ use Native\Mobile\Edge\NativeComponent;
 
 final class Notifications extends NativeComponent
 {
+    use UsesAppMenu;
+
     /** @var list<array<string, mixed>> */
     public array $items = [];
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\NativeComponents;
 
+use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
 use App\Services\TokenStorage;
 use App\Support\ApiErrors;
@@ -12,6 +13,8 @@ use Native\Mobile\Edge\NativeComponent;
 
 final class Compose extends NativeComponent
 {
+    use UsesAppMenu;
+
     public const int MAX_CONTENT_LENGTH = 1000;
 
     public const int MAX_THREAD_POSTS = 9;

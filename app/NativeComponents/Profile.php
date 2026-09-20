@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\NativeComponents;
 
+use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
 use App\Services\TokenStorage;
 use Illuminate\View\View;
@@ -12,6 +13,8 @@ use Native\Mobile\Edge\NativeComponent;
 
 final class Profile extends NativeComponent
 {
+    use UsesAppMenu;
+
     /** @var array<string, mixed>|null */
     public ?array $profile = null;
 
@@ -144,23 +147,6 @@ final class Profile extends NativeComponent
         }
 
         app(Browser::class)->inApp($url);
-    }
-
-    public function logout(): void
-    {
-        $token = $this->token();
-
-        if ($token !== null) {
-            app(PinkaryApi::class)->logout($token);
-        }
-
-        app(TokenStorage::class)->clear();
-        $this->replace($this->route('mobile.feed'));
-    }
-
-    public function compose(): void
-    {
-        $this->navigate($this->route('mobile.compose'));
     }
 
     public function render(): View

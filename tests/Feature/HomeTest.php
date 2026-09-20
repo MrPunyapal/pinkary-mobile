@@ -701,6 +701,36 @@ it('resets the list when switching tabs so the change is always visible', functi
         ->assertSet('selectedTab', 0);
 });
 
+it('reloads the feed on pull-to-refresh', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::sequence()
+            ->push(['data' => [[
+                'id' => 'q1',
+                'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+                'to' => ['name' => 'Pinkary', 'username' => 'pinkary'],
+                'content' => 'First version.',
+                'answer' => 'Stale post.',
+                'metrics' => ['likes' => 0, 'comments' => 0],
+            ]]])
+            ->push(['data' => [[
+                'id' => 'q2',
+                'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+                'to' => ['name' => 'Pinkary', 'username' => 'pinkary'],
+                'content' => 'Second version.',
+                'answer' => 'Fresh post.',
+                'metrics' => ['likes' => 0, 'comments' => 0],
+            ]]]),
+    ]);
+
+    Native::test(Home::class)
+        ->assertSee('Stale post.')
+        ->call('refreshFeed')
+        ->assertSee('Fresh post.')
+        ->assertDontSee('Stale post.');
+});
+
 it('toggles likes on nested thread ancestors like the web', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     session(['pinkary_api_token' => 'test-token']);
@@ -760,4 +790,61 @@ it('clamps long answers with Show more and Show less like the web', function ():
         ->assertSee($long)
         ->call('toggleShowMore', 'q9')
         ->assertSee('Show more');
+});
+
+it('overlays a fill-height rail under in-thread avatars', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
+            'id' => 'q2',
+            'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+            'to' => ['name' => 'Ada Lovelace', 'username' => 'ada', 'avatar' => 'https://example.com/a.png'],
+            'content' => '__UPDATE__',
+            'answer' => 'Second post.',
+            'thread' => [
+                'parent_id' => 'q1',
+                'root_id' => 'q1',
+                'posts' => [[
+                    'id' => 'q1',
+                    'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+                    'to' => ['name' => 'Ada Lovelace', 'username' => 'ada', 'avatar' => 'https://example.com/a.png'],
+                    'content' => '__UPDATE__',
+                    'answer' => 'First post.',
+                    'metrics' => ['likes' => 0, 'comments' => 0],
+                ]],
+                'more' => false,
+                'more_id' => null,
+            ],
+            'metrics' => ['likes' => 0, 'comments' => 0],
+        ]]]),
+    ]);
+
+    $tree = Native::test(Home::class)
+        ->assertSee('First post.')
+        ->assertSee('Second post.')
+        ->assertSee('Recent')
+        ->tree();
+
+    $overlays = [];
+    $bridges = [];
+    $walk = function (array $node) use (&$walk, &$overlays, &$bridges): void {
+        $layout = $node['layout'] ?? [];
+
+        if (($layout['width'] ?? null) === 2.0 && ($layout['height'] ?? null) === 'fill' && ($layout['position_type'] ?? null) === 1) {
+            $overlays[] = $layout;
+        }
+
+        if (($layout['width'] ?? null) === 2.0 && ($layout['height'] ?? null) === 32.0) {
+            $bridges[] = $layout;
+        }
+
+        foreach ($node['children'] ?? [] as $child) {
+            $walk($child);
+        }
+    };
+    $walk($tree);
+
+    expect($overlays)->not->toBeEmpty();
+    expect($bridges)->not->toBeEmpty();
 });

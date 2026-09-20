@@ -8,43 +8,31 @@
             </native:column>
         @endif
 
-        <native:row class="w-full gap-3">
-            <native:column class="items-center gap-0 shrink-0">
-                @if ($avatar)
-                    <native:image src="{{ $avatar }}" alt="You" class="w-10 h-10 rounded-full border border-theme-outline" />
-                @else
-                    <native:column class="w-10 h-10 items-center justify-center rounded-full bg-theme-avatar border border-theme-outline">
-                        <native:text class="text-sm text-theme-on-avatar">?</native:text>
-                    </native:column>
-                @endif
-                @if (count($posts) > 0)
-                    <native:column class="w-0.5 flex-1 min-h-4 bg-theme-outline-variant" />
-                @endif
-            </native:column>
-
-            <native:column class="flex-1 gap-1 min-w-0">
-                <native:outlined-text-input label="Share an update..." placeholder="Share an update..." multiline native:model="content" />
-                @if (mb_strlen($content) > 800)
-                    <native:text class="text-xs text-right {{ mb_strlen($content) >= 1000 ? 'text-theme-destructive' : 'text-theme-on-surface-variant' }}">{{ mb_strlen($content) }} / 1000</native:text>
-                @endif
-            </native:column>
-        </native:row>
+        <native:column class="relative w-full">
+            @if (count($posts) > 0)
+                <x-thread-rail />
+            @endif
+            <native:row class="w-full items-start gap-3">
+                <native:column class="w-10 items-center shrink-0">
+                    <x-avatar :user="['avatar' => $avatar, 'name' => 'You']" :link="false" />
+                </native:column>
+                <native:column class="flex-1 gap-1 min-w-0">
+                    <native:outlined-text-input label="Share an update..." placeholder="Share an update..." multiline native:model="content" />
+                    @if (mb_strlen($content) > 800)
+                        <native:text class="text-xs text-right {{ mb_strlen($content) >= 1000 ? 'text-theme-destructive' : 'text-theme-on-surface-variant' }}">{{ mb_strlen($content) }} / 1000</native:text>
+                    @endif
+                </native:column>
+            </native:row>
+        </native:column>
 
         @foreach ($posts as $index => $post)
-            <native:row class="w-full gap-3">
-                <native:column class="items-center gap-0 shrink-0">
-                    <native:column class="w-0.5 flex-1 min-h-2 bg-theme-outline-variant" />
-                    @if ($avatar)
-                        <native:image src="{{ $avatar }}" alt="You" class="w-7 h-7 my-1 rounded-full border border-theme-outline" />
-                    @else
-                        <native:column class="w-7 h-7 my-1 items-center justify-center rounded-full bg-theme-avatar border border-theme-outline">
-                            <native:text class="text-xs text-theme-on-avatar">?</native:text>
-                        </native:column>
-                    @endif
-                    <native:column class="w-0.5 flex-1 min-h-2 bg-theme-outline-variant" />
-                </native:column>
-
-                <native:column class="flex-1 gap-1 min-w-0">
+            <native:column class="relative w-full">
+                <x-thread-rail />
+                <native:row class="w-full items-start gap-3">
+                    <native:column class="w-10 items-center shrink-0">
+                        <x-avatar :user="['avatar' => $avatar, 'name' => 'You']" :size="7" :link="false" />
+                    </native:column>
+                    <native:column class="flex-1 gap-1 min-w-0">
                     <native:outlined-text-input label="Post {{ $index + 2 }}" placeholder="Say more..." multiline :value="$post" @change="updatePost({{ $index }})" />
                     <native:row class="w-full items-center justify-between">
                         <native:row class="items-center gap-1">
@@ -94,6 +82,7 @@
                     @endif
                 </native:column>
             </native:row>
+            </native:column>
         @endforeach
 
         @if (count($posts) < 9)

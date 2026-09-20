@@ -1,23 +1,6 @@
 <native:scroll-view class="w-full h-full bg-theme-background">
     <native:column class="w-full gap-0">
-        <native:pressable class="w-full px-4 py-3 bg-theme-surface border-b border-theme-outline-variant" @tap="openSearch" a11y-label="Search users or hashtags">
-            <native:row class="w-full items-center gap-3 px-3 py-2.5 rounded-md bg-theme-surface-variant border border-theme-outline-variant">
-                <native:icon :ios="\App\Icons\Ios::Magnifyingglass" :android="\App\Icons\AndroidOutlined::Search" :size="18" color="#64748B" dark-color="#94A3B8" />
-                <native:text class="text-sm text-theme-on-surface-variant">Search users or hashtags...</native:text>
-            </native:row>
-        </native:pressable>
-
-        <native:row class="w-full items-center justify-center gap-1 px-4 py-2.5 bg-theme-surface border-b border-theme-outline-variant">
-            <native:pressable class="px-4 py-1.5 rounded-full {{ $tab === 'recent' ? 'bg-theme-primary' : '' }}" @tap="showRecent" a11y-label="Show Recent feed">
-                <native:text class="text-sm {{ $tab === 'recent' ? 'text-white font-semibold' : 'text-theme-on-surface-variant' }}">Recent</native:text>
-            </native:pressable>
-            <native:pressable class="px-4 py-1.5 rounded-full {{ $tab === 'following' ? 'bg-theme-primary' : '' }}" @tap="showFollowing" a11y-label="Show Following feed">
-                <native:text class="text-sm {{ $tab === 'following' ? 'text-white font-semibold' : 'text-theme-on-surface-variant' }}">Following</native:text>
-            </native:pressable>
-            <native:pressable class="px-4 py-1.5 rounded-full {{ $tab === 'trending' ? 'bg-theme-primary' : '' }}" @tap="showTrending" a11y-label="Show Trending feed">
-                <native:text class="text-sm {{ $tab === 'trending' ? 'text-white font-semibold' : 'text-theme-on-surface-variant' }}">Trending</native:text>
-            </native:pressable>
-        </native:row>
+        <x-feed-tabs :tab="$tab" />
 
         @if ($loading)
             <native:column class="w-full items-center gap-3 px-5 py-10">
@@ -44,10 +27,7 @@
                     default => 'Try switching to another feed view or come back once new posts are published.',
                 };
             @endphp
-            <native:column class="w-full items-center gap-2 px-5 py-8">
-                <native:text class="text-lg font-medium text-theme-on-surface">{{ $emptyTitle }}</native:text>
-                <native:text class="text-sm text-center text-theme-on-surface-variant">{{ $emptySubtitle }}</native:text>
-            </native:column>
+            <x-empty-state :title="$emptyTitle" :subtitle="$emptySubtitle" />
         @else
             @foreach ($posts as $post)
                 <x-thread-post :post="$post" :expanded-ids="$expanded" />
@@ -70,5 +50,3 @@
         <native:column class="w-full h-20" />
     </native:column>
 </native:scroll-view>
-
-<native:fab icon="edit" @tap="compose" />
