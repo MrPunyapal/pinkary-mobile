@@ -6,5 +6,6 @@
         @if ($subtitle !== '')
             <native:text class="text-sm text-center text-theme-on-surface-variant">{{ $subtitle }}</native:text>
         @endif
+        {{ $slot }}
     </native:column>
 </native:column>

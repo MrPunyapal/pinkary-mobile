@@ -15,6 +15,9 @@ final class Compose extends NativeComponent
 {
     use UsesAppMenu;
 
+    // Back arrow shows instead of the drawer hamburger (no overlap).
+    protected bool $hidesDrawer = true;
+
     public const int MAX_CONTENT_LENGTH = 1000;
 
     public const int MAX_THREAD_POSTS = 9;
@@ -100,9 +103,10 @@ final class Compose extends NativeComponent
             return;
         }
 
-        $profile = app(PinkaryApi::class)->profile($token);
+        $api = app(PinkaryApi::class);
+        $profile = $api->attempt(fn () => $api->profile($token));
 
-        if ($profile->successful()) {
+        if ($profile?->successful()) {
             $avatar = $profile->json('data.avatar');
 
             $this->avatar = is_string($avatar) && $avatar !== '' ? $avatar : null;
@@ -266,8 +270,24 @@ final class Compose extends NativeComponent
         return true;
     }
 
-    public function selectChannel(int $id, string $name): void
+    /**
+     * Select a channel by id only — names travel server-side so quotes
+     * in channel names cannot break the tap handler.
+     */
+    public function selectChannel(int $id): void
     {
+        $name = '';
+
+        foreach ($this->channelResults as $channel) {
+            if ((int) data_get($channel, 'id', 0) === $id) {
+                $name = (string) data_get($channel, 'name', '');
+            }
+        }
+
+        if ($name === '') {
+            return;
+        }
+
         $this->channelId = $id;
         $this->channelName = $name;
         $this->channelQuery = '';
@@ -448,7 +468,8 @@ final class Compose extends NativeComponent
         $this->busy = true;
         $this->errorMessage = '';
 
-        $response = app(PinkaryApi::class)->createThread(
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->createThread(
             $token,
             $content,
             $threadPosts,
@@ -457,9 +478,15 @@ final class Compose extends NativeComponent
             $pollOptions,
             $this->pollDuration,
             $threadPolls,
-        );
+        ));
 
         $this->busy = false;
+
+        if ($response === null) {
+            $this->errorMessage = 'The thread could not be published. Please try again.';
+
+            return;
+        }
 
         if ($response->unauthorized()) {
             app(TokenStorage::class)->clear();
@@ -553,11 +580,12 @@ final class Compose extends NativeComponent
     {
         $this->searchingChannels = true;
 
-        $response = app(PinkaryApi::class)->channels($token, trim($this->channelQuery));
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->channels($token, trim($this->channelQuery)));
 
         $this->searchingChannels = false;
 
-        if (! $response->successful()) {
+        if ($response === null || ! $response->successful()) {
             return;
         }
 

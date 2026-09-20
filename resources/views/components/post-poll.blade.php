@@ -16,23 +16,14 @@
             $percent = (int) round($votes / $total * 100);
             $mine = $userVote !== null && (int) $userVote === $optionId;
         @endphp
-        <native:pressable @tap="votePoll('{{ $postId }}', {{ $optionId }})" a11y-label="Vote for {{ data_get($option, 'text', '') }}">
-            <native:stack class="w-full rounded-lg bg-theme-poll-track">
-                <native:row class="w-full min-h-10">
-                    <native:column class="min-h-10 rounded-lg {{ $mine ? 'bg-theme-primary' : 'bg-theme-poll-fill' }}" style="width: {{ $percent }}%" />
-                    <native:spacer class="flex-1" />
-                </native:row>
-                <native:row class="w-full min-h-10 items-center justify-between gap-3 px-3.5 py-2.5">
-                    <native:row class="flex-1 items-center gap-2 min-w-0">
-                        @if ($mine)
-                            <native:icon :ios="\App\Icons\Ios::CheckmarkCircleFill" :android="\App\Icons\Android::CheckCircle" :size="16" color="#FFFFFF" />
-                        @endif
-                        <native:text class="text-sm font-semibold flex-1 {{ $mine ? 'text-white' : 'text-theme-on-surface' }}">{{ data_get($option, 'text', '') }}</native:text>
-                    </native:row>
-                    <native:text class="text-xs font-semibold shrink-0 {{ $mine ? 'text-white' : 'text-theme-on-surface-variant' }}">{{ $percent }}%</native:text>
-                </native:row>
-            </native:stack>
-        </native:pressable>
+        {{-- Expired polls render static (web disables voting); live polls stay tappable. --}}
+        @if ($expired)
+            <x-post-poll-option :text="data_get($option, 'text', '')" :percent="$percent" :mine="$mine" />
+        @else
+            <native:pressable @tap="votePoll('{{ $postId }}', {{ $optionId }})" a11y-label="Vote for {{ data_get($option, 'text', '') }}">
+                <x-post-poll-option :text="data_get($option, 'text', '')" :percent="$percent" :mine="$mine" />
+            </native:pressable>
+        @endif
     @endforeach
     <native:row class="w-full items-center gap-1.5 pt-2">
         <native:text class="text-sm text-theme-on-surface-variant">{{ $totalVotes }} {{ $totalVotes === 1 ? 'vote' : 'votes' }}</native:text>

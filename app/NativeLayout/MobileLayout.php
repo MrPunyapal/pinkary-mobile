@@ -6,13 +6,15 @@ namespace App\NativeLayout;
 
 use App\Icons\Android;
 use App\Icons\Ios;
+use App\NativeComponents\Bookmarks;
 use App\NativeComponents\Compose;
 use App\NativeComponents\Detail;
 use App\NativeComponents\Home;
+use App\NativeComponents\Login;
 use App\NativeComponents\Notifications;
 use App\NativeComponents\Profile;
+use App\NativeComponents\Register;
 use App\Support\CurrentUser;
-use Native\Mobile\Edge\Layouts\Builders\NavAction;
 use Native\Mobile\Edge\Layouts\Builders\NavBar;
 use Native\Mobile\Edge\Layouts\Builders\Tab;
 use Native\Mobile\Edge\Layouts\Builders\TabBar;
@@ -28,47 +30,43 @@ final class MobileLayout extends NativeLayout
     use HasFloatingOverlay;
     use HasLayoutDrawer;
 
-    // BISECT-3 (restore step 1): plain chrome only — no titleView,
-    // no actions, no drawer, no overlay.
+    // Chrome titles only where no in-content heading exists; the old
+    // Jump app left-aligns them and OS chrome is single-line, so every
+    // screen now carries exactly one title on old and new clients.
     public function navBar(NativeComponent $screen): ?NavBar
     {
-        $bar = NavBar::make()->displayMode('inline');
-
-        if ($screen instanceof Home) {
-            // Title stays as a fallback for Jump apps that ignore the
-            // custom titleView slot (otherwise the bar shows nothing).
-            $bar->title('Pinkary')->titleView(view('native.brand-lockup'));
-        } else {
-            $bar->title($screen->navTitle());
-        }
-
+        // Detail, Compose, and other users' profiles render their own
+        // in-content top bar (title + back) — chrome would duplicate it.
+        // Bookmarks and Notifications carry an in-content page heading,
+        // and the auth cards carry their own titles — same duplication.
         if ($screen instanceof Detail
             || $screen instanceof Compose
+            || $screen instanceof Bookmarks
+            || $screen instanceof Notifications
+            || $screen instanceof Login
+            || $screen instanceof Register
             || ($screen instanceof Profile && $screen->username !== '')) {
-            $bar->back();
+            return null;
         }
 
-        if ($screen instanceof Notifications) {
-            $bar->action(
-                NavAction::make('ignore-all')
-                    ->label('Ignore all')
-                    ->press('markAllRead')
-                    ->a11yLabel('Ignore all notifications')
-            );
-        }
+        $bar = NavBar::make()->displayMode('inline');
 
-        $bar->action(
-            NavAction::make('profile')
-                ->icon(ios: Ios::PersonFill, android: Android::Person)
-                ->press('openOwnProfile')
-                ->a11yLabel('Your profile')
-        );
+        // Home carries its brand as centered in-content header (the old
+        // Jump app left-aligns chrome titles); other screens use the
+        // chrome title.
+        if (! $screen instanceof Home) {
+            $bar->title($screen->navTitle());
+        }
 
         return $bar;
     }
 
     public function tabBar(NativeComponent $screen): ?TabBar
     {
+        if ($screen instanceof Login || $screen instanceof Register) {
+            return null;
+        }
+
         return TabBar::make()
             ->activeColor('#EC4899')
             ->labelVisibility('unlabeled')
@@ -79,10 +77,15 @@ final class MobileLayout extends NativeLayout
             ->add(Tab::link('Profile', '/profile', ios: Ios::PersonFill, android: Android::Person));
     }
 
-    // Drawer restored with the real sidebar (scroll-view root removed —
-    // that was the instant-close culprit). Overlay still off.
+    // Modal drawer with the real sidebar (its root must stay a plain
+    // column — a scroll-view root instant-closes old Jump apps).
     public function drawer(NativeComponent $screen): ?Drawer
     {
+        // Auth screens have no menu actions (missing-method tap risk).
+        if ($screen instanceof Login || $screen instanceof Register) {
+            return null;
+        }
+
         return Drawer::make(view('native.sidebar', [
             'user' => CurrentUser::get(),
         ]))->modal();
@@ -92,7 +95,9 @@ final class MobileLayout extends NativeLayout
     // guests — Compose redirects to login), so screens carry no FAB.
     public function floatingOverlay(NativeComponent $screen): ?FloatingOverlay
     {
-        if ($screen instanceof Compose) {
+        if ($screen instanceof Compose
+            || $screen instanceof Login
+            || $screen instanceof Register) {
             return null;
         }
 

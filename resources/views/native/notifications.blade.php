@@ -12,6 +12,12 @@
     };
 @endphp
 
+@php
+    $visibleItems = ($filter ?? 'all') === 'unread'
+        ? array_values(array_filter($items, fn ($item) => ! (bool) data_get($item, 'read', false)))
+        : $items;
+@endphp
+
 <native:scroll-view class="w-full h-full bg-theme-background">
     <native:column class="w-full gap-0">
         <x-page-heading title="Notifications">
@@ -21,6 +27,17 @@
                 </native:pressable>
             @endif
         </x-page-heading>
+
+        @if (! $loading && $errorMessage === '' && count($items) > 0)
+            <native:row class="w-full items-center gap-1 px-4 py-2.5 bg-theme-surface border-b border-theme-outline-variant">
+                <native:pressable class="px-4 py-1.5 rounded-full {{ $filter === 'all' ? 'bg-theme-primary' : '' }}" @tap="showAll" a11y-label="Show all notifications">
+                    <native:text class="text-sm {{ $filter === 'all' ? 'text-white font-semibold' : 'text-theme-on-surface-variant' }}">All</native:text>
+                </native:pressable>
+                <native:pressable class="px-4 py-1.5 rounded-full {{ $filter === 'unread' ? 'bg-theme-primary' : '' }}" @tap="showUnread" a11y-label="Show unread notifications">
+                    <native:text class="text-sm {{ $filter === 'unread' ? 'text-white font-semibold' : 'text-theme-on-surface-variant' }}">Unread{{ $unreadCount > 0 ? ' ('.$unreadCount.')' : '' }}</native:text>
+                </native:pressable>
+            </native:row>
+        @endif
 
         @if ($loading)
             <native:column class="w-full items-center gap-3 px-5 py-10">
@@ -35,9 +52,15 @@
                 </native:pressable>
             </native:column>
         @elseif (count($items) === 0)
-            <x-empty-state title="No pending notifications." subtitle="New replies, mentions, followers, and questions will show up here." />
+            <x-empty-state title="No pending notifications." subtitle="New replies, mentions, followers, and questions will show up here.">
+                <native:pressable class="px-4 py-2 rounded-full bg-theme-primary" @tap="goFeed" a11y-label="Back to Feed">
+                    <native:text class="text-sm font-semibold text-white">Back to Feed</native:text>
+                </native:pressable>
+            </x-empty-state>
+        @elseif (count($visibleItems) === 0)
+            <x-empty-state title="You're all caught up." subtitle="Every loaded notification is already read." />
         @else
-            @foreach ($items as $item)
+            @foreach ($visibleItems as $item)
                 <native:pressable @tap="open('{{ data_get($item, 'id') }}')" a11y-label="Open notification">
                     <native:row class="w-full items-start gap-3 px-4 py-3.5 bg-theme-background border-b border-theme-outline-variant">
                         @php $actor = data_get($item, 'actor'); @endphp
@@ -76,6 +99,9 @@
 
             @if ($hasMore)
                 <native:column class="w-full items-center gap-2 px-5 py-5">
+                    @if ($loadMoreError !== '')
+                        <native:text class="text-sm text-center text-theme-destructive">{{ $loadMoreError }}</native:text>
+                    @endif
                     <native:button variant="secondary" :disabled="$loadingMore" @tap="loadMore">{{ $loadingMore ? 'Loading…' : 'Load more' }}</native:button>
                 </native:column>
             @endif

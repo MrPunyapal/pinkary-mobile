@@ -10,6 +10,7 @@ use App\Services\TokenStorage;
 use Illuminate\View\View;
 use Native\Mobile\Browser;
 use Native\Mobile\Edge\NativeComponent;
+use Native\Mobile\Share;
 
 final class Profile extends NativeComponent
 {
@@ -26,9 +27,18 @@ final class Profile extends NativeComponent
 
     public bool $followBusy = false;
 
+    public bool $showQr = false;
+
     public function navTitle(): string
     {
         return $this->username !== '' ? '@'.$this->username : 'Profile';
+    }
+
+    // Other users' profiles show a back arrow instead of the drawer
+    // hamburger (no overlap); own profile keeps the drawer.
+    public function hidesDrawer(): bool
+    {
+        return $this->username !== '';
     }
 
     public function mount(): void
@@ -87,11 +97,16 @@ final class Profile extends NativeComponent
 
         $followed = (bool) data_get($this->profile, 'followed_by_me', false);
 
+        $api = app(PinkaryApi::class);
         $response = $followed
-            ? app(PinkaryApi::class)->unfollow($token, $username)
-            : app(PinkaryApi::class)->follow($token, $username);
+            ? $api->attempt(fn () => $api->unfollow($token, $username))
+            : $api->attempt(fn () => $api->follow($token, $username));
 
         $this->followBusy = false;
+
+        if ($response === null) {
+            return;
+        }
 
         if ($response->unauthorized()) {
             app(TokenStorage::class)->clear();
@@ -140,13 +155,39 @@ final class Profile extends NativeComponent
             return;
         }
 
-        app(PinkaryApi::class)->clickLink($token, $id);
+        app(PinkaryApi::class)->attempt(fn () => app(PinkaryApi::class)->clickLink($token, $id));
 
         if (! preg_match('#^https?://#i', $url)) {
+            $this->errorMessage = 'This link could not be opened.';
+
             return;
         }
 
         app(Browser::class)->inApp($url);
+    }
+
+    /**
+     * Share this profile through the system sheet (web share menu parity).
+     */
+    public function shareProfile(): void
+    {
+        $username = (string) data_get($this->profile, 'username', '');
+
+        if ($username === '') {
+            return;
+        }
+
+        $base = rtrim((string) config('services.pinkary.url'), '/');
+
+        app(Share::class)->url('Pinkary profile', '@'.$username.' on Pinkary', $base.'/@'.$username);
+    }
+
+    /**
+     * Toggle the QR code section showing this profile's URL.
+     */
+    public function toggleQr(): void
+    {
+        $this->showQr = ! $this->showQr;
     }
 
     public function render(): View
@@ -160,8 +201,17 @@ final class Profile extends NativeComponent
         $this->errorMessage = '';
 
         $response = $this->username === ''
-            ? app(PinkaryApi::class)->profile($token)
-            : app(PinkaryApi::class)->user($token, $this->username);
+            ? app(PinkaryApi::class)->attempt(fn () => app(PinkaryApi::class)->profile($token))
+            : app(PinkaryApi::class)->attempt(fn () => app(PinkaryApi::class)->user($token, $this->username));
+
+        if ($response === null) {
+            $this->loading = false;
+            $this->errorMessage = $this->username === ''
+                ? 'Your profile could not be loaded. Please try again.'
+                : 'This profile could not be loaded. Please try again.';
+
+            return;
+        }
 
         if ($response->unauthorized()) {
             app(TokenStorage::class)->clear();

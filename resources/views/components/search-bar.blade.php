@@ -3,6 +3,11 @@
 <native:row class="w-full items-center gap-3 px-4 py-3 bg-theme-surface border-b border-theme-outline-variant">
     <native:row class="w-full items-center gap-3 px-3 py-2.5 rounded-md bg-theme-surface-variant border border-theme-outline-variant">
         <native:icon :ios="\App\Icons\Ios::Magnifyingglass" :android="\App\Icons\AndroidOutlined::Search" :size="18" color="#64748B" dark-color="#94A3B8" />
-        <native:bare-text-input class="flex-1 text-sm text-theme-on-surface" placeholder="Search users or hashtags..." native:model.debounce.500ms="query" />
+        <native:bare-text-input class="flex-1 text-sm text-theme-on-surface" placeholder="Search users or hashtags..." native:model.debounce.500ms="query" @submit="search" />
+        @if ($query !== '')
+            <native:pressable class="shrink-0 px-2 py-1" @tap="clearQuery" a11y-label="Clear search">
+                <native:text class="text-sm font-medium text-theme-on-surface-variant">Clear</native:text>
+            </native:pressable>
+        @endif
     </native:row>
 </native:row>

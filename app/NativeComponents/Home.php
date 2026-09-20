@@ -38,6 +38,14 @@ final class Home extends NativeComponent
 
     public string $loadMoreError = '';
 
+    /**
+     * Last detail screen pushed from the feed. Repeat taps on the same
+     * post while its detail is still on top are ignored, so a
+     * double-tap cannot stack duplicate detail screens. Cleared when
+     * the user navigates back to the feed.
+     */
+    public string $openedDetailId = '';
+
     /** @var list<string> */
     private const TABS = ['recent', 'following', 'trending'];
 
@@ -98,11 +106,17 @@ final class Home extends NativeComponent
 
     public function openDetail(string $id): void
     {
-        if ($id === '') {
+        if ($id === '' || $id === $this->openedDetailId) {
             return;
         }
 
+        $this->openedDetailId = $id;
         $this->navigate($this->route('mobile.detail', ['id' => $id]));
+    }
+
+    public function onResume(): void
+    {
+        $this->openedDetailId = '';
     }
 
     public function openLink(string $url): void
@@ -188,9 +202,16 @@ final class Home extends NativeComponent
         $this->loadingMore = true;
         $this->loadMoreError = '';
 
-        $response = app(PinkaryApi::class)->feed($token, $this->tab, $this->page + 1);
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->feed($token, $this->tab, $this->page + 1));
 
         $this->loadingMore = false;
+
+        if ($response === null) {
+            $this->loadMoreError = 'Could not load more posts. Please try again.';
+
+            return;
+        }
 
         if ($response->unauthorized() && $token !== null) {
             app(TokenStorage::class)->clear();
@@ -238,7 +259,15 @@ final class Home extends NativeComponent
         $this->loading = true;
         $this->errorMessage = '';
 
-        $response = app(PinkaryApi::class)->feed($token, $this->tab);
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->feed($token, $this->tab));
+
+        if ($response === null) {
+            $this->loading = false;
+            $this->errorMessage = 'The Pinkary feed could not be loaded. Please try again.';
+
+            return;
+        }
 
         if ($response->unauthorized() && $token !== null) {
             app(TokenStorage::class)->clear();

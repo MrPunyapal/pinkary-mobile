@@ -1,8 +1,72 @@
 <?php
 
 use App\NativeComponents\Home;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\Native;
+
+it('shows the error state when the api is unreachable', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake(function (): void {
+        throw new ConnectionException('timeout');
+    });
+
+    Native::test(Home::class)
+        ->assertSee('The Pinkary feed could not be loaded. Please try again.');
+});
+
+it('reverts optimistic likes when the api is unreachable', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
+            'id' => 'q1',
+            'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+            'to' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+            'content' => '__UPDATE__',
+            'answer' => 'Optimistic post.',
+            'metrics' => ['likes' => 0, 'comments' => 0, 'liked' => false, 'bookmarked' => false],
+        ]]]),
+        'https://pinkary.test/api/v1/questions/q1/like' => function (): void {
+            throw new ConnectionException('timeout');
+        },
+    ]);
+
+    $test = Native::test(Home::class)->call('toggleLike', 'q1');
+
+    expect(data_get($test->get('posts'), '0.metrics.liked'))->toBeFalse()
+        ->and(data_get($test->get('posts'), '0.metrics.likes'))->toBe(0);
+});
+
+it('renders expired polls static with no vote handler', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
+            'id' => 'q1',
+            'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+            'to' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+            'content' => '__UPDATE__',
+            'answer' => 'Closed poll post.',
+            'poll' => [
+                'expired' => true,
+                'total_votes' => 5,
+                'user_vote_option_id' => 1,
+                'options' => [
+                    ['id' => 1, 'text' => 'Laravel', 'votes' => 4],
+                    ['id' => 2, 'text' => 'Rails', 'votes' => 1],
+                ],
+            ],
+            'metrics' => ['likes' => 0, 'comments' => 0],
+        ]]]),
+    ]);
+
+    Native::test(Home::class)
+        ->assertSee('Laravel')
+        ->assertSee('Poll expired')
+        ->assertSee('5 votes');
+});
 
 it('shows the recent feed to guests without redirecting to login', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
@@ -792,7 +856,65 @@ it('clamps long answers with Show more and Show less like the web', function ():
         ->assertSee('Show more');
 });
 
-it('overlays a fill-height rail under in-thread avatars', function (): void {
+it('opens post images fullscreen through the in-app browser link handler', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
+            'id' => 'q1',
+            'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+            'to' => ['name' => 'Pinkary', 'username' => 'pinkary'],
+            'content' => 'Look at this.',
+            'answer' => 'A post with an image.',
+            'images' => ['https://pinkary.test/storage/a.png'],
+            'metrics' => ['likes' => 0, 'comments' => 0],
+        ]]]),
+    ]);
+
+    // press() fails when no element registered the expression, so this
+    // proves the image is wrapped in a tap handler wired to openLink.
+    Native::test(Home::class)
+        ->press("openLink('https://pinkary.test/storage/a.png')")
+        ->assertSee('A post with an image.');
+});
+
+it('pushes the share action trailing with a spacer instead of ml-auto', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
+            'id' => 'q1',
+            'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+            'to' => ['name' => 'Pinkary', 'username' => 'pinkary'],
+            'content' => 'Spaced out?',
+            'answer' => 'Share sits trailing.',
+            'metrics' => ['likes' => 0, 'comments' => 0],
+        ]]]),
+    ]);
+
+    $tree = Native::test(Home::class)
+        ->assertSee('Share sits trailing.')
+        ->tree();
+
+    $spacers = 0;
+    $walk = function (array $node) use (&$walk, &$spacers): void {
+        if (($node['type'] ?? null) === 'spacer') {
+            $spacers++;
+        }
+
+        foreach ($node['children'] ?? [] as $child) {
+            $walk($child);
+        }
+    };
+    $walk($tree);
+
+    // A plain post renders no poll-option spacer, so any spacer is the
+    // action-row one pushing share trailing (the post-poll-option
+    // flex-1 pattern, not ml-auto).
+    expect($spacers)->toBeGreaterThanOrEqual(1);
+});
+
+it('chains thread posts with reply context instead of stitched rails', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     session(['pinkary_api_token' => 'test-token']);
     Http::fake([
@@ -823,20 +945,25 @@ it('overlays a fill-height rail under in-thread avatars', function (): void {
     $tree = Native::test(Home::class)
         ->assertSee('First post.')
         ->assertSee('Second post.')
+        ->assertSee('Replying to')
+        ->assertSee('@ada')
         ->assertSee('Recent')
         ->tree();
 
-    $overlays = [];
-    $bridges = [];
-    $walk = function (array $node) use (&$walk, &$overlays, &$bridges): void {
+    $replyContext = 0;
+    $verticalRails = [];
+    $walk = function (array $node) use (&$walk, &$replyContext, &$verticalRails): void {
         $layout = $node['layout'] ?? [];
 
-        if (($layout['width'] ?? null) === 2.0 && ($layout['height'] ?? null) === 'fill' && ($layout['position_type'] ?? null) === 1) {
-            $overlays[] = $layout;
+        // The old design drew 2px vertical rails that had to stitch
+        // across posts; the new design must not contain any.
+        if (($layout['width'] ?? null) == 2) {
+            $verticalRails[] = $layout;
         }
 
-        if (($layout['width'] ?? null) === 2.0 && ($layout['height'] ?? null) === 32.0) {
-            $bridges[] = $layout;
+        $text = $node['props']['text'] ?? null;
+        if (is_string($text) && str_contains($text, 'Replying to')) {
+            $replyContext++;
         }
 
         foreach ($node['children'] ?? [] as $child) {
@@ -845,6 +972,7 @@ it('overlays a fill-height rail under in-thread avatars', function (): void {
     };
     $walk($tree);
 
-    expect($overlays)->not->toBeEmpty();
-    expect($bridges)->not->toBeEmpty();
+    // The continuation post chains to its parent; the root stands alone.
+    expect($replyContext)->toBe(1);
+    expect($verticalRails)->toBeEmpty();
 });

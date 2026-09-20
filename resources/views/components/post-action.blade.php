@@ -4,7 +4,6 @@
     'count' => 0,
     'active' => false,
     'field' => 'answer',
-    'end' => false,
 ])
 
 @php
@@ -62,7 +61,7 @@
         @endif
     </native:row>
 @else
-    <native:pressable class="{{ $end ? 'ml-auto' : '' }}" @tap="{!! $tap !!}" a11y-label="{{ $label }}">
+    <native:pressable @tap="{!! $tap !!}" a11y-label="{{ $label }}">
         <native:row class="items-center gap-1.5">
             @switch ($type)
                 @case ('comments')

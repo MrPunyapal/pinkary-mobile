@@ -88,6 +88,11 @@ final class Bookmarks extends NativeComponent
         $this->navigate($this->route('mobile.user', ['username' => $username]));
     }
 
+    public function goFeed(): void
+    {
+        $this->navigate($this->route('mobile.feed'));
+    }
+
     public function translatePost(string $id, string $field = 'answer'): void
     {
         $post = $this->readPostPayload($this->posts, $id);
@@ -159,9 +164,16 @@ final class Bookmarks extends NativeComponent
         $this->loadingMore = true;
         $this->loadMoreError = '';
 
-        $response = app(PinkaryApi::class)->bookmarks($token, $this->page + 1);
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->bookmarks($token, $this->page + 1));
 
         $this->loadingMore = false;
+
+        if ($response === null) {
+            $this->loadMoreError = 'Could not load more bookmarks. Please try again.';
+
+            return;
+        }
 
         if ($response->unauthorized()) {
             app(TokenStorage::class)->clear();
@@ -193,7 +205,15 @@ final class Bookmarks extends NativeComponent
         $this->loading = true;
         $this->errorMessage = '';
 
-        $response = app(PinkaryApi::class)->bookmarks($token);
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->bookmarks($token));
+
+        if ($response === null) {
+            $this->loading = false;
+            $this->errorMessage = 'Your bookmarks could not be loaded. Please try again.';
+
+            return;
+        }
 
         if ($response->unauthorized()) {
             app(TokenStorage::class)->clear();

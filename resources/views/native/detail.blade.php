@@ -8,7 +8,7 @@
                 <native:text class="text-sm text-theme-on-surface-variant">Loading this post…</native:text>
             </native:column>
         @elseif ($errorMessage !== '')
-            <native:column class="w-full mx-4 my-5 p-4 gap-3 rounded-md bg-theme-destructive/15 border border-theme-destructive">
+            <native:column class="mx-4 my-5 p-4 gap-3 rounded-md bg-theme-destructive/15 border border-theme-destructive">
                 <native:text class="text-sm text-theme-destructive">{{ $errorMessage }}</native:text>
                 <native:pressable class="self-start py-1" @tap="retry">
                     <native:text class="text-sm font-semibold text-theme-destructive">Try again</native:text>
@@ -17,22 +17,30 @@
         @else
             <x-thread-post :post="$post" :expanded-ids="$expanded" />
 
-            <native:column class="w-full px-5 py-4 gap-3 bg-theme-surface border-b border-theme-outline-variant">
-                @if ($commentError !== '')
-                    <native:column class="w-full p-4 rounded-md bg-theme-destructive/15 border border-theme-destructive">
-                        <native:text class="text-sm text-theme-destructive">{{ $commentError }}</native:text>
-                    </native:column>
-                @endif
-
-                <native:column class="w-full gap-1">
-                    <native:outlined-text-input label="Write a comment..." placeholder="Write a comment..." multiline native:model="comment" />
-                    @if (mb_strlen($comment) > 800)
-                        <native:text class="text-xs text-right {{ mb_strlen($comment) >= 1000 ? 'text-theme-destructive' : 'text-theme-on-surface-variant' }}">{{ mb_strlen($comment) }} / 1000</native:text>
-                    @endif
+            @if ($voteError !== '')
+                <native:column class="w-full p-4 gap-3 bg-theme-destructive/15 border-b border-theme-destructive">
+                    <native:text class="text-sm text-theme-destructive">{{ $voteError }}</native:text>
                 </native:column>
+            @endif
 
-                <native:button variant="primary" :disabled="$commentBusy" @tap="postComment">{{ $commentBusy ? 'Posting…' : 'Reply' }}</native:button>
-            </native:column>
+            @if ($this->canComment())
+                <native:column class="w-full px-5 py-4 gap-3 bg-theme-surface border-b border-theme-outline-variant">
+                    @if ($commentError !== '')
+                        <native:column class="w-full p-4 rounded-md bg-theme-destructive/15 border border-theme-destructive">
+                            <native:text class="text-sm text-theme-destructive">{{ $commentError }}</native:text>
+                        </native:column>
+                    @endif
+
+                    <native:column class="w-full gap-1">
+                        <native:outlined-text-input label="Write a comment..." placeholder="Write a comment..." multiline native:model="comment" />
+                        @if (mb_strlen($comment) > 800)
+                            <native:text class="text-xs text-right {{ mb_strlen($comment) >= 1000 ? 'text-theme-destructive' : 'text-theme-on-surface-variant' }}">{{ mb_strlen($comment) }} / 1000</native:text>
+                        @endif
+                    </native:column>
+
+                    <native:button variant="primary" :disabled="$commentBusy" @tap="postComment">{{ $commentBusy ? 'Posting…' : 'Reply' }}</native:button>
+                </native:column>
+            @endif
 
             @if (count($comments) > 0 || $commentsFailed)
                 @forelse ($comments as $comment)

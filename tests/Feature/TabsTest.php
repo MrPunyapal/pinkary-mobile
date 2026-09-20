@@ -1,8 +1,13 @@
 <?php
 
 use App\NativeComponents\Bookmarks;
+use App\NativeComponents\Login;
 use App\NativeComponents\Notifications;
+use App\NativeComponents\Profile;
+use App\NativeComponents\Register;
 use App\NativeComponents\Search;
+use App\NativeComponents\Settings;
+use App\NativeLayout\MobileLayout;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\Native;
 
@@ -206,4 +211,262 @@ it('resolves the tabbed routes', function (): void {
     Native::visit('/bookmarks')->assertSee('No bookmarks yet.');
     Native::visit('/notifications')->assertSee('No pending notifications.');
     Native::visit('/search')->assertSee('Search users or hashtags');
+});
+
+it('keeps exactly one title per screen and hides chrome on auth screens', function (): void {
+    $layout = new MobileLayout;
+
+    // Screens with their own in-content heading suppress the chrome bar
+    // (the old Jump app left-aligns chrome titles; new clients would
+    // render both) — auth cards carry their own titles too.
+    expect($layout->navBar(new Bookmarks))->toBeNull()
+        ->and($layout->navBar(new Notifications))->toBeNull()
+        ->and($layout->navBar(new Login))->toBeNull()
+        ->and($layout->navBar(new Register))->toBeNull();
+
+    $other = new Profile;
+    $other->username = 'ada';
+    expect($layout->navBar($other))->toBeNull();
+
+    // Search, Settings, and your own profile have no in-content title,
+    // so they keep the chrome one.
+    expect($layout->navBar(new Search))->not->toBeNull()
+        ->and($layout->navBar(new Settings))->not->toBeNull()
+        ->and($layout->navBar(new Profile))->not->toBeNull();
+
+    // Auth screens never get tabs, drawer, or the compose entry (they
+    // also sit outside the layout route group).
+    expect($layout->tabBar(new Login))->toBeNull()
+        ->and($layout->drawer(new Login))->toBeNull()
+        ->and($layout->floatingOverlay(new Login))->toBeNull()
+        ->and($layout->tabBar(new Register))->toBeNull()
+        ->and($layout->drawer(new Register))->toBeNull()
+        ->and($layout->floatingOverlay(new Register))->toBeNull();
+
+    expect($layout->tabBar(new Search))->not->toBeNull()
+        ->and($layout->drawer(new Search))->not->toBeNull()
+        ->and($layout->floatingOverlay(new Search))->not->toBeNull();
+});
+
+function notificationRow(string $id, string $snippet): array
+{
+    return [
+        'id' => $id,
+        'type' => 'QuestionAnswered',
+        'read' => false,
+        'created_at' => now()->subHour()->toIso8601String(),
+        'actor' => ['id' => 2, 'name' => 'Ada Lovelace', 'username' => 'ada', 'avatar' => null, 'verified' => false, 'company_verified' => false],
+        'action' => 'answered your question:',
+        'snippet' => $snippet,
+        'target' => ['kind' => 'question', 'id' => 'q9'],
+    ];
+}
+
+it('paginates notifications and surfaces load-more failures', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/notifications*' => Http::sequence()
+            ->push([
+                'data' => [notificationRow('n1', 'First snippet.')],
+                'links' => ['next' => 'https://pinkary.test/api/v1/notifications?page=2'],
+                'meta' => ['unread_count' => 2],
+            ])
+            ->push([
+                'data' => [notificationRow('n2', 'Second snippet.')],
+                'links' => ['next' => 'https://pinkary.test/api/v1/notifications?page=3'],
+                'meta' => ['unread_count' => 2],
+            ])
+            ->push(['message' => 'Server error'], 500),
+    ]);
+
+    Native::test(Notifications::class)
+        ->assertSee('First snippet.')
+        ->call('loadMore')
+        ->assertSee('Second snippet.')
+        ->call('loadMore')
+        ->assertSee('Could not load more notifications. Please try again.');
+});
+
+it('shows per-field login errors from the API', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    Http::fake([
+        'https://pinkary.test/api/v1/auth/login' => Http::response([
+            'message' => 'These credentials do not match our records.',
+            'errors' => [
+                'email' => ['The email address is not registered.'],
+                'password' => ['The password is incorrect.'],
+            ],
+        ], 422),
+    ]);
+
+    Native::test(Login::class)
+        ->set('email', 'ada@example.com')
+        ->set('password', 'wrong-password')
+        ->call('authenticate')
+        ->assertSee('The email address is not registered.')
+        ->assertSee('The password is incorrect.');
+});
+
+it('shows client-side login validation errors per field', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+
+    Native::test(Login::class)
+        ->set('email', 'not-an-email')
+        ->set('password', '')
+        ->call('authenticate')
+        ->assertSee('must be a valid email address');
+});
+
+it('shows per-field registration errors from the API', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    Http::fake([
+        'https://pinkary.test/api/v1/auth/register' => Http::response([
+            'message' => 'The given data was invalid.',
+            'errors' => [
+                'username' => ['The username is taken.'],
+                'password' => ['The password is too short.'],
+                'terms' => ['You must accept the terms.'],
+            ],
+        ], 422),
+    ]);
+
+    Native::test(Register::class)
+        ->set('name', 'Ada Lovelace')
+        ->set('username', 'adalovelace')
+        ->set('email', 'ada@example.com')
+        ->set('password', 'password123')
+        ->set('passwordConfirmation', 'password123')
+        ->set('terms', true)
+        ->call('createAccount')
+        ->assertSee('The username is taken.')
+        ->assertSee('The password is too short.')
+        ->assertSee('You must accept the terms.');
+});
+
+it('filters notifications client-side without new requests', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/notifications*' => Http::response([
+            'data' => [
+                array_merge(notificationRow('n1', 'Unread snippet.'), ['read' => false]),
+                array_merge(notificationRow('n2', 'Read snippet.'), ['read' => true]),
+            ],
+            'links' => ['next' => null],
+            'meta' => ['unread_count' => 1],
+        ]),
+    ]);
+
+    Native::test(Notifications::class)
+        ->assertSee('Unread snippet.')
+        ->assertSee('Read snippet.')
+        ->assertSee('Unread (1)')
+        ->call('showUnread')
+        ->assertSee('Unread snippet.')
+        ->assertDontSee('Read snippet.')
+        ->call('showAll')
+        ->assertSee('Unread snippet.')
+        ->assertSee('Read snippet.');
+
+    Http::assertSentCount(1);
+});
+
+it('shows a caught-up state when every loaded notification is read', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/notifications*' => Http::response([
+            'data' => [array_merge(notificationRow('n1', 'Unread snippet.'), ['read' => true])],
+            'links' => ['next' => null],
+            'meta' => ['unread_count' => 0],
+        ]),
+    ]);
+
+    Native::test(Notifications::class)
+        ->call('showUnread')
+        ->assertSee("You're all caught up.");
+});
+
+it('returns to the feed from the bookmarks empty state', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/bookmarks*' => Http::response(['data' => []]),
+    ]);
+
+    Native::test(Bookmarks::class)
+        ->assertSee('Back to Feed')
+        ->call('goFeed')
+        ->assertNavigatedTo('/feed');
+});
+
+it('returns to the feed from the notifications empty state', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/notifications*' => Http::response([
+            'data' => [],
+            'links' => ['next' => null],
+            'meta' => ['unread_count' => 0],
+        ]),
+    ]);
+
+    Native::test(Notifications::class)
+        ->assertSee('Back to Feed')
+        ->call('goFeed')
+        ->assertNavigatedTo('/feed');
+});
+
+it('clears the search and recalls recent searches locally', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/search*' => Http::response(['data' => [
+            'users' => [[
+                'id' => 1,
+                'name' => 'Ada Lovelace',
+                'username' => 'ada',
+                'avatar' => null,
+                'verified' => true,
+                'company_verified' => false,
+                'followed' => true,
+            ]],
+            'hashtags' => [],
+        ]]),
+    ]);
+
+    $test = Native::test(Search::class)
+        ->set('query', 'ada')
+        ->assertSee('Ada Lovelace')
+        ->assertSee('Clear');
+
+    expect($test->get('recentSearches'))->toBe(['ada']);
+
+    $test
+        ->call('clearQuery')
+        ->assertSee('Search people by name')
+        ->assertSee('Recent searches')
+        ->press('selectRecent(0)')
+        ->assertSee('Ada Lovelace');
+
+    Http::assertSentCount(2);
+});
+
+it('toggles password visibility on the auth screens', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+
+    $login = Native::test(Login::class)
+        ->assertSee('Show password')
+        ->call('togglePasswordVisibility')
+        ->assertSee('Hide password');
+
+    expect($login->get('showPassword'))->toBeTrue();
+
+    $register = Native::test(Register::class)
+        ->assertSee('Show password')
+        ->call('togglePasswordVisibility')
+        ->assertSee('Hide password');
+
+    expect($register->get('showPassword'))->toBeTrue();
 });

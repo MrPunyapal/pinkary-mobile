@@ -70,7 +70,15 @@ final class Settings extends NativeComponent
             $this->loading = false;
         }
 
-        $response = app(PinkaryApi::class)->profile($token);
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->profile($token));
+
+        if ($response === null) {
+            $this->loading = false;
+            $this->errorMessage = 'Settings could not be loaded. Please try again.';
+
+            return;
+        }
 
         if ($response->unauthorized()) {
             app(TokenStorage::class)->clear();

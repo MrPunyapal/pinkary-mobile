@@ -18,7 +18,21 @@ final class Login extends NativeComponent
 
     public string $errorMessage = '';
 
+    /**
+     * First server/validation message per input, shown under the field.
+     * The summary banner stays as the fallback for older clients.
+     *
+     * @var array<string, string>
+     */
+    public array $fieldErrors = [];
+
     public bool $busy = false;
+
+    /**
+     * Client-side only password visibility. Rendered through the
+     * existing `secure` input prop — no new APIs involved.
+     */
+    public bool $showPassword = false;
 
     public function navTitle(): string
     {
@@ -28,6 +42,7 @@ final class Login extends NativeComponent
     public function authenticate(): void
     {
         $this->errorMessage = '';
+        $this->fieldErrors = [];
 
         $validator = Validator::make([
             'email' => $this->email,
@@ -38,7 +53,10 @@ final class Login extends NativeComponent
         ]);
 
         if ($validator->fails()) {
-            $this->errorMessage = $validator->errors()->first();
+            $this->applyFieldErrors($validator->errors()->toArray(), [
+                'email' => 'email',
+                'password' => 'password',
+            ]);
 
             return;
         }
@@ -54,9 +72,10 @@ final class Login extends NativeComponent
         }
 
         $this->busy = false;
-        $this->errorMessage = $response->json('errors.email.0')
-            ?? $response->json('message')
-            ?? 'We could not log you in. Please check your details and try again.';
+        $this->applyFieldErrors((array) $response->json('errors', []), [
+            'email' => 'email',
+            'password' => 'password',
+        ], (string) ($response->json('message') ?? 'We could not log you in. Please check your details and try again.'));
     }
 
     public function register(): void
@@ -64,8 +83,45 @@ final class Login extends NativeComponent
         $this->navigate($this->route('mobile.register'));
     }
 
+    public function togglePasswordVisibility(): void
+    {
+        $this->showPassword = ! $this->showPassword;
+    }
+
     public function render(): View
     {
         return view('native.login');
+    }
+
+    /**
+     * Split a Laravel errors bag into per-field messages (shown under
+     * each input) plus a summary for the banner: the first message from
+     * fields without their own input, else the first message overall.
+     *
+     * @param  array<string, mixed>  $errors
+     * @param  array<string, string>  $fields  server key => fieldErrors key
+     */
+    private function applyFieldErrors(array $errors, array $fields, ?string $fallback = null): void
+    {
+        $first = null;
+        $unmappedFirst = null;
+
+        foreach ($errors as $key => $messages) {
+            $message = is_array($messages) ? ($messages[0] ?? null) : $messages;
+
+            if (! is_string($message) || $message === '') {
+                continue;
+            }
+
+            $first ??= $message;
+
+            if (isset($fields[$key])) {
+                $this->fieldErrors[$fields[$key]] = $message;
+            } else {
+                $unmappedFirst ??= $message;
+            }
+        }
+
+        $this->errorMessage = $unmappedFirst ?? $first ?? $fallback ?? 'Something went wrong. Please try again.';
     }
 }

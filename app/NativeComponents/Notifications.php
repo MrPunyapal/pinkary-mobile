@@ -29,7 +29,16 @@ final class Notifications extends NativeComponent
 
     public bool $loadingMore = false;
 
+    public string $loadMoreError = '';
+
     public bool $markingRead = false;
+
+    /**
+     * Client-side only filter over the loaded page ("all" or "unread").
+     * No API support for server-side filtering, so this never triggers
+     * a request — the view filters $items by $filter instead.
+     */
+    public string $filter = 'all';
 
     public function navTitle(): string
     {
@@ -87,9 +96,9 @@ final class Notifications extends NativeComponent
             }
         }
 
-        $response = app(PinkaryApi::class)->markNotificationsRead($token, $id);
+        $response = app(PinkaryApi::class)->attempt(fn () => app(PinkaryApi::class)->markNotificationsRead($token, $id));
 
-        if ($response->successful()) {
+        if ($response?->successful()) {
             $this->unreadCount = (int) $response->json('data.unread_count', max(0, $this->unreadCount - 1));
         }
 
@@ -120,9 +129,16 @@ final class Notifications extends NativeComponent
 
         $this->markingRead = true;
 
-        $response = app(PinkaryApi::class)->markNotificationsRead($token);
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->markNotificationsRead($token));
 
         $this->markingRead = false;
+
+        if ($response === null) {
+            $this->errorMessage = 'Notifications could not be marked as read. Please try again.';
+
+            return;
+        }
 
         if ($response->unauthorized()) {
             app(TokenStorage::class)->clear();
@@ -132,6 +148,8 @@ final class Notifications extends NativeComponent
         }
 
         if (! $response->successful()) {
+            $this->errorMessage = 'Notifications could not be marked as read. Please try again.';
+
             return;
         }
 
@@ -140,6 +158,27 @@ final class Notifications extends NativeComponent
         }
 
         $this->unreadCount = (int) $response->json('data.unread_count', 0);
+    }
+
+    /**
+     * Show every loaded notification (client-side only).
+     */
+    public function showAll(): void
+    {
+        $this->filter = 'all';
+    }
+
+    /**
+     * Show only unread loaded notifications (client-side only).
+     */
+    public function showUnread(): void
+    {
+        $this->filter = 'unread';
+    }
+
+    public function goFeed(): void
+    {
+        $this->navigate($this->route('mobile.feed'));
     }
 
     public function loadMore(): void
@@ -157,10 +196,18 @@ final class Notifications extends NativeComponent
         }
 
         $this->loadingMore = true;
+        $this->loadMoreError = '';
 
-        $response = app(PinkaryApi::class)->notifications($token, $this->page + 1);
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->notifications($token, $this->page + 1));
 
         $this->loadingMore = false;
+
+        if ($response === null) {
+            $this->loadMoreError = 'Could not load more notifications. Please try again.';
+
+            return;
+        }
 
         if ($response->unauthorized()) {
             app(TokenStorage::class)->clear();
@@ -170,6 +217,8 @@ final class Notifications extends NativeComponent
         }
 
         if (! $response->successful()) {
+            $this->loadMoreError = 'Could not load more notifications. Please try again.';
+
             return;
         }
 
@@ -191,7 +240,15 @@ final class Notifications extends NativeComponent
         $this->loading = true;
         $this->errorMessage = '';
 
-        $response = app(PinkaryApi::class)->notifications($token);
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->notifications($token));
+
+        if ($response === null) {
+            $this->loading = false;
+            $this->errorMessage = 'Your notifications could not be loaded. Please try again.';
+
+            return;
+        }
 
         if ($response->unauthorized()) {
             app(TokenStorage::class)->clear();
@@ -213,6 +270,7 @@ final class Notifications extends NativeComponent
         $this->unreadCount = (int) $response->json('meta.unread_count', 0);
         $this->page = 1;
         $this->hasMore = $response->json('links.next') !== null;
+        $this->loadMoreError = '';
         $this->loading = false;
     }
 

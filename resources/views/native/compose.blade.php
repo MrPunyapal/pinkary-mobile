@@ -8,30 +8,26 @@
             </native:column>
         @endif
 
-        <native:column class="relative w-full">
-            @if (count($posts) > 0)
-                <x-thread-rail />
-            @endif
-            <native:row class="w-full items-start gap-3">
-                <native:column class="w-10 items-center shrink-0">
-                    <x-avatar :user="['avatar' => $avatar, 'name' => 'You']" :link="false" />
-                </native:column>
-                <native:column class="flex-1 gap-1 min-w-0">
-                    <native:outlined-text-input label="Share an update..." placeholder="Share an update..." multiline native:model="content" />
-                    @if (mb_strlen($content) > 800)
-                        <native:text class="text-xs text-right {{ mb_strlen($content) >= 1000 ? 'text-theme-destructive' : 'text-theme-on-surface-variant' }}">{{ mb_strlen($content) }} / 1000</native:text>
-                    @endif
-                </native:column>
-            </native:row>
-        </native:column>
+        {{-- No connector rails: step order is carried by the Post N labels
+            and the "Add another post" row (plain row/column, the
+            super-native compose-tweet pattern) — nothing to stitch. --}}
+        <native:row class="w-full items-start gap-3">
+            <native:column class="w-10 items-center shrink-0">
+                <x-avatar :user="['avatar' => $avatar, 'name' => 'You']" :link="false" />
+            </native:column>
+            <native:column class="flex-1 gap-1 min-w-0">
+                <native:outlined-text-input label="Share an update..." placeholder="Share an update..." multiline native:model="content" />
+                @if (mb_strlen($content) > 800)
+                    <native:text class="text-xs text-right {{ mb_strlen($content) >= 1000 ? 'text-theme-destructive' : 'text-theme-on-surface-variant' }}">{{ mb_strlen($content) }} / 1000</native:text>
+                @endif
+            </native:column>
+        </native:row>
 
         @foreach ($posts as $index => $post)
-            <native:column class="relative w-full">
-                <x-thread-rail />
-                <native:row class="w-full items-start gap-3">
-                    <native:column class="w-10 items-center shrink-0">
-                        <x-avatar :user="['avatar' => $avatar, 'name' => 'You']" :size="7" :link="false" />
-                    </native:column>
+            <native:row class="w-full items-start gap-3">
+                <native:column class="w-10 items-center shrink-0">
+                    <x-avatar :user="['avatar' => $avatar, 'name' => 'You']" :size="7" :link="false" />
+                </native:column>
                     <native:column class="flex-1 gap-1 min-w-0">
                     <native:outlined-text-input label="Post {{ $index + 2 }}" placeholder="Say more..." multiline :value="$post" @change="updatePost({{ $index }})" />
                     <native:row class="w-full items-center justify-between">
@@ -82,19 +78,25 @@
                     @endif
                 </native:column>
             </native:row>
-            </native:column>
         @endforeach
 
         @if (count($posts) < 9)
+            {{-- The row only carries a tap target once a follow-up is
+                actually allowed — otherwise it is a dimmed hint, never
+                a silent no-op. (native:pressable has no disabled prop.) --}}
             <native:row class="w-full items-center gap-3 {{ $this->canAddPost() ? '' : 'opacity-40' }}">
                 <native:column class="items-center shrink-0 w-10">
                     <native:column class="w-7 h-7 items-center justify-center rounded-full border border-dashed border-theme-outline">
                         <native:text class="text-sm text-theme-on-surface-variant">+</native:text>
                     </native:column>
                 </native:column>
-                <native:pressable class="flex-1 py-1" @tap="addPost" a11y-label="Add another post">
-                    <native:text class="text-sm font-medium {{ $this->canAddPost() ? 'text-theme-primary' : 'text-theme-on-surface-variant' }}">Add another post</native:text>
-                </native:pressable>
+                @if ($this->canAddPost())
+                    <native:pressable class="flex-1 py-1" @tap="addPost" a11y-label="Add another post">
+                        <native:text class="text-sm font-medium text-theme-primary">Add another post</native:text>
+                    </native:pressable>
+                @else
+                    <native:text class="text-sm font-medium text-theme-on-surface-variant">Add another post</native:text>
+                @endif
             </native:row>
         @else
             <native:text class="text-sm text-center text-theme-on-surface-variant">A thread can have a maximum of 10 posts.</native:text>
@@ -166,7 +168,7 @@
                     <native:text class="text-xs text-theme-destructive">{{ $channelError }}</native:text>
                 @endif
                 @foreach ($channelResults as $channel)
-                    <native:pressable class="w-full py-2" @tap="selectChannel({{ (int) data_get($channel, 'id', 0) }}, '{{ data_get($channel, 'name', '') }}')">
+                    <native:pressable class="w-full py-2" @tap="selectChannel({{ (int) data_get($channel, 'id', 0) }})">
                         <native:row class="w-full items-center justify-between">
                             <native:text class="text-sm text-theme-on-surface">{{ data_get($channel, 'name', '') }}</native:text>
                             @if ((int) data_get($channel, 'id', 0) === $channelId)

@@ -19,6 +19,9 @@ final class Detail extends NativeComponent
     use TogglesPostReactions;
     use UsesAppMenu;
 
+    // Back arrow shows instead of the drawer hamburger (no overlap).
+    protected bool $hidesDrawer = true;
+
     public string $id = '';
 
     /** @var array<string, mixed> */
@@ -49,6 +52,8 @@ final class Detail extends NativeComponent
     public string $loadMoreCommentsError = '';
 
     public bool $commentsFailed = false;
+
+    public string $voteError = '';
 
     /** @var list<string> */
     public array $expanded = [];
@@ -176,30 +181,79 @@ final class Detail extends NativeComponent
 
     public function votePoll(string $id, int $optionId): void
     {
+        $this->voteError = '';
+
         if ($id === '') {
             return;
         }
 
         $token = $this->token();
 
-        $posts = [$this->post];
-
-        if ($this->voteOnPostPayload($posts, $id, $optionId, $token)) {
-            $this->post = $posts[0];
-            $this->syncThreadMirror();
+        if ($token === null) {
+            $this->replace($this->route('mobile.login'));
 
             return;
         }
 
-        foreach ($this->comments as $index => $comment) {
-            $list = [$comment];
+        // The shared trait swallows vote failures silently; the detail
+        // screen votes with feedback instead so a failed tap explains
+        // itself instead of looking ignored.
+        if (! $this->acquireReactionLock('vote:'.$id)) {
+            return;
+        }
 
-            if ($this->voteOnPostPayload($list, $id, $optionId, $token)) {
-                $this->comments[$index] = $list[0];
+        try {
+            $location = $this->locateNestedPost([$this->post], $id);
+
+            if ($location !== null) {
+                [, $key] = $location;
+
+                if ($key === null) {
+                    $target = &$this->post;
+                } else {
+                    $target = &$this->post['thread']['posts'][$key];
+                }
+
+                $this->voteWithFeedback($target, $id, $optionId, $token);
+                $this->syncThreadMirror();
 
                 return;
             }
+
+            foreach ($this->comments as $index => $comment) {
+                $location = $this->locateNestedPost([$comment], $id);
+
+                if ($location === null) {
+                    continue;
+                }
+
+                [, $key] = $location;
+
+                if ($key === null) {
+                    $target = &$this->comments[$index];
+                } else {
+                    $target = &$this->comments[$index]['thread']['posts'][$key];
+                }
+
+                $this->voteWithFeedback($target, $id, $optionId, $token);
+
+                return;
+            }
+        } finally {
+            $this->releaseReactionLock('vote:'.$id);
         }
+    }
+
+    /**
+     * Like the web question page, the reply composer only renders for
+     * answered questions — an unanswered question takes an answer,
+     * not a comment.
+     */
+    public function canComment(): bool
+    {
+        $answer = trim(html_entity_decode(strip_tags((string) data_get($this->post, 'answer', '')), ENT_QUOTES, 'UTF-8'));
+
+        return $answer !== '';
     }
 
     public function postComment(): void
@@ -212,6 +266,12 @@ final class Detail extends NativeComponent
 
         if ($token === null) {
             $this->replace($this->route('mobile.login'));
+
+            return;
+        }
+
+        if (! $this->canComment()) {
+            $this->commentError = 'You can comment once this question has an answer.';
 
             return;
         }
@@ -233,9 +293,16 @@ final class Detail extends NativeComponent
         $this->commentBusy = true;
         $this->commentError = '';
 
-        $response = app(PinkaryApi::class)->comment($token, $this->id, $content);
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->comment($token, $this->id, $content));
 
         $this->commentBusy = false;
+
+        if ($response === null) {
+            $this->commentError = 'Your comment could not be posted. Please try again.';
+
+            return;
+        }
 
         if ($response->unauthorized()) {
             app(TokenStorage::class)->clear();
@@ -250,13 +317,14 @@ final class Detail extends NativeComponent
             return;
         }
 
-        // Prepend so the new comment is immediately visible; the API lists
-        // oldest first, so this is the only out-of-order row by design.
+        // Append oldest-first like the API lists comments, so the new
+        // row stays in order and a later page cannot replay it out of
+        // place (loadMoreComments dedupes by id as well).
         /** @var array<string, mixed> $created */
         $created = $response->json('data', []);
 
         if ($created !== []) {
-            $this->comments = [$created, ...$this->comments];
+            $this->comments = [...$this->comments, $created];
         }
 
         data_set($this->post, 'metrics.comments', (int) data_get($this->post, 'metrics.comments', 0) + 1);
@@ -280,9 +348,16 @@ final class Detail extends NativeComponent
         $this->loadingMoreComments = true;
         $this->loadMoreCommentsError = '';
 
-        $response = app(PinkaryApi::class)->comments($token, $this->id, $this->commentPage + 1);
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->comments($token, $this->id, $this->commentPage + 1));
 
         $this->loadingMoreComments = false;
+
+        if ($response === null) {
+            $this->loadMoreCommentsError = 'Could not load more comments. Please try again.';
+
+            return;
+        }
 
         if ($response->unauthorized()) {
             app(TokenStorage::class)->clear();
@@ -299,6 +374,21 @@ final class Detail extends NativeComponent
 
         /** @var list<array<string, mixed>> $next */
         $next = $response->json('data', []);
+
+        /** @var array<string, true> $seen */
+        $seen = [];
+
+        foreach ($this->comments as $row) {
+            $seen[(string) data_get($row, 'id', '')] = true;
+        }
+
+        // A freshly posted comment may reappear inside the next page;
+        // skip rows already on screen so none render twice.
+        $next = array_values(array_filter(
+            $next,
+            fn (mixed $row): bool => is_array($row) && ! isset($seen[(string) data_get($row, 'id', '')])
+        ));
+
         $this->comments = [...$this->comments, ...$next];
         $this->commentPage++;
         $this->hasMoreComments = $response->json('links.next') !== null;
@@ -307,6 +397,50 @@ final class Detail extends NativeComponent
     public function render(): View
     {
         return view('native.detail');
+    }
+
+    /**
+     * Vote in the target row's poll, replacing its poll state with the
+     * server's — and saying so when the vote does not go through.
+     *
+     * @param  array<string, mixed>  $post
+     */
+    private function voteWithFeedback(array &$post, string $id, int $optionId, ?string $token): void
+    {
+        if ($token === null) {
+            $this->replace($this->route('mobile.login'));
+
+            return;
+        }
+
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->votePoll($token, $id, $optionId));
+
+        if ($response === null) {
+            $this->voteError = 'Your vote could not be recorded. Please try again.';
+
+            return;
+        }
+
+        if ($response->unauthorized()) {
+            app(TokenStorage::class)->clear();
+            $this->replace($this->route('mobile.login'));
+
+            return;
+        }
+
+        if (! $response->successful()) {
+            $this->voteError = ApiErrors::first($response, 'Your vote could not be recorded. Please try again.');
+
+            return;
+        }
+
+        /** @var array<string, mixed> $poll */
+        $poll = $response->json('data', []);
+
+        if ($poll !== []) {
+            data_set($post, 'poll', $poll);
+        }
     }
 
     /**
@@ -388,7 +522,15 @@ final class Detail extends NativeComponent
         $this->loading = true;
         $this->errorMessage = '';
 
-        $response = app(PinkaryApi::class)->show($token, $this->id);
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->show($token, $this->id));
+
+        if ($response === null) {
+            $this->loading = false;
+            $this->errorMessage = 'This post could not be loaded. It may have been removed.';
+
+            return;
+        }
 
         if ($response->unauthorized()) {
             app(TokenStorage::class)->clear();
@@ -418,7 +560,17 @@ final class Detail extends NativeComponent
         data_set($this->post, 'thread.posts', $this->thread);
         data_set($this->post, 'thread.more', false);
 
-        $comments = app(PinkaryApi::class)->comments($token, $this->id);
+        $comments = $api->attempt(fn () => $api->comments($token, $this->id));
+
+        if ($comments === null) {
+            $this->comments = [];
+            $this->commentsFailed = true;
+            $this->commentPage = 1;
+            $this->hasMoreComments = false;
+            $this->loading = false;
+
+            return;
+        }
 
         if ($comments->unauthorized()) {
             app(TokenStorage::class)->clear();

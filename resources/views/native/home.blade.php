@@ -1,5 +1,8 @@
 <native:scroll-view class="w-full h-full bg-theme-background">
     <native:column class="w-full gap-0">
+        <native:row class="w-full items-center justify-center px-4 py-2 bg-theme-surface">
+            <native:text class="text-xl font-bold text-theme-primary">Pinkary</native:text>
+        </native:row>
         <x-feed-tabs :tab="$tab" />
 
         @if ($loading)
@@ -8,7 +11,7 @@
                 <native:text class="text-sm text-theme-on-surface-variant">Loading the latest conversations…</native:text>
             </native:column>
         @elseif ($errorMessage !== '')
-            <native:column class="w-full mx-4 my-5 p-4 gap-3 rounded-md bg-theme-destructive/15 border border-theme-destructive">
+            <native:column class="mx-4 my-5 p-4 gap-3 rounded-md bg-theme-destructive/15 border border-theme-destructive">
                 <native:text class="text-sm text-theme-destructive">{{ $errorMessage }}</native:text>
                 <native:pressable class="self-start py-1" @tap="retry">
                     <native:text class="text-sm font-semibold text-theme-destructive">Try again</native:text>

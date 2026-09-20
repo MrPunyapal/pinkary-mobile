@@ -1,4 +1,4 @@
-@props(['post', 'inThread' => false, 'bare' => false, 'expanded' => false])
+@props(['post', 'replyTo' => null, 'bare' => false, 'expanded' => false])
 
 @php
     $anonymous = (bool) data_get($post, 'anonymously', false);
@@ -49,9 +49,17 @@
         ? $answerText
         : mb_substr($answerText, 0, $answerLimit).'…';
 
+    // Continuation marker for chained thread posts ("Replying to @user",
+    // the super-native tweet-detail pattern). Usernames may arrive with
+    // or without the @ prefix; normalize so the affordance always reads
+    // the same.
+    $replyToName = is_string($replyTo) ? trim($replyTo) : '';
+    $replyToHandle = $replyToName !== '' ? '@'.ltrim($replyToName, '@') : '';
+
     // Bare posts render inside a thread-post card (like the web's x-thread):
-    // no padding or border of their own — the card owns the frame and the
-    // rail bridges connect the avatars into one continuous line.
+    // no padding or border of their own — the card owns the frame and
+    // separates chained posts with its own borders, so there is no drawn
+    // rail that must stitch across posts on old Jump apps.
     $frameClass = $bare
         ? 'w-full gap-3'
         : 'w-full gap-3 px-4 py-3 bg-theme-background border-b border-theme-outline-variant';
@@ -76,19 +84,23 @@
                 @endif
             </native:row>
 
-            @if ($questionText !== '' && $questionText !== '__UPDATE__' && ! $anonymous)
+            @if ($questionText !== '' && $questionText !== '__UPDATE__')
                 <native:text class="text-sm leading-relaxed text-theme-on-surface">{{ $questionText }}</native:text>
             @endif
         </native:column>
     @endunless
 
     @if ($hasAnswer)
-        <native:column class="w-full gap-0">
+        {{-- Plain avatar + body row (the super-native feed pattern). The
+            avatar column carries no rail: thread continuity comes from the
+            card's own borders and the "Replying to" affordance below, so
+            there is no stretch lane or overlay that old Jump apps can
+            drop, leaving gaps. --}}
         <native:row class="w-full items-start gap-3">
             <native:column class="w-10 items-center shrink-0">
                 <x-avatar :user="data_get($post, 'to', [])" />
             </native:column>
-            <native:column class="flex-1 min-w-0">
+            <native:column class="flex-1 gap-1.5 min-w-0">
                 <native:row class="w-full items-center justify-between gap-2">
                     <native:pressable class="flex-1 min-w-0" @tap="openProfile('{{ data_get($post, 'to.username', '') }}')" a11y-label="Open {{ '@'.data_get($post, 'to.username', '') }}’s profile">
                         <native:row class="items-center gap-1.5">
@@ -112,65 +124,67 @@
                         @endif
                     </native:row>
                 </native:row>
+                @if ($replyToHandle !== '')
+                    <native:row class="w-full items-center gap-1">
+                        <native:text class="text-xs text-theme-on-surface-variant">Replying to</native:text>
+                        <native:text class="text-xs font-medium text-theme-primary">{{ $replyToHandle }}</native:text>
+                    </native:row>
+                @endif
+                <native:pressable @tap="openDetail('{{ $postId }}')" a11y-label="Open post">
+                    <native:text class="text-base leading-relaxed text-theme-on-surface">{{ $answerShown }}</native:text>
+                </native:pressable>
+
+                @if ($answerLong)
+                    <x-show-more :post-id="$postId" :expanded="$expanded" />
+                @endif
+
+                @foreach ($images as $src)
+                    {{-- Fullscreen viewing via the existing in-app browser:
+                        openLink only reaches http(s) URLs (guarded in the
+                        shared trait), so a tap opens the image full-size
+                        instead of leaving it a fixed h-48 stack. --}}
+                    <native:pressable @tap="openLink('{{ $src }}')" a11y-label="Open image fullscreen">
+                        <native:image src="{{ $src }}" alt="Post image" class="w-full h-48 object-cover rounded-md border border-theme-outline-variant" />
+                    </native:pressable>
+                @endforeach
+
+                @if (is_array($preview) && ($preview['url'] ?? '') !== '')
+                    <native:pressable @tap="openLink('{{ $preview['url'] }}')" a11y-label="Open link: {{ $preview['host'] ?? $preview['url'] }}">
+                        <native:column class="w-full gap-0 rounded-md border border-theme-outline-variant overflow-hidden">
+                            @if (($preview['image'] ?? null) !== null && $preview['image'] !== '')
+                                <native:image src="{{ $preview['image'] }}" alt="{{ $preview['title'] ?? $preview['url'] }}" class="w-full h-36 object-cover" />
+                            @endif
+                            <native:column class="w-full gap-0.5 px-3 py-2 bg-theme-bubble">
+                                <native:text class="text-xs font-semibold text-theme-on-surface">{{ $preview['title'] ?? $preview['url'] }}</native:text>
+                                <native:text class="text-xs text-theme-on-surface-variant">{{ $preview['host'] ?? '' }}</native:text>
+                            </native:column>
+                        </native:column>
+                    </native:pressable>
+                @endif
+
+                @if (is_array($poll) && $poll !== [])
+                    <x-post-poll :poll="$poll" :post-id="$postId" />
+                @endif
+
+                <native:row class="w-full items-center gap-3 pt-1">
+                    <x-post-action type="comments" :post-id="$postId" :count="$commentsCount" />
+                    <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
+                    <x-post-action type="like" :post-id="$postId" :count="$likesCount" :active="$liked" />
+                    @if ($viewsCount > 0)
+                        <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
+                        <x-post-action type="views" :count="$viewsCount" />
+                    @endif
+                    <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
+                    <x-post-action type="translate" :post-id="$postId" />
+                    <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
+                    <x-post-action type="bookmark" :post-id="$postId" :count="$bookmarksCount" :active="$bookmarked" />
+                    {{-- Spacer pushes share to the trailing edge: ml-auto is
+                        unreliable on the renderers, so this uses the same
+                        native:spacer flex-1 pattern as post-poll-option. --}}
+                    <native:spacer class="flex-1" />
+                    <x-post-action type="share" :post-id="$postId" />
+                </native:row>
             </native:column>
         </native:row>
-
-        {{-- Stack ignores absolute children. A relative column with
-            top-0 + bottom-0 stretches the rail to the body height. --}}
-        <native:column class="relative w-full">
-            @if ($inThread)
-                <x-thread-rail />
-            @endif
-            <native:row class="w-full items-start gap-3">
-                <native:column class="w-10 shrink-0" />
-                <native:column class="flex-1 gap-1.5 min-w-0">
-                    <native:pressable @tap="openDetail('{{ $postId }}')" a11y-label="Open post">
-                        <native:text class="text-base leading-relaxed text-theme-on-surface">{{ $answerShown }}</native:text>
-                    </native:pressable>
-
-                    @if ($answerLong)
-                        <x-show-more :post-id="$postId" :expanded="$expanded" />
-                    @endif
-
-                    @foreach ($images as $src)
-                        <native:image src="{{ $src }}" alt="Post image" class="w-full h-48 object-cover rounded-md border border-theme-outline-variant" />
-                    @endforeach
-
-                    @if (is_array($preview) && ($preview['url'] ?? '') !== '')
-                        <native:pressable @tap="openLink('{{ $preview['url'] }}')" a11y-label="Open link: {{ $preview['host'] ?? $preview['url'] }}">
-                            <native:column class="w-full gap-0 rounded-md border border-theme-outline-variant overflow-hidden">
-                                @if (($preview['image'] ?? null) !== null && $preview['image'] !== '')
-                                    <native:image src="{{ $preview['image'] }}" alt="{{ $preview['title'] ?? $preview['url'] }}" class="w-full h-36 object-cover" />
-                                @endif
-                                <native:column class="w-full gap-0.5 px-3 py-2 bg-theme-bubble">
-                                    <native:text class="text-xs font-semibold text-theme-on-surface">{{ $preview['title'] ?? $preview['url'] }}</native:text>
-                                    <native:text class="text-xs text-theme-on-surface-variant">{{ $preview['host'] ?? '' }}</native:text>
-                                </native:column>
-                            </native:column>
-                        </native:pressable>
-                    @endif
-
-                    @if (is_array($poll) && $poll !== [])
-                        <x-post-poll :poll="$poll" :post-id="$postId" />
-                    @endif
-
-                    <native:row class="w-full items-center gap-3 pt-1">
-                        <x-post-action type="comments" :post-id="$postId" :count="$commentsCount" />
-                        <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
-                        <x-post-action type="like" :post-id="$postId" :count="$likesCount" :active="$liked" />
-                        @if ($viewsCount > 0)
-                            <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
-                            <x-post-action type="views" :count="$viewsCount" />
-                        @endif
-                        <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
-                        <x-post-action type="translate" :post-id="$postId" />
-                        <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
-                        <x-post-action type="bookmark" :post-id="$postId" :count="$bookmarksCount" :active="$bookmarked" />
-                        <x-post-action type="share" :post-id="$postId" :end="true" />
-                    </native:row>
-                </native:column>
-            </native:row>
-        </native:column>
-        </native:column>
     @endif
 </native:column>

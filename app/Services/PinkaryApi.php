@@ -4,12 +4,29 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
 final class PinkaryApi
 {
+    /**
+     * Run an API call, returning null when the device cannot reach the
+     * API (timeout, DNS) instead of throwing past the screen's error
+     * state. Callers map null to their existing error copy.
+     *
+     * @param  callable(): Response  $call
+     */
+    public function attempt(callable $call): ?Response
+    {
+        try {
+            return $call();
+        } catch (ConnectionException) {
+            return null;
+        }
+    }
+
     /**
      * Authenticate a user with the Pinkary API.
      */
@@ -253,6 +270,7 @@ final class PinkaryApi
         return Http::baseUrl(rtrim((string) config('services.pinkary.url'), '/'))
             ->acceptJson()
             ->asJson()
+            ->connectTimeout(5)
             ->timeout(15);
     }
 }

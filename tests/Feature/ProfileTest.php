@@ -148,3 +148,29 @@ it('opens author profiles from the feed', function (): void {
 
     Native::visit('/user/ada')->assertSee('Ada Lovelace');
 });
+
+it('toggles the profile QR code section', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::response(['data' => ownProfile()]),
+    ]);
+
+    Native::test(Profile::class)
+        ->call('toggleQr')
+        ->assertSee('https://pinkary.test/@pinkaryuser');
+});
+
+it('renders other users with a single in-content top bar title', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/users/ada' => Http::response(['data' => otherProfile()]),
+    ]);
+
+    // Hoisted to the nav slot (not drawn in-content), so this top bar
+    // is the only title on old and new clients alike.
+    Native::test(Profile::class, ['username' => 'ada'])
+        ->assertNavTitle('@ada')
+        ->assertMissingElement('top_bar');
+});

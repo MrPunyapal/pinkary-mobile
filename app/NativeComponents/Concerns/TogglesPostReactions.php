@@ -18,6 +18,30 @@ use Native\Mobile\Share;
  */
 trait TogglesPostReactions
 {
+    /** @var array<string, true> In-flight like/bookmark/vote locks per post+action. */
+    private array $reactionLocks = [];
+
+    /**
+     * Double-tap guard: returns false when this post+action already has
+     * a request in flight. Release in a finally block — replace()
+     * redirects may throw past the call site.
+     */
+    private function acquireReactionLock(string $key): bool
+    {
+        if (isset($this->reactionLocks[$key])) {
+            return false;
+        }
+
+        $this->reactionLocks[$key] = true;
+
+        return true;
+    }
+
+    private function releaseReactionLock(string $key): void
+    {
+        unset($this->reactionLocks[$key]);
+    }
+
     /**
      * Toggle the authenticated user's like on the given loaded post row,
      * reconciling with the server response (reverting on failure).
@@ -32,36 +56,52 @@ trait TogglesPostReactions
             return;
         }
 
-        $liked = (bool) data_get($post, 'metrics.liked', false);
-        $count = (int) data_get($post, 'metrics.likes', 0);
-
-        data_set($post, 'metrics.liked', ! $liked);
-        data_set($post, 'metrics.likes', max(0, $count + ($liked ? -1 : 1)));
-
-        $response = $liked
-            ? app(PinkaryApi::class)->unlike($token, $id)
-            : app(PinkaryApi::class)->like($token, $id);
-
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if (! $this->acquireReactionLock('like:'.$id)) {
             return;
         }
 
-        if (! $response->successful()) {
-            data_set($post, 'metrics.liked', $liked);
-            data_set($post, 'metrics.likes', $count);
+        try {
+            $liked = (bool) data_get($post, 'metrics.liked', false);
+            $count = (int) data_get($post, 'metrics.likes', 0);
 
-            return;
-        }
+            data_set($post, 'metrics.liked', ! $liked);
+            data_set($post, 'metrics.likes', max(0, $count + ($liked ? -1 : 1)));
 
-        data_set($post, 'metrics.liked', (bool) $response->json('data.liked', ! $liked));
+            $api = app(PinkaryApi::class);
+            $response = $liked
+                ? $api->attempt(fn () => $api->unlike($token, $id))
+                : $api->attempt(fn () => $api->like($token, $id));
 
-        $likes = $response->json('data.likes');
+            if ($response === null) {
+                data_set($post, 'metrics.liked', $liked);
+                data_set($post, 'metrics.likes', $count);
 
-        if (is_int($likes)) {
-            data_set($post, 'metrics.likes', $likes);
+                return;
+            }
+
+            if ($response->unauthorized()) {
+                app(TokenStorage::class)->clear();
+                $this->replace($this->route('mobile.login'));
+
+                return;
+            }
+
+            if (! $response->successful()) {
+                data_set($post, 'metrics.liked', $liked);
+                data_set($post, 'metrics.likes', $count);
+
+                return;
+            }
+
+            data_set($post, 'metrics.liked', (bool) $response->json('data.liked', ! $liked));
+
+            $likes = $response->json('data.likes');
+
+            if (is_int($likes)) {
+                data_set($post, 'metrics.likes', $likes);
+            }
+        } finally {
+            $this->releaseReactionLock('like:'.$id);
         }
     }
 
@@ -79,28 +119,43 @@ trait TogglesPostReactions
             return;
         }
 
-        $bookmarked = (bool) data_get($post, 'metrics.bookmarked', false);
-
-        data_set($post, 'metrics.bookmarked', ! $bookmarked);
-
-        $response = $bookmarked
-            ? app(PinkaryApi::class)->unbookmark($token, $id)
-            : app(PinkaryApi::class)->bookmark($token, $id);
-
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if (! $this->acquireReactionLock('bookmark:'.$id)) {
             return;
         }
 
-        if (! $response->successful()) {
-            data_set($post, 'metrics.bookmarked', $bookmarked);
+        try {
+            $bookmarked = (bool) data_get($post, 'metrics.bookmarked', false);
 
-            return;
+            data_set($post, 'metrics.bookmarked', ! $bookmarked);
+
+            $api = app(PinkaryApi::class);
+            $response = $bookmarked
+                ? $api->attempt(fn () => $api->unbookmark($token, $id))
+                : $api->attempt(fn () => $api->bookmark($token, $id));
+
+            if ($response === null) {
+                data_set($post, 'metrics.bookmarked', $bookmarked);
+
+                return;
+            }
+
+            if ($response->unauthorized()) {
+                app(TokenStorage::class)->clear();
+                $this->replace($this->route('mobile.login'));
+
+                return;
+            }
+
+            if (! $response->successful()) {
+                data_set($post, 'metrics.bookmarked', $bookmarked);
+
+                return;
+            }
+
+            data_set($post, 'metrics.bookmarked', (bool) $response->json('data.bookmarked', ! $bookmarked));
+        } finally {
+            $this->releaseReactionLock('bookmark:'.$id);
         }
-
-        data_set($post, 'metrics.bookmarked', (bool) $response->json('data.bookmarked', ! $bookmarked));
     }
 
     /**
@@ -117,24 +172,37 @@ trait TogglesPostReactions
             return;
         }
 
-        $response = app(PinkaryApi::class)->votePoll($token, $id, $optionId);
-
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if (! $this->acquireReactionLock('vote:'.$id)) {
             return;
         }
 
-        if (! $response->successful()) {
-            return;
-        }
+        try {
+            $api = app(PinkaryApi::class);
+            $response = $api->attempt(fn () => $api->votePoll($token, $id, $optionId));
 
-        /** @var array<string, mixed> $poll */
-        $poll = $response->json('data', []);
+            if ($response === null) {
+                return;
+            }
 
-        if ($poll !== []) {
-            data_set($post, 'poll', $poll);
+            if ($response->unauthorized()) {
+                app(TokenStorage::class)->clear();
+                $this->replace($this->route('mobile.login'));
+
+                return;
+            }
+
+            if (! $response->successful()) {
+                return;
+            }
+
+            /** @var array<string, mixed> $poll */
+            $poll = $response->json('data', []);
+
+            if ($poll !== []) {
+                data_set($post, 'poll', $poll);
+            }
+        } finally {
+            $this->releaseReactionLock('vote:'.$id);
         }
     }
 

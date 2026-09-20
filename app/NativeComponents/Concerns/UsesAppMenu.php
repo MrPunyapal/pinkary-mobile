@@ -50,7 +50,7 @@ trait UsesAppMenu
         $token = app(TokenStorage::class)->get();
 
         if (is_string($token) && $token !== '') {
-            app(PinkaryApi::class)->logout($token);
+            app(PinkaryApi::class)->attempt(fn () => app(PinkaryApi::class)->logout($token));
         }
 
         app(TokenStorage::class)->clear();

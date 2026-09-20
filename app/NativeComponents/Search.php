@@ -26,6 +26,16 @@ final class Search extends NativeComponent
 
     public bool $searched = false;
 
+    public string $errorMessage = '';
+
+    /**
+     * Recent queries from this session only (local state, never sent to
+     * the API). Newest first, capped, shown when the query is empty.
+     *
+     * @var list<string>
+     */
+    public array $recentSearches = [];
+
     public function navTitle(): string
     {
         return 'Search';
@@ -40,6 +50,35 @@ final class Search extends NativeComponent
 
     public function updatedQuery(): void
     {
+        $this->search();
+    }
+
+    /**
+     * Clear the query and its results (clear-button path).
+     */
+    public function clearQuery(): void
+    {
+        $this->query = '';
+        $this->users = [];
+        $this->hashtags = [];
+        $this->searched = false;
+        $this->errorMessage = '';
+    }
+
+    /**
+     * Re-run a recent search by list index (int arg, like the
+     * profile's openUserLink — user-typed queries are never
+     * interpolated into handler strings).
+     */
+    public function selectRecent(int $index): void
+    {
+        $query = $this->recentSearches[$index] ?? null;
+
+        if (! is_string($query) || trim($query) === '') {
+            return;
+        }
+
+        $this->query = $query;
         $this->search();
     }
 
@@ -64,10 +103,18 @@ final class Search extends NativeComponent
         }
 
         $this->searching = true;
+        $this->errorMessage = '';
 
-        $response = app(PinkaryApi::class)->search($token, $query);
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->search($token, $query));
 
         $this->searching = false;
+
+        if ($response === null) {
+            $this->errorMessage = 'Search could not be completed. Please try again.';
+
+            return;
+        }
 
         if ($response->unauthorized()) {
             app(TokenStorage::class)->clear();
@@ -88,6 +135,7 @@ final class Search extends NativeComponent
         $this->users = $users;
         $this->hashtags = $hashtags;
         $this->searched = true;
+        $this->rememberRecent($query);
     }
 
     public function render(): View
@@ -104,10 +152,36 @@ final class Search extends NativeComponent
         $this->navigate($this->route('mobile.user', ['username' => $username]));
     }
 
+    /**
+     * Re-run the search for a tapped hashtag.
+     */
+    public function openHashtag(string $name): void
+    {
+        if ($name === '') {
+            return;
+        }
+
+        $this->query = '#'.$name;
+        $this->search();
+    }
+
     private function token(): ?string
     {
         $token = app(TokenStorage::class)->get();
 
         return is_string($token) && $token !== '' ? $token : null;
+    }
+
+    /**
+     * Remember a successful query for the recents list (newest
+     * first, deduped, capped at five).
+     */
+    private function rememberRecent(string $query): void
+    {
+        $this->recentSearches = array_slice(
+            array_values(array_unique([$query, ...$this->recentSearches])),
+            0,
+            5,
+        );
     }
 }

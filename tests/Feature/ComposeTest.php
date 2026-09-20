@@ -11,6 +11,44 @@ function assertQuestionNotPublished(): void
         && str_ends_with($request->url(), '/api/v1/questions'));
 }
 
+/**
+ * Walk a published wire tree for a pressable (node-level or prop-level
+ * on_press) whose subtree shows the given text.
+ */
+function treeHasPressableFor(array $node, string $text): bool
+{
+    $pressId = $node['on_press'] ?? $node['props']['on_press'] ?? null;
+
+    if (is_int($pressId) && treeHasText($node, $text)) {
+        return true;
+    }
+
+    foreach ($node['children'] ?? [] as $child) {
+        if (is_array($child) && treeHasPressableFor($child, $text)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function treeHasText(array $node, string $text): bool
+{
+    foreach ((array) ($node['props'] ?? []) as $value) {
+        if (is_string($value) && str_contains($value, $text)) {
+            return true;
+        }
+    }
+
+    foreach ($node['children'] ?? [] as $child) {
+        if (is_array($child) && treeHasText($child, $text)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 it('redirects guests to login', function (): void {
     Native::test(Compose::class)
         ->assertReplacedWith('/login');
@@ -201,7 +239,7 @@ it('searches and selects a channel', function (): void {
         ->call('togglePicker')
         ->set('channelQuery', 'lara')
         ->assertSee('Laravel')
-        ->call('selectChannel', 3, 'Laravel')
+        ->call('selectChannel', 3)
         ->assertSet('channelId', 3)
         ->assertSet('channelName', 'Laravel');
 });
@@ -232,7 +270,8 @@ it('publishes a poll with a channel and duration', function (): void {
 
     Native::test(Compose::class)
         ->set('content', 'Which framework?')
-        ->call('selectChannel', 3, 'Laravel')
+        ->set('channelResults', [['id' => 3, 'name' => 'Laravel', 'slug' => 'laravel']])
+        ->call('selectChannel', 3)
         ->call('togglePoll')
         ->fireEvent('updatePollOption(0)', TestableComponent::EVENT_TEXT_CHANGE, ['text' => 'Laravel'])
         ->fireEvent('updatePollOption(1)', TestableComponent::EVENT_TEXT_CHANGE, ['text' => 'Rails'])
@@ -339,4 +378,20 @@ it('validates follow-up polls locally without sending', function (): void {
 
     Http::assertNotSent(fn ($request) => $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/v1/questions'));
+});
+
+it('only makes add-post tappable once a follow-up is allowed', function (): void {
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake();
+
+    $test = Native::test(Compose::class)
+        ->assertSee('Add another post');
+
+    // Empty composer: the hint text renders dimmed with no tap target,
+    // so it can never silently swallow a tap.
+    expect(treeHasPressableFor($test->tree(), 'Add another post'))->toBeFalse();
+
+    $test->set('content', 'First post.');
+
+    expect(treeHasPressableFor($test->tree(), 'Add another post'))->toBeTrue();
 });
