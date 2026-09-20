@@ -33,13 +33,6 @@ final class Notifications extends NativeComponent
 
     public bool $markingRead = false;
 
-    /**
-     * Client-side only filter over the loaded page ("all" or "unread").
-     * No API support for server-side filtering, so this never triggers
-     * a request — the view filters $items by $filter instead.
-     */
-    public string $filter = 'all';
-
     public function navTitle(): string
     {
         return 'Notifications';
@@ -90,13 +83,21 @@ final class Notifications extends NativeComponent
         foreach ($this->items as $index => $item) {
             if ((string) data_get($item, 'id') === $id) {
                 $target = data_get($item, 'target');
-                data_set($this->items[$index], 'read', true);
 
                 break;
             }
         }
 
         $response = app(PinkaryApi::class)->attempt(fn () => app(PinkaryApi::class)->markNotificationsRead($token, $id));
+
+        // Read notifications behave like the web's ignored ones: once
+        // read they leave the list instead of lingering as read rows.
+        if ($response !== null) {
+            $this->items = array_values(array_filter(
+                $this->items,
+                fn (mixed $item): bool => (string) data_get($item, 'id') !== $id
+            ));
+        }
 
         if ($response?->successful()) {
             $this->unreadCount = (int) $response->json('data.unread_count', max(0, $this->unreadCount - 1));
@@ -153,27 +154,13 @@ final class Notifications extends NativeComponent
             return;
         }
 
-        foreach ($this->items as $index => $item) {
-            data_set($this->items[$index], 'read', true);
-        }
-
+        // "Ignore all" mirrors the web: the list is cleared, not kept
+        // as read rows. The API marks them read server-side; read rows
+        // are dropped on every load so they never resurrect.
+        $this->items = [];
         $this->unreadCount = (int) $response->json('data.unread_count', 0);
-    }
-
-    /**
-     * Show every loaded notification (client-side only).
-     */
-    public function showAll(): void
-    {
-        $this->filter = 'all';
-    }
-
-    /**
-     * Show only unread loaded notifications (client-side only).
-     */
-    public function showUnread(): void
-    {
-        $this->filter = 'unread';
+        $this->page = 1;
+        $this->hasMore = false;
     }
 
     public function goFeed(): void
@@ -224,7 +211,7 @@ final class Notifications extends NativeComponent
 
         /** @var list<array<string, mixed>> $next */
         $next = $response->json('data', []);
-        $this->items = [...$this->items, ...$next];
+        $this->items = $this->unreadOnly([...$this->items, ...$next]);
         $this->page++;
         $this->hasMore = $response->json('links.next') !== null;
         $this->unreadCount = (int) $response->json('meta.unread_count', $this->unreadCount);
@@ -266,12 +253,27 @@ final class Notifications extends NativeComponent
 
         /** @var list<array<string, mixed>> $items */
         $items = $response->json('data', []);
-        $this->items = $items;
+        $this->items = $this->unreadOnly($items);
         $this->unreadCount = (int) $response->json('meta.unread_count', 0);
         $this->page = 1;
         $this->hasMore = $response->json('links.next') !== null;
         $this->loadMoreError = '';
         $this->loading = false;
+    }
+
+    /**
+     * The API index returns read rows too — drop them so the list only
+     * ever holds pending notifications, like the web after ignoring.
+     *
+     * @param  list<array<string, mixed>>  $items
+     * @return list<array<string, mixed>>
+     */
+    private function unreadOnly(array $items): array
+    {
+        return array_values(array_filter(
+            $items,
+            fn (mixed $item): bool => ! (bool) data_get($item, 'read', false)
+        ));
     }
 
     private function token(): ?string

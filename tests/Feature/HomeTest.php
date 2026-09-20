@@ -914,7 +914,7 @@ it('pushes the share action trailing with a spacer instead of ml-auto', function
     expect($spacers)->toBeGreaterThanOrEqual(1);
 });
 
-it('chains thread posts with reply context instead of stitched rails', function (): void {
+it('chains thread posts with a joined avatar rail like the web', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     session(['pinkary_api_token' => 'test-token']);
     Http::fake([
@@ -945,25 +945,18 @@ it('chains thread posts with reply context instead of stitched rails', function 
     $tree = Native::test(Home::class)
         ->assertSee('First post.')
         ->assertSee('Second post.')
-        ->assertSee('Replying to')
-        ->assertSee('@ada')
+        ->assertDontSee('Replying to')
         ->assertSee('Recent')
         ->tree();
 
-    $replyContext = 0;
-    $verticalRails = [];
-    $walk = function (array $node) use (&$walk, &$replyContext, &$verticalRails): void {
+    $rails = 0;
+    $walk = function (array $node) use (&$walk, &$rails): void {
         $layout = $node['layout'] ?? [];
 
-        // The old design drew 2px vertical rails that had to stitch
-        // across posts; the new design must not contain any.
+        // The chained (non-final) post draws a 2px lane rail under its
+        // avatar; the final post draws none.
         if (($layout['width'] ?? null) == 2) {
-            $verticalRails[] = $layout;
-        }
-
-        $text = $node['props']['text'] ?? null;
-        if (is_string($text) && str_contains($text, 'Replying to')) {
-            $replyContext++;
+            $rails++;
         }
 
         foreach ($node['children'] ?? [] as $child) {
@@ -972,7 +965,7 @@ it('chains thread posts with reply context instead of stitched rails', function 
     };
     $walk($tree);
 
-    // The continuation post chains to its parent; the root stands alone.
-    expect($replyContext)->toBe(1);
-    expect($verticalRails)->toBeEmpty();
+    // Exactly one rail: the ancestor's lane. The root stands alone,
+    // and no "Replying to" rows exist (web parity).
+    expect($rails)->toBe(1);
 });

@@ -1,4 +1,4 @@
-@props(['post', 'replyTo' => null, 'bare' => false, 'expanded' => false])
+@props(['post', 'rail' => false, 'moreLink' => null, 'flushTop' => false, 'bare' => false, 'expanded' => false])
 
 @php
     $anonymous = (bool) data_get($post, 'anonymously', false);
@@ -48,59 +48,56 @@
     $answerShown = $expanded || ! $answerLong
         ? $answerText
         : mb_substr($answerText, 0, $answerLimit).'…';
-
-    // Continuation marker for chained thread posts ("Replying to @user",
-    // the super-native tweet-detail pattern). Usernames may arrive with
-    // or without the @ prefix; normalize so the affordance always reads
-    // the same.
-    $replyToName = is_string($replyTo) ? trim($replyTo) : '';
-    $replyToHandle = $replyToName !== '' ? '@'.ltrim($replyToName, '@') : '';
-
-    // Bare posts render inside a thread-post card (like the web's x-thread):
-    // no padding or border of their own — the card owns the frame and
-    // separates chained posts with its own borders, so there is no drawn
-    // rail that must stitch across posts on old Jump apps.
-    $frameClass = $bare
-        ? 'w-full gap-3'
-        : 'w-full gap-3 px-4 py-3 bg-theme-background border-b border-theme-outline-variant';
+    // Row-level vertical padding is zero by design: the avatar lane's
+    // rail runs from below the avatar to the row's bottom edge, and the
+    // next segment starts flush — so chained rails physically touch
+    // instead of leaving seam gaps. Spacing lives inside the content
+    // column (top pad mirrors on the lane to keep the avatar aligned
+    // with the header row).
+    $topPad = $flushTop ? 'pt-2' : ($sharedUpdate ? 'pt-3' : 'pt-2');
 @endphp
 
-<native:column class="{{ $frameClass }}">
+{{-- Flat web-style post: full-width question box (asks only), then an
+    avatar-lane row. Chained posts draw a rail under the avatar that runs
+    to the row's bottom edge (items-stretch + flex-1, plain flow — no
+    absolute overlays); the thread container owns the single full-bleed
+    divider, so there are no boxes or borders per post. --}}
+<native:column class="{{ $bare ? 'w-full' : 'w-full bg-theme-background border-b border-theme-outline-variant' }}">
     @unless ($sharedUpdate)
-        <native:column class="w-full gap-2 px-3 py-2.5 rounded-md bg-theme-surface-variant border border-theme-outline-variant">
-            <native:row class="w-full items-start justify-between gap-3">
-                <native:column class="flex-1 min-w-0">
-                    @if ($anonymous)
-                        <native:row class="w-full items-center gap-3">
-                            <x-avatar :anonymous="true" :size="8" />
-                            <native:text class="text-sm font-medium text-theme-on-surface-variant">Anonymously</native:text>
-                        </native:row>
-                    @else
-                        <x-post-author :author="data_get($post, 'from', [])" />
+        <native:column class="w-full px-4 pt-3">
+            <native:column class="w-full gap-2 px-3 py-2.5 rounded-md bg-theme-surface-variant border border-theme-outline-variant">
+                <native:row class="w-full items-start justify-between gap-3">
+                    <native:column class="flex-1 min-w-0">
+                        @if ($anonymous)
+                            <native:row class="w-full items-center gap-3">
+                                <x-avatar :anonymous="true" :size="8" />
+                                <native:text class="text-sm font-medium text-theme-on-surface-variant">Anonymously</native:text>
+                            </native:row>
+                        @else
+                            <x-post-author :author="data_get($post, 'from', [])" />
+                        @endif
+                    </native:column>
+                    @if ($questionText !== '' && $questionText !== '__UPDATE__')
+                        <x-post-action type="translate" :post-id="$postId" field="content" />
                     @endif
-                </native:column>
-                @if ($questionText !== '' && $questionText !== '__UPDATE__')
-                    <x-post-action type="translate" :post-id="$postId" field="content" />
-                @endif
-            </native:row>
+                </native:row>
 
-            @if ($questionText !== '' && $questionText !== '__UPDATE__')
-                <native:text class="text-sm leading-relaxed text-theme-on-surface">{{ $questionText }}</native:text>
-            @endif
+                @if ($questionText !== '' && $questionText !== '__UPDATE__')
+                    <native:text class="text-sm leading-relaxed text-theme-on-surface">{{ $questionText }}</native:text>
+                @endif
+            </native:column>
         </native:column>
     @endunless
 
     @if ($hasAnswer)
-        {{-- Plain avatar + body row (the super-native feed pattern). The
-            avatar column carries no rail: thread continuity comes from the
-            card's own borders and the "Replying to" affordance below, so
-            there is no stretch lane or overlay that old Jump apps can
-            drop, leaving gaps. --}}
-        <native:row class="w-full items-start gap-3">
-            <native:column class="w-10 items-center shrink-0">
+        <native:row class="w-full items-stretch gap-3 px-4">
+            <native:column class="w-10 items-center shrink-0 {{ $topPad }}">
                 <x-avatar :user="data_get($post, 'to', [])" />
+                @if ($rail)
+                    <native:column class="flex-1 w-0.5 bg-theme-outline" />
+                @endif
             </native:column>
-            <native:column class="flex-1 gap-1.5 min-w-0">
+            <native:column class="flex-1 gap-1.5 min-w-0 {{ $topPad }} pb-3">
                 <native:row class="w-full items-center justify-between gap-2">
                     <native:pressable class="flex-1 min-w-0" @tap="openProfile('{{ data_get($post, 'to.username', '') }}')" a11y-label="Open {{ '@'.data_get($post, 'to.username', '') }}’s profile">
                         <native:row class="items-center gap-1.5">
@@ -124,12 +121,6 @@
                         @endif
                     </native:row>
                 </native:row>
-                @if ($replyToHandle !== '')
-                    <native:row class="w-full items-center gap-1">
-                        <native:text class="text-xs text-theme-on-surface-variant">Replying to</native:text>
-                        <native:text class="text-xs font-medium text-theme-primary">{{ $replyToHandle }}</native:text>
-                    </native:row>
-                @endif
                 <native:pressable @tap="openDetail('{{ $postId }}')" a11y-label="Open post">
                     <native:text class="text-base leading-relaxed text-theme-on-surface">{{ $answerShown }}</native:text>
                 </native:pressable>
@@ -184,6 +175,10 @@
                     <native:spacer class="flex-1" />
                     <x-post-action type="share" :post-id="$postId" />
                 </native:row>
+
+                @if ($moreLink !== null && $moreLink !== '')
+                    <x-post-divider :link="$moreLink" />
+                @endif
             </native:column>
         </native:row>
     @endif

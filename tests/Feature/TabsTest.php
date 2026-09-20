@@ -344,7 +344,7 @@ it('shows per-field registration errors from the API', function (): void {
         ->assertSee('You must accept the terms.');
 });
 
-it('filters notifications client-side without new requests', function (): void {
+it('drops read notifications on load like ignored ones on the web', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     session(['pinkary_api_token' => 'test-token']);
     Http::fake([
@@ -360,32 +360,50 @@ it('filters notifications client-side without new requests', function (): void {
 
     Native::test(Notifications::class)
         ->assertSee('Unread snippet.')
-        ->assertSee('Read snippet.')
-        ->assertSee('Unread (1)')
-        ->call('showUnread')
-        ->assertSee('Unread snippet.')
         ->assertDontSee('Read snippet.')
-        ->call('showAll')
-        ->assertSee('Unread snippet.')
-        ->assertSee('Read snippet.');
-
-    Http::assertSentCount(1);
+        ->assertSee('Ignore all');
 });
 
-it('shows a caught-up state when every loaded notification is read', function (): void {
+it('removes a notification once it is opened', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     session(['pinkary_api_token' => 'test-token']);
     Http::fake([
         'https://pinkary.test/api/v1/notifications*' => Http::response([
-            'data' => [array_merge(notificationRow('n1', 'Unread snippet.'), ['read' => true])],
+            'data' => [array_merge(notificationRow('n1', 'Opened snippet.'), ['read' => false])],
             'links' => ['next' => null],
-            'meta' => ['unread_count' => 0],
+            'meta' => ['unread_count' => 1],
+        ]),
+        'https://pinkary.test/api/v1/notifications/read' => Http::response([
+            'data' => ['unread_count' => 0],
         ]),
     ]);
 
     Native::test(Notifications::class)
-        ->call('showUnread')
-        ->assertSee("You're all caught up.");
+        ->assertSee('Opened snippet.')
+        ->call('open', 'n1')
+        ->assertDontSee('Opened snippet.')
+        ->assertSee('No pending notifications.');
+});
+
+it('clears the list on ignore all like the web delete', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/notifications*' => Http::response([
+            'data' => [array_merge(notificationRow('n1', 'Pending snippet.'), ['read' => false])],
+            'links' => ['next' => null],
+            'meta' => ['unread_count' => 1],
+        ]),
+        'https://pinkary.test/api/v1/notifications/read' => Http::response([
+            'data' => ['unread_count' => 0],
+        ]),
+    ]);
+
+    Native::test(Notifications::class)
+        ->assertSee('Pending snippet.')
+        ->call('markAllRead')
+        ->assertDontSee('Pending snippet.')
+        ->assertSee('No pending notifications.');
 });
 
 it('returns to the feed from the bookmarks empty state', function (): void {
