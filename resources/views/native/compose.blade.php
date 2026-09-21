@@ -1,12 +1,36 @@
-<native:top-bar title="New Thread" back />
-
 <native:scroll-view class="w-full h-full bg-theme-background">
-    <native:column class="w-full px-5 py-6 gap-5">
+    <native:column class="w-full gap-0">
+        <x-page-heading :title="$askUsername !== '' ? 'Ask @'.$askUsername : 'New Thread'" :back="true" />
+
+        <native:column class="w-full px-5 py-6 gap-5">
         @if ($errorMessage !== '')
             <native:column class="w-full p-4 rounded-md bg-theme-destructive/15 border border-theme-destructive">
                 <native:text class="text-sm text-theme-destructive">{{ $errorMessage }}</native:text>
             </native:column>
         @endif
+
+        @if ($askUsername !== '')
+            {{-- Ask mode: a single short question to another user — no
+                thread, poll, or channel UI. --}}
+            <native:row class="w-full items-start gap-3">
+                <native:column class="w-10 items-center shrink-0">
+                    <x-avatar :user="['avatar' => $avatar, 'name' => 'You']" :link="false" />
+                </native:column>
+                <native:column class="flex-1 gap-1 min-w-0">
+                    <native:outlined-text-input label="Ask {{ '@'.$askUsername }}..." placeholder="Ask {{ '@'.$askUsername }}..." multiline native:model="content" />
+                    @if (mb_strlen($content) > 200)
+                        <native:text class="text-xs text-right {{ mb_strlen($content) > 255 ? 'text-theme-destructive' : 'text-theme-on-surface-variant' }}">{{ mb_strlen($content) }} / 255</native:text>
+                    @endif
+                </native:column>
+            </native:row>
+
+            <native:column class="w-full gap-2 p-4 rounded-md bg-theme-surface border border-theme-outline-variant">
+                <native:checkbox label="Ask anonymously" native:model="anonymous" />
+                <native:text class="text-sm text-theme-on-surface-variant">Your name stays hidden from {{ '@'.$askUsername }}.</native:text>
+            </native:column>
+
+            <native:button variant="primary" :disabled="$busy" @tap="publish">{{ $busy ? 'Sending…' : 'Ask' }}</native:button>
+        @else
 
         {{-- No connector rails: step order is carried by the Post N labels
             and the "Add another post" row (plain row/column, the
@@ -192,5 +216,7 @@
         <native:button variant="primary" :disabled="$busy" @tap="publish">{{ $busy ? 'Publishing…' : (count($posts) > 0 ? 'Post thread' : 'Post') }}</native:button>
 
         <native:column class="w-full h-10" />
+        @endif
+        </native:column>
     </native:column>
 </native:scroll-view>

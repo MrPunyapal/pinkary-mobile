@@ -3,6 +3,8 @@
 use App\NativeComponents\Bookmarks;
 use App\NativeComponents\Compose;
 use App\NativeComponents\Detail;
+use App\NativeComponents\EditProfile;
+use App\NativeComponents\FollowList;
 use App\NativeComponents\Home;
 use App\NativeComponents\Login;
 use App\NativeComponents\Notifications;
@@ -36,7 +38,11 @@ Route::nativeGroup(MobileLayout::class, function (): void {
     Route::native('/bookmarks', Bookmarks::class)->name('mobile.bookmarks');
     Route::native('/notifications', Notifications::class)->name('mobile.notifications');
     Route::native('/profile', Profile::class)->name('mobile.profile');
+    Route::native('/profile/edit', EditProfile::class)->name('mobile.profile.edit');
     Route::native('/settings', Settings::class)->name('mobile.settings');
     Route::native('/user/{username}', Profile::class)->name('mobile.user');
+    Route::native('/user/{username}/followers', FollowList::class)->name('mobile.followers');
+    Route::native('/user/{username}/following', FollowList::class)->name('mobile.following');
+    Route::native('/ask/{username}', Compose::class)->name('mobile.ask');
     Route::native('/question/{id}', Detail::class)->name('mobile.detail');
 });

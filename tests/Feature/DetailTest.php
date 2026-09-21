@@ -551,3 +551,257 @@ it('renders expired polls static', function (): void {
         ->assertSee('Poll expired')
         ->assertSee('5 votes');
 });
+
+function menuPost(string $id = 'q1', array $overrides = []): array
+{
+    return array_merge([
+        'id' => $id,
+        'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+        'to' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+        'content' => '__UPDATE__',
+        'answer' => 'A thoughtful mobile experience.',
+        'pinned' => false,
+        'metrics' => ['likes' => 2, 'comments' => 0],
+        'views' => 10,
+    ], $overrides);
+}
+
+function menuFakes(array $post, array $extra = []): array
+{
+    return array_merge([
+        'https://pinkary.test/api/v1/questions/q1' => Http::response(['data' => $post]),
+        'https://pinkary.test/api/v1/questions/q1/comments*' => Http::response(['data' => []]),
+    ], $extra);
+}
+
+it('pins the post and shows the pinned chip', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake(menuFakes(menuPost(), [
+        'https://pinkary.test/api/v1/questions/q1/pin' => Http::response(['data' => ['pinned' => true]]),
+    ]));
+
+    $test = Native::test(Detail::class, ['id' => 'q1'])
+        ->call('openMenu', 'q1')
+        ->press("openMenu('q1')")
+        ->press('togglePinMenu');
+
+    expect($test->get('post')['pinned'])->toBeTrue();
+
+    $test->assertSee('Pinned');
+
+    Http::assertSent(fn ($request) => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/api/v1/questions/q1/pin'));
+});
+
+it('unpins the post and drops the pinned chip', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake(menuFakes(menuPost(overrides: ['pinned' => true]), [
+        'https://pinkary.test/api/v1/questions/q1/pin' => Http::response(['data' => ['pinned' => false]]),
+    ]));
+
+    $test = Native::test(Detail::class, ['id' => 'q1'])
+        ->assertSee('Pinned')
+        ->call('openMenu', 'q1')
+        ->assertSee('Unpin')
+        ->press('togglePinMenu');
+
+    expect($test->get('post')['pinned'])->toBeFalse();
+
+    $test->assertDontSee('Pinned');
+
+    Http::assertSent(fn ($request) => $request->method() === 'DELETE'
+        && str_ends_with($request->url(), '/api/v1/questions/q1/pin'));
+});
+
+it('hides the pin entry after a pin 403', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake(menuFakes(menuPost(overrides: ['pinned' => true]), [
+        'https://pinkary.test/api/v1/questions/q1/pin' => Http::response(['message' => 'This action is unauthorized.'], 403),
+    ]));
+
+    $test = Native::test(Detail::class, ['id' => 'q1'])
+        ->call('openMenu', 'q1')
+        ->assertSee('Unpin')
+        ->call('togglePinMenu');
+
+    expect($test->get('menuDenied'))->toMatchArray(['q1:pin' => true]);
+
+    $test->call('openMenu', 'q1')
+        ->assertDontSee('Unpin');
+});
+
+it('edits the answer inline and updates the post', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake(menuFakes(menuPost(), [
+        'https://pinkary.test/api/v1/questions/q1/answer' => Http::response(['data' => [
+            'id' => 'q1',
+            'answer' => '<p>An even better answer.</p>',
+            'edited' => true,
+        ]]),
+    ]));
+
+    $test = Native::test(Detail::class, ['id' => 'q1'])
+        ->call('openMenu', 'q1')
+        ->assertSee('Edit answer')
+        ->call('startEditMenu')
+        ->assertSee('Save answer')
+        ->set('editAnswer', 'An even better answer.')
+        ->call('saveAnswerMenu')
+        ->assertSee('An even better answer.')
+        ->assertDontSee('Save answer');
+
+    expect($test->get('post')['answer'])->toBe('<p>An even better answer.</p>')
+        ->and($test->get('menuPostId'))->toBe('');
+
+    Http::assertSent(fn ($request) => $request->method() === 'PUT'
+        && str_ends_with($request->url(), '/api/v1/questions/q1/answer'));
+});
+
+it('surfaces answer validation errors from the API', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake(menuFakes(menuPost(), [
+        'https://pinkary.test/api/v1/questions/q1/answer' => Http::response([
+            'message' => 'The answer must not be greater than 1000 characters.',
+            'errors' => ['answer' => ['The answer must not be greater than 1000 characters.']],
+        ], 422),
+    ]));
+
+    $test = Native::test(Detail::class, ['id' => 'q1'])
+        ->call('openMenu', 'q1')
+        ->call('startEditMenu')
+        ->set('editAnswer', 'Too long.')
+        ->call('saveAnswerMenu')
+        ->assertSee('greater than 1000');
+
+    expect($test->get('post')['answer'])->toBe('A thoughtful mobile experience.');
+});
+
+it('hides the edit entry after an answer 403', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake(menuFakes(menuPost(), [
+        'https://pinkary.test/api/v1/questions/q1/answer' => Http::response(['message' => 'This action is unauthorized.'], 403),
+    ]));
+
+    $test = Native::test(Detail::class, ['id' => 'q1'])
+        ->call('openMenu', 'q1')
+        ->call('startEditMenu')
+        ->set('editAnswer', 'New answer.')
+        ->call('saveAnswerMenu')
+        ->assertSee('unauthorized')
+        ->assertDontSee('Edit answer');
+
+    expect($test->get('menuDenied'))->toMatchArray(['q1:edit' => true]);
+});
+
+it('confirms deletion and navigates back to the feed', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake(menuFakes(menuPost(), [
+        'https://pinkary.test/api/v1/questions/q1/ignore' => Http::response(['data' => ['ignored' => true]]),
+    ]));
+
+    Native::test(Detail::class, ['id' => 'q1'])
+        ->call('openMenu', 'q1')
+        ->call('askDeleteMenu')
+        ->assertSee('Delete this post?')
+        ->call('ignoreMenuPost')
+        ->assertNavigatedTo('/feed');
+
+    Http::assertSent(fn ($request) => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/api/v1/questions/q1/ignore'));
+});
+
+it('hard-deletes the post and navigates back to the feed', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/questions/q1' => Http::sequence()
+            ->push(['data' => menuPost()])
+            ->push(null, 204),
+        'https://pinkary.test/api/v1/questions/q1/comments*' => Http::response(['data' => []]),
+    ]);
+
+    Native::test(Detail::class, ['id' => 'q1'])
+        ->call('openMenu', 'q1')
+        ->call('deleteMenuPost')
+        ->assertNavigatedTo('/feed');
+
+    Http::assertSent(fn ($request) => $request->method() === 'DELETE'
+        && str_ends_with($request->url(), '/api/v1/questions/q1')
+        && ! str_ends_with($request->url(), '/pin'));
+});
+
+it('hides the delete entry after an ignore 403', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake(menuFakes(menuPost(), [
+        'https://pinkary.test/api/v1/questions/q1/ignore' => Http::response(['message' => 'This action is unauthorized.'], 403),
+    ]));
+
+    $test = Native::test(Detail::class, ['id' => 'q1'])
+        ->call('openMenu', 'q1')
+        ->call('askDeleteMenu')
+        ->call('ignoreMenuPost')
+        ->assertSee('unauthorized')
+        ->assertDontSee('Delete this post?');
+
+    expect($test->get('menuDenied'))->toMatchArray(['q1:delete' => true]);
+});
+
+it('lists likers inside the sheet', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake(menuFakes(menuPost(), [
+        'https://pinkary.test/api/v1/questions/q1/likes*' => Http::response([
+            'data' => [
+                ['name' => 'Grace Hopper', 'username' => 'grace'],
+                ['name' => 'Alan Turing', 'username' => 'alan'],
+            ],
+            'links' => ['next' => null],
+        ]),
+    ]));
+
+    Native::test(Detail::class, ['id' => 'q1'])
+        ->call('openMenu', 'q1')
+        ->assertSee('View likes')
+        ->call('openLikersMenu')
+        ->assertSee('Grace Hopper')
+        ->assertSee('@grace')
+        ->assertSee('Alan Turing');
+});
+
+it('hides the likes entry when the count is zero', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake(menuFakes(menuPost(overrides: ['metrics' => ['likes' => 0, 'comments' => 0]])));
+
+    Native::test(Detail::class, ['id' => 'q1'])
+        ->call('openMenu', 'q1')
+        ->assertDontSee('View likes');
+
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), '/likes'));
+});
+
+it('hides the likes entry after a likers 403', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake(menuFakes(menuPost(), [
+        'https://pinkary.test/api/v1/questions/q1/likes*' => Http::response(['message' => 'This action is unauthorized.'], 403),
+    ]));
+
+    $test = Native::test(Detail::class, ['id' => 'q1'])
+        ->call('openMenu', 'q1')
+        ->call('openLikersMenu')
+        ->assertSee('unauthorized');
+
+    expect($test->get('menuDenied'))->toMatchArray(['q1:likes' => true]);
+
+    $test->call('openMenu', 'q1')
+        ->assertDontSee('View likes');
+});

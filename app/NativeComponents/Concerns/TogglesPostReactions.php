@@ -6,6 +6,7 @@ namespace App\NativeComponents\Concerns;
 
 use App\Services\PinkaryApi;
 use App\Services\TokenStorage;
+use App\Support\ApiErrors;
 use Native\Mobile\Browser;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Share;
@@ -20,6 +21,35 @@ trait TogglesPostReactions
 {
     /** @var array<string, true> In-flight like/bookmark/vote locks per post+action. */
     private array $reactionLocks = [];
+
+    /**
+     * Owner-menu sheet state. One sheet per screen, driven by
+     * $menuPostId — never one sheet per row. The API carries no
+     * ownership flags, so every entry calls the API and a 403 hides
+     * that entry henceforth (see $menuDenied).
+     */
+    public string $menuPostId = '';
+
+    /** @var 'menu'|'confirm-delete'|'edit'|'likers' */
+    public string $menuStep = 'menu';
+
+    public string $menuError = '';
+
+    public bool $menuBusy = false;
+
+    public string $editAnswer = '';
+
+    /** @var list<array<string, mixed>> */
+    public array $likers = [];
+
+    public int $likersPage = 1;
+
+    public bool $likersHasMore = false;
+
+    public string $likersError = '';
+
+    /** @var array<string, true> postId:action entries hidden after a 403. */
+    public array $menuDenied = [];
 
     /**
      * Double-tap guard: returns false when this post+action already has
@@ -348,12 +378,11 @@ trait TogglesPostReactions
      */
     private function shareQuestion(?string $username, string $id, ?string $html): void
     {
-        if ($username === null || $username === '' || $id === '') {
+        $url = $this->questionUrl($username, $id);
+
+        if ($url === null) {
             return;
         }
-
-        $base = rtrim((string) config('services.pinkary.url'), '/');
-        $url = $base.'/@'.$username.'/questions/'.$id;
 
         $text = trim(html_entity_decode(strip_tags((string) $html), ENT_QUOTES, 'UTF-8'));
 
@@ -386,5 +415,832 @@ trait TogglesPostReactions
         }
 
         $this->openExternalLink('https://translate.google.com/?sl=auto&tl=en&text='.urlencode($text));
+    }
+
+    /**
+     * Open the owner-menu sheet for a loaded post. Guests are sent to
+     * login (every entry needs a token); unknown ids open nothing so
+     * no dead sheet ever renders.
+     */
+    public function openMenu(string $id): void
+    {
+        if ($id === '') {
+            return;
+        }
+
+        if ($this->menuToken() === null) {
+            return;
+        }
+
+        if ($this->findPostForMenu($id) === null) {
+            return;
+        }
+
+        $this->menuPostId = $id;
+        $this->menuStep = 'menu';
+        $this->menuError = '';
+        $this->menuBusy = false;
+        $this->editAnswer = '';
+        $this->likers = [];
+        $this->likersPage = 1;
+        $this->likersHasMore = false;
+        $this->likersError = '';
+    }
+
+    public function closeMenu(): void
+    {
+        $this->menuPostId = '';
+        $this->menuStep = 'menu';
+        $this->menuError = '';
+        $this->menuBusy = false;
+        $this->editAnswer = '';
+        $this->likers = [];
+        $this->likersPage = 1;
+        $this->likersHasMore = false;
+        $this->likersError = '';
+    }
+
+    public function menuBack(): void
+    {
+        $this->menuStep = 'menu';
+        $this->menuError = '';
+    }
+
+    /**
+     * Whether a menu entry survived capability checks. Blade gates
+     * every owner entry on this so a 403 hides it henceforth.
+     */
+    public function menuDeniedFor(string $postId, string $action): bool
+    {
+        return isset($this->menuDenied[$postId.':'.$action]);
+    }
+
+    /**
+     * The loaded menu post for sheet rendering. Returns a copy.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function menuPostData(): ?array
+    {
+        if ($this->menuPostId === '') {
+            return null;
+        }
+
+        return $this->findPostForMenu($this->menuPostId);
+    }
+
+    /**
+     * Pin or unpin the menu post, reconciling the local row with the
+     * server response. A 403 hides the entry henceforth.
+     */
+    public function togglePinMenu(): void
+    {
+        $id = $this->menuPostId;
+
+        if ($id === '') {
+            return;
+        }
+
+        $token = $this->menuToken();
+
+        if ($token === null) {
+            return;
+        }
+
+        $post = $this->findPostForMenu($id);
+
+        if ($post === null) {
+            $this->closeMenu();
+
+            return;
+        }
+
+        if (! $this->acquireReactionLock('pin:'.$id)) {
+            return;
+        }
+
+        try {
+            $pinned = (bool) data_get($post, 'pinned', false);
+
+            $api = app(PinkaryApi::class);
+            $response = $pinned
+                ? $api->attempt(fn () => $api->unpinQuestion($token, $id))
+                : $api->attempt(fn () => $api->pinQuestion($token, $id));
+
+            if ($response === null) {
+                $this->menuError = 'The pin could not be updated. Please try again.';
+
+                return;
+            }
+
+            if ($response->unauthorized()) {
+                app(TokenStorage::class)->clear();
+                $this->replace($this->route('mobile.login'));
+
+                return;
+            }
+
+            if ($response->forbidden()) {
+                $this->hideMenuEntry($id, 'pin');
+                $this->closeMenu();
+
+                return;
+            }
+
+            if (! $response->successful()) {
+                $this->menuError = ApiErrors::first($response, 'The pin could not be updated. Please try again.');
+
+                return;
+            }
+
+            $next = (bool) $response->json('data.pinned', ! $pinned);
+
+            $this->updatePostForMenu($id, function (array &$row) use ($next): void {
+                data_set($row, 'pinned', $next);
+            });
+
+            $this->closeMenu();
+        } finally {
+            $this->releaseReactionLock('pin:'.$id);
+        }
+    }
+
+    /**
+     * Swap the sheet to its inline answer editor, seeded with the
+     * post's current plain-text answer.
+     */
+    public function startEditMenu(): void
+    {
+        $post = $this->menuPostData();
+
+        if ($post === null) {
+            return;
+        }
+
+        $this->editAnswer = $this->plainText(data_get($post, 'answer'));
+        $this->menuError = '';
+        $this->menuStep = 'edit';
+    }
+
+    /**
+     * Save the edited answer (answer only, like the web — the 24h
+     * window is enforced server-side and surfaces here as an error).
+     */
+    public function saveAnswerMenu(): void
+    {
+        $id = $this->menuPostId;
+
+        if ($id === '' || $this->menuBusy) {
+            return;
+        }
+
+        $token = $this->menuToken();
+
+        if ($token === null) {
+            return;
+        }
+
+        $answer = trim($this->editAnswer);
+
+        if ($answer === '') {
+            $this->menuError = 'Write an answer first.';
+
+            return;
+        }
+
+        if (mb_strlen($answer) > 1000) {
+            $this->menuError = 'Answers may not be greater than 1000 characters.';
+
+            return;
+        }
+
+        if (! $this->acquireReactionLock('answer:'.$id)) {
+            return;
+        }
+
+        $this->menuBusy = true;
+
+        try {
+            $api = app(PinkaryApi::class);
+            $response = $api->attempt(fn () => $api->updateAnswer($token, $id, $answer));
+
+            if ($response === null) {
+                $this->menuError = 'Your answer could not be saved. Please try again.';
+
+                return;
+            }
+
+            if ($response->unauthorized()) {
+                app(TokenStorage::class)->clear();
+                $this->replace($this->route('mobile.login'));
+
+                return;
+            }
+
+            if (! $response->successful()) {
+                $this->menuError = ApiErrors::first($response, 'Your answer could not be saved. Please try again.');
+
+                if ($response->forbidden()) {
+                    $this->hideMenuEntry($id, 'edit');
+                    $this->menuStep = 'menu';
+                }
+
+                return;
+            }
+
+            // The endpoint returns the full QuestionResource, so take
+            // the saved answer (parsed HTML, like feed payloads) back
+            // into the local row.
+            $saved = $response->json('data.answer');
+
+            $this->updatePostForMenu($id, function (array &$row) use ($response, $saved): void {
+                if (is_string($saved)) {
+                    data_set($row, 'answer', $saved);
+                }
+
+                data_set($row, 'edited', (bool) $response->json('data.edited', true));
+            });
+
+            $this->closeMenu();
+        } finally {
+            $this->menuBusy = false;
+            $this->releaseReactionLock('answer:'.$id);
+        }
+    }
+
+    /**
+     * Swap the sheet to its delete confirmation step. No dialog API
+     * exists, so confirmation lives inside the sheet.
+     */
+    public function askDeleteMenu(): void
+    {
+        if ($this->menuPostId === '') {
+            return;
+        }
+
+        $this->menuError = '';
+        $this->menuStep = 'confirm-delete';
+    }
+
+    /**
+     * Delete the menu post through the ignore flow, exactly like the
+     * web's Delete confirmation (wire:click="ignore").
+     */
+    public function ignoreMenuPost(): void
+    {
+        $id = $this->menuPostId;
+
+        if ($id === '' || $this->menuBusy) {
+            return;
+        }
+
+        $token = $this->menuToken();
+
+        if ($token === null) {
+            return;
+        }
+
+        if (! $this->acquireReactionLock('ignore:'.$id)) {
+            return;
+        }
+
+        $this->menuBusy = true;
+
+        try {
+            $api = app(PinkaryApi::class);
+            $response = $api->attempt(fn () => $api->ignoreQuestion($token, $id));
+
+            if ($response === null) {
+                $this->menuError = 'This post could not be deleted. Please try again.';
+
+                return;
+            }
+
+            if ($response->unauthorized()) {
+                app(TokenStorage::class)->clear();
+                $this->replace($this->route('mobile.login'));
+
+                return;
+            }
+
+            if (! $response->successful()) {
+                $this->menuError = ApiErrors::first($response, 'This post could not be deleted. Please try again.');
+
+                if ($response->forbidden()) {
+                    $this->hideMenuEntry($id, 'delete');
+                    $this->menuStep = 'menu';
+                }
+
+                return;
+            }
+
+            $this->afterMenuRemoval($id);
+        } finally {
+            $this->menuBusy = false;
+            $this->releaseReactionLock('ignore:'.$id);
+        }
+    }
+
+    /**
+     * Hard-delete the menu post (204 on success). The sheet's Delete
+     * confirmation uses the ignore flow instead, mirroring the web.
+     */
+    public function deleteMenuPost(): void
+    {
+        $id = $this->menuPostId;
+
+        if ($id === '' || $this->menuBusy) {
+            return;
+        }
+
+        $token = $this->menuToken();
+
+        if ($token === null) {
+            return;
+        }
+
+        if (! $this->acquireReactionLock('delete:'.$id)) {
+            return;
+        }
+
+        $this->menuBusy = true;
+
+        try {
+            $api = app(PinkaryApi::class);
+            $response = $api->attempt(fn () => $api->deleteQuestion($token, $id));
+
+            if ($response === null) {
+                $this->menuError = 'This post could not be deleted. Please try again.';
+
+                return;
+            }
+
+            if ($response->unauthorized()) {
+                app(TokenStorage::class)->clear();
+                $this->replace($this->route('mobile.login'));
+
+                return;
+            }
+
+            if (! $response->successful()) {
+                $this->menuError = ApiErrors::first($response, 'This post could not be deleted. Please try again.');
+
+                if ($response->forbidden()) {
+                    $this->hideMenuEntry($id, 'delete');
+                    $this->menuStep = 'menu';
+                }
+
+                return;
+            }
+
+            $this->afterMenuRemoval($id);
+        } finally {
+            $this->menuBusy = false;
+            $this->releaseReactionLock('delete:'.$id);
+        }
+    }
+
+    /**
+     * Load the menu post's likers into the sheet. Policy-gated
+     * server-side: a 403 hides the entry henceforth.
+     */
+    public function openLikersMenu(): void
+    {
+        $id = $this->menuPostId;
+
+        if ($id === '') {
+            return;
+        }
+
+        $token = $this->menuToken();
+
+        if ($token === null) {
+            return;
+        }
+
+        $post = $this->findPostForMenu($id);
+
+        if ($post === null) {
+            $this->closeMenu();
+
+            return;
+        }
+
+        if ((int) data_get($post, 'metrics.likes', 0) <= 0) {
+            return;
+        }
+
+        if (! $this->acquireReactionLock('likers:'.$id)) {
+            return;
+        }
+
+        try {
+            $api = app(PinkaryApi::class);
+            $response = $api->attempt(fn () => $api->likers($token, $id));
+
+            if ($response === null) {
+                $this->menuError = 'Likes could not be loaded. Please try again.';
+
+                return;
+            }
+
+            if ($response->unauthorized()) {
+                app(TokenStorage::class)->clear();
+                $this->replace($this->route('mobile.login'));
+
+                return;
+            }
+
+            if ($response->forbidden()) {
+                $this->hideMenuEntry($id, 'likes');
+                $this->menuStep = 'menu';
+                $this->menuError = ApiErrors::first($response, 'You cannot view who liked this post.');
+
+                return;
+            }
+
+            if (! $response->successful()) {
+                $this->menuError = ApiErrors::first($response, 'Likes could not be loaded. Please try again.');
+
+                return;
+            }
+
+            /** @var list<array<string, mixed>> $likers */
+            $likers = $response->json('data', []);
+            $this->likers = $likers;
+            $this->likersPage = 1;
+            $this->likersHasMore = $response->json('links.next') !== null;
+            $this->likersError = '';
+            $this->menuError = '';
+            $this->menuStep = 'likers';
+        } finally {
+            $this->releaseReactionLock('likers:'.$id);
+        }
+    }
+
+    public function loadMoreLikers(): void
+    {
+        $id = $this->menuPostId;
+
+        if ($id === '' || ! $this->likersHasMore) {
+            return;
+        }
+
+        $token = $this->menuToken();
+
+        if ($token === null) {
+            return;
+        }
+
+        if (! $this->acquireReactionLock('likers:'.$id)) {
+            return;
+        }
+
+        try {
+            $api = app(PinkaryApi::class);
+            $page = $this->likersPage + 1;
+            $response = $api->attempt(fn () => $api->likers($token, $id, $page));
+
+            if ($response === null) {
+                $this->likersError = 'More likes could not be loaded. Please try again.';
+
+                return;
+            }
+
+            if ($response->unauthorized()) {
+                app(TokenStorage::class)->clear();
+                $this->replace($this->route('mobile.login'));
+
+                return;
+            }
+
+            if (! $response->successful()) {
+                $this->likersError = ApiErrors::first($response, 'More likes could not be loaded. Please try again.');
+
+                return;
+            }
+
+            /** @var list<array<string, mixed>> $next */
+            $next = $response->json('data', []);
+            $this->likers = [...$this->likers, ...$next];
+            $this->likersPage = $page;
+            $this->likersHasMore = $response->json('links.next') !== null;
+            $this->likersError = '';
+        } finally {
+            $this->releaseReactionLock('likers:'.$id);
+        }
+    }
+
+    /**
+     * Share the menu post through the system sheet, reusing the same
+     * question URL builder as the row-level share action.
+     */
+    public function shareMenuPost(): void
+    {
+        $post = $this->menuPostData();
+
+        if ($post === null) {
+            return;
+        }
+
+        $this->shareQuestion(
+            (string) data_get($post, 'to.username', ''),
+            $this->menuPostId,
+            (string) (data_get($post, 'answer') ?? data_get($post, 'content')),
+        );
+    }
+
+    /**
+     * Post the menu post to X through a tweet intent in the in-app
+     * browser, next to the system share entry.
+     */
+    public function shareToXMenu(): void
+    {
+        $post = $this->menuPostData();
+
+        if ($post === null) {
+            return;
+        }
+
+        $url = $this->questionUrl((string) data_get($post, 'to.username', ''), $this->menuPostId);
+
+        if ($url === null) {
+            return;
+        }
+
+        $text = $this->plainText(data_get($post, 'answer') ?? data_get($post, 'content'));
+
+        $this->openExternalLink(
+            'https://twitter.com/intent/tweet?url='.urlencode($url).'&text='.urlencode(mb_substr($text, 0, 140))
+        );
+    }
+
+    /**
+     * Read any rendered row on the screen: feed/bookmark lists, the
+     * detail post (with ancestors), or a detail comment. Returns a
+     * copy — mutations go through updatePostForMenu().
+     *
+     * @return array<string, mixed>|null
+     */
+    private function findPostForMenu(string $id): ?array
+    {
+        if ($id === '') {
+            return null;
+        }
+
+        if (isset($this->posts) && is_array($this->posts)) {
+            $found = $this->readPostPayload($this->posts, $id);
+
+            if ($found !== null) {
+                return $found;
+            }
+        }
+
+        if (isset($this->post) && is_array($this->post) && $this->post !== []) {
+            $found = $this->readPostPayload([$this->post], $id);
+
+            if ($found !== null) {
+                return $found;
+            }
+        }
+
+        if (isset($this->comments) && is_array($this->comments)) {
+            foreach ($this->comments as $comment) {
+                if (! is_array($comment)) {
+                    continue;
+                }
+
+                $found = $this->readPostPayload([$comment], $id);
+
+                if ($found !== null) {
+                    return $found;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Mutate a loaded menu post in place, wherever the screen stores
+     * it (feed list, detail post, or detail comment).
+     */
+    private function updatePostForMenu(string $id, \Closure $mutate): bool
+    {
+        if ($id === '') {
+            return false;
+        }
+
+        if (isset($this->posts) && is_array($this->posts)) {
+            $location = $this->locateNestedPost($this->posts, $id);
+
+            if ($location !== null) {
+                [$index, $key] = $location;
+
+                if ($key === null) {
+                    $mutate($this->posts[$index]);
+                } else {
+                    $mutate($this->posts[$index]['thread']['posts'][$key]);
+                }
+
+                return true;
+            }
+        }
+
+        if (isset($this->post) && is_array($this->post) && $this->post !== []) {
+            $location = $this->locateNestedPost([$this->post], $id);
+
+            if ($location !== null) {
+                [, $key] = $location;
+
+                if ($key === null) {
+                    $mutate($this->post);
+                } else {
+                    $mutate($this->post['thread']['posts'][$key]);
+                }
+
+                $this->syncMenuThreadMirror();
+
+                return true;
+            }
+        }
+
+        if (isset($this->comments) && is_array($this->comments)) {
+            foreach ($this->comments as $index => $comment) {
+                if (! is_array($comment)) {
+                    continue;
+                }
+
+                $location = $this->locateNestedPost([$comment], $id);
+
+                if ($location === null) {
+                    continue;
+                }
+
+                [, $key] = $location;
+
+                if ($key === null) {
+                    $mutate($this->comments[$index]);
+                } else {
+                    $mutate($this->comments[$index]['thread']['posts'][$key]);
+                }
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Drop a removed post from the local list. The detail screen's own
+     * post navigates back to the feed instead (see afterMenuRemoval).
+     */
+    private function removePostForMenu(string $id): void
+    {
+        if ($id === '') {
+            return;
+        }
+
+        if (isset($this->posts) && is_array($this->posts)) {
+            $location = $this->locateNestedPost($this->posts, $id);
+
+            if ($location !== null) {
+                [$index, $key] = $location;
+
+                if ($key === null) {
+                    $this->posts = array_values(array_filter(
+                        $this->posts,
+                        fn (mixed $row): bool => ! is_array($row) || (string) data_get($row, 'id', '') !== $id
+                    ));
+                } else {
+                    $thread = array_values(array_filter(
+                        (array) data_get($this->posts[$index], 'thread.posts', []),
+                        fn (mixed $row): bool => ! is_array($row) || (string) data_get($row, 'id', '') !== $id
+                    ));
+
+                    data_set($this->posts[$index], 'thread.posts', $thread);
+                }
+            }
+        }
+
+        if (isset($this->comments) && is_array($this->comments)) {
+            $this->comments = array_values(array_filter(
+                $this->comments,
+                fn (mixed $row): bool => ! is_array($row) || (string) data_get($row, 'id', '') !== $id
+            ));
+
+            foreach ($this->comments as $index => $comment) {
+                if (! is_array($comment)) {
+                    continue;
+                }
+
+                $location = $this->locateNestedPost([$comment], $id);
+
+                if ($location === null || $location[1] === null) {
+                    continue;
+                }
+
+                $thread = array_values(array_filter(
+                    (array) data_get($comment, 'thread.posts', []),
+                    fn (mixed $row): bool => ! is_array($row) || (string) data_get($row, 'id', '') !== $id
+                ));
+
+                data_set($this->comments[$index], 'thread.posts', $thread);
+            }
+        }
+
+        if (isset($this->post) && is_array($this->post) && $this->post !== []) {
+            $location = $this->locateNestedPost([$this->post], $id);
+
+            if ($location !== null && $location[1] !== null) {
+                $thread = array_values(array_filter(
+                    (array) data_get($this->post, 'thread.posts', []),
+                    fn (mixed $row): bool => ! is_array($row) || (string) data_get($row, 'id', '') !== $id
+                ));
+
+                data_set($this->post, 'thread.posts', $thread);
+                $this->syncMenuThreadMirror();
+            }
+        }
+    }
+
+    /**
+     * After a successful delete/ignore: the detail screen's own post
+     * navigates back to the feed (no flash mechanism exists, so plain
+     * navigate); list screens drop the row locally.
+     */
+    private function afterMenuRemoval(string $id): void
+    {
+        $this->closeMenu();
+
+        if (isset($this->id) && is_string($this->id) && $this->id !== '' && $this->id === $id) {
+            $this->navigate($this->route('mobile.feed'));
+
+            return;
+        }
+
+        $this->removePostForMenu($id);
+    }
+
+    /**
+     * Mark a menu entry as dead after a 403 so it never renders again
+     * for this post.
+     */
+    private function hideMenuEntry(string $postId, string $action): void
+    {
+        $this->menuDenied[$postId.':'.$action] = true;
+    }
+
+    /**
+     * Resolve the authenticated token for menu calls, sending guests
+     * to login like the row-level reaction actions do.
+     */
+    private function menuToken(): ?string
+    {
+        $token = app(TokenStorage::class)->get();
+
+        if (! is_string($token) || $token === '') {
+            $this->replace($this->route('mobile.login'));
+
+            return null;
+        }
+
+        return $token;
+    }
+
+    /**
+     * Canonical question URL shared by the system share and Post-to-X
+     * actions.
+     */
+    private function questionUrl(?string $username, string $id): ?string
+    {
+        if ($username === null || $username === '' || $id === '') {
+            return null;
+        }
+
+        $base = rtrim((string) config('services.pinkary.url'), '/');
+
+        return $base.'/@'.$username.'/questions/'.$id;
+    }
+
+    /**
+     * Plain-text rendering of parsed-HTML post fields for share text
+     * and the answer editor seed.
+     */
+    private function plainText(mixed $html): string
+    {
+        return trim(html_entity_decode(strip_tags((string) $html), ENT_QUOTES, 'UTF-8'));
+    }
+
+    /**
+     * Keep the detail screen's detached thread mirror consistent after
+     * a menu mutation. List screens have no mirror to keep.
+     */
+    private function syncMenuThreadMirror(): void
+    {
+        if (method_exists($this, 'syncThreadMirror')) {
+            $this->syncThreadMirror();
+        }
     }
 }

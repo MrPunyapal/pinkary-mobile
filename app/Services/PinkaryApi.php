@@ -208,11 +208,12 @@ final class PinkaryApi
     /**
      * List the authenticated user's notifications, newest first.
      */
-    public function notifications(string $token, int $page = 1): Response
+    public function notifications(string $token, int $page = 1, ?int $perPage = null): Response
     {
-        return $this->request()->withToken($token)->get('/api/v1/notifications', [
+        return $this->request()->withToken($token)->get('/api/v1/notifications', array_filter([
             'page' => $page,
-        ]);
+            'per_page' => $perPage,
+        ]));
     }
 
     /**
@@ -255,6 +256,140 @@ final class PinkaryApi
     public function clickLink(string $token, int $linkId): Response
     {
         return $this->request()->withToken($token)->post("/api/v1/links/{$linkId}/click");
+    }
+
+    /**
+     * List a user's answered questions, pinned first (profile posts).
+     */
+    public function userQuestions(string $token, string $username, int $page = 1): Response
+    {
+        return $this->request()->withToken($token)->get("/api/v1/users/{$username}/questions", [
+            'page' => $page,
+        ]);
+    }
+
+    /**
+     * Ask another user a question (255 chars, optionally anonymous).
+     */
+    public function askQuestion(string $token, string $toUsername, string $content, bool $anonymously = false): Response
+    {
+        return $this->request()->withToken($token)->post('/api/v1/questions', [
+            'content' => $content,
+            'to_username' => $toUsername,
+            'anonymously' => $anonymously,
+        ]);
+    }
+
+    /**
+     * Update the authenticated user's profile (text fields only —
+     * avatar upload needs a file picker the framework does not expose).
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public function updateProfile(string $token, array $attributes): Response
+    {
+        return $this->request()->withToken($token)->patch('/api/v1/profile', $attributes);
+    }
+
+    /**
+     * Create a profile link (description + url).
+     */
+    public function createLink(string $token, string $description, string $url): Response
+    {
+        return $this->request()->withToken($token)->post('/api/v1/links', [
+            'description' => $description,
+            'url' => $url,
+        ]);
+    }
+
+    /**
+     * Update a profile link (description + url).
+     */
+    public function updateLink(string $token, int $linkId, string $description, string $url): Response
+    {
+        return $this->request()->withToken($token)->put("/api/v1/links/{$linkId}", [
+            'description' => $description,
+            'url' => $url,
+        ]);
+    }
+
+    /**
+     * Delete a profile link.
+     */
+    public function deleteLink(string $token, int $linkId): Response
+    {
+        return $this->request()->withToken($token)->delete("/api/v1/links/{$linkId}");
+    }
+
+    /**
+     * List a user's followers / following with followed_by_me flags.
+     */
+    public function followers(string $token, string $username, int $page = 1): Response
+    {
+        return $this->request()->withToken($token)->get("/api/v1/users/{$username}/followers", [
+            'page' => $page,
+        ]);
+    }
+
+    public function following(string $token, string $username, int $page = 1): Response
+    {
+        return $this->request()->withToken($token)->get("/api/v1/users/{$username}/following", [
+            'page' => $page,
+        ]);
+    }
+
+    /**
+     * Pin or unpin a question (policy-gated server-side).
+     */
+    public function pinQuestion(string $token, string $id): Response
+    {
+        return $this->request()->withToken($token)->post("/api/v1/questions/{$id}/pin");
+    }
+
+    public function unpinQuestion(string $token, string $id): Response
+    {
+        return $this->request()->withToken($token)->delete("/api/v1/questions/{$id}/pin");
+    }
+
+    /**
+     * Update a question's answer (24h window enforced server-side).
+     */
+    public function updateAnswer(string $token, string $id, string $answer): Response
+    {
+        return $this->request()->withToken($token)->put("/api/v1/questions/{$id}/answer", [
+            'answer' => $answer,
+        ]);
+    }
+
+    /**
+     * Delete a question, or ignore it (delete flow on the web).
+     */
+    public function deleteQuestion(string $token, string $id): Response
+    {
+        return $this->request()->withToken($token)->delete("/api/v1/questions/{$id}");
+    }
+
+    public function ignoreQuestion(string $token, string $id): Response
+    {
+        return $this->request()->withToken($token)->post("/api/v1/questions/{$id}/ignore");
+    }
+
+    /**
+     * List a question's likers (policy-gated server-side).
+     */
+    public function likers(string $token, string $id, int $page = 1): Response
+    {
+        return $this->request()->withToken($token)->get("/api/v1/questions/{$id}/likes", [
+            'page' => $page,
+        ]);
+    }
+
+    /**
+     * Delete a single notification (204 on success).
+     */
+    public function deleteNotification(string $token, string $id): Response
+    {
+        return $this->request()->withToken($token)->delete("/api/v1/notifications/{$id}");
     }
 
     /**

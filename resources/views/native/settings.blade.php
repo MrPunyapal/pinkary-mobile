@@ -1,5 +1,8 @@
 <native:scroll-view class="w-full h-full bg-theme-background">
-    <native:column class="w-full px-4 py-4 gap-4">
+    <native:column class="w-full gap-0">
+        <x-page-heading title="Settings" />
+
+        <native:column class="w-full px-4 py-4 gap-4">
         @if ($loading)
             <native:column class="w-full items-center gap-3 py-10">
                 <native:activity-indicator />
@@ -39,5 +42,6 @@
         @endif
 
         <native:column class="w-full h-20" />
+        </native:column>
     </native:column>
 </native:scroll-view>

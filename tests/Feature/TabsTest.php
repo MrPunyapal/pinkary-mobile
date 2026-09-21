@@ -1,6 +1,9 @@
 <?php
 
 use App\NativeComponents\Bookmarks;
+use App\NativeComponents\EditProfile;
+use App\NativeComponents\FollowList;
+use App\NativeComponents\Home;
 use App\NativeComponents\Login;
 use App\NativeComponents\Notifications;
 use App\NativeComponents\Profile;
@@ -213,12 +216,14 @@ it('resolves the tabbed routes', function (): void {
     Native::visit('/search')->assertSee('Search users or hashtags');
 });
 
-it('keeps exactly one title per screen and hides chrome on auth screens', function (): void {
+it('keeps chrome off content-titled screens and titleless elsewhere', function (): void {
     $layout = new MobileLayout;
 
-    // Screens with their own in-content heading suppress the chrome bar
-    // (the old Jump app left-aligns chrome titles; new clients would
-    // render both) — auth cards carry their own titles too.
+    // Screens with an in-content top bar or page heading suppress the
+    // chrome bar entirely; every profile now carries its own top-bar
+    // (the old Jump app left-aligns chrome titles into the drawer
+    // hamburger, so chrome never carries text). Auth cards carry their
+    // own titles too.
     expect($layout->navBar(new Bookmarks))->toBeNull()
         ->and($layout->navBar(new Notifications))->toBeNull()
         ->and($layout->navBar(new Login))->toBeNull()
@@ -228,11 +233,17 @@ it('keeps exactly one title per screen and hides chrome on auth screens', functi
     $other->username = 'ada';
     expect($layout->navBar($other))->toBeNull();
 
-    // Search, Settings, and your own profile have no in-content title,
-    // so they keep the chrome one.
-    expect($layout->navBar(new Search))->not->toBeNull()
+    // Your own profile also renders an in-content top-bar now, so its
+    // chrome is gone too (previously the titled bar overlapped the
+    // hamburger on old clients).
+    expect($layout->navBar(new Profile))->toBeNull();
+
+    // Search now owns its full-width in-content search header and therefore
+    // also suppresses the drawer chrome; Settings and Home keep the
+    // titleless chrome bar (drawer hamburger only).
+    expect($layout->navBar(new Search))->toBeNull()
         ->and($layout->navBar(new Settings))->not->toBeNull()
-        ->and($layout->navBar(new Profile))->not->toBeNull();
+        ->and($layout->navBar(new Home))->not->toBeNull();
 
     // Auth screens never get tabs, drawer, or the compose entry (they
     // also sit outside the layout route group).
@@ -344,7 +355,7 @@ it('shows per-field registration errors from the API', function (): void {
         ->assertSee('You must accept the terms.');
 });
 
-it('drops read notifications on load like ignored ones on the web', function (): void {
+it('shows every notification like the web instead of filtering read rows', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     session(['pinkary_api_token' => 'test-token']);
     Http::fake([
@@ -358,9 +369,11 @@ it('drops read notifications on load like ignored ones on the web', function ():
         ]),
     ]);
 
+    // Web parity (livewire/notifications/index.blade.php): the web
+    // renders every row whose subject exists with no read-state filter.
     Native::test(Notifications::class)
         ->assertSee('Unread snippet.')
-        ->assertDontSee('Read snippet.')
+        ->assertSee('Read snippet.')
         ->assertSee('Ignore all');
 });
 
@@ -487,4 +500,263 @@ it('toggles password visibility on the auth screens', function (): void {
         ->assertSee('Hide password');
 
     expect($register->get('showPassword'))->toBeTrue();
+});
+
+function followRow(string $username, string $name, bool $followed = false, bool $isMe = false): array
+{
+    return [
+        'id' => $username === 'ada' ? 2 : 3,
+        'name' => $name,
+        'username' => $username,
+        'avatar' => null,
+        'verification' => ['profile' => false, 'company' => false],
+        'followed_by_me' => $followed,
+        'is_me' => $isMe,
+    ];
+}
+
+it('lists followers with pagination', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/users/ada/followers*' => Http::sequence()
+            ->push([
+                'data' => [followRow('grace', 'Grace Hopper')],
+                'links' => ['next' => 'https://pinkary.test/api/v1/users/ada/followers?page=2'],
+            ])
+            ->push([
+                'data' => [followRow('linus', 'Linus Torvalds')],
+                'links' => ['next' => null],
+            ]),
+    ]);
+
+    Native::test(FollowList::class, ['username' => 'ada'])
+        ->assertSee('Grace Hopper')
+        ->assertSee('@ada · Followers')
+        ->call('loadMore')
+        ->assertSee('Linus Torvalds');
+});
+
+it('lists following in following mode and resolves the routes', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/users/ada/following*' => Http::response([
+            'data' => [followRow('grace', 'Grace Hopper', true)],
+            'links' => ['next' => null],
+        ]),
+        'https://pinkary.test/api/v1/users/ada/followers*' => Http::response([
+            'data' => [followRow('linus', 'Linus Torvalds')],
+            'links' => ['next' => null],
+        ]),
+    ]);
+
+    Native::test(FollowList::class, ['username' => 'ada', 'mode' => 'following'])
+        ->assertSee('Grace Hopper')
+        ->assertSee('@ada · Following');
+
+    Http::assertSent(fn ($request) => str_contains((string) $request->url(), '/api/v1/users/ada/following'));
+
+    Native::visit('/user/ada/followers')->assertSee('Linus Torvalds');
+    Native::visit('/user/ada/following')->assertSee('Grace Hopper');
+});
+
+it('opens profiles from follow rows', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/users/ada/followers*' => Http::response([
+            'data' => [followRow('grace', 'Grace Hopper')],
+            'links' => ['next' => null],
+        ]),
+    ]);
+
+    Native::test(FollowList::class, ['username' => 'ada'])
+        ->press("openProfile('grace')")
+        ->assertNavigatedTo('/user/grace');
+});
+
+it('follows and unfollows inline from the list', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/users/ada/followers*' => Http::response([
+            'data' => [followRow('grace', 'Grace Hopper')],
+            'links' => ['next' => null],
+        ]),
+        'https://pinkary.test/api/v1/users/grace/follow' => Http::response(['data' => ['followed' => true]]),
+    ]);
+
+    $test = Native::test(FollowList::class, ['username' => 'ada'])
+        ->assertSee('Follow')
+        ->call('toggleFollow', 'grace')
+        ->assertSee('Following');
+
+    expect($test->get('users')[0])->toMatchArray(['followed_by_me' => true]);
+
+    Http::assertSent(fn ($request) => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/api/v1/users/grace/follow'));
+});
+
+it('shows an empty follow list like the web', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/users/ada/followers*' => Http::response(['data' => []]),
+    ]);
+
+    Native::test(FollowList::class, ['username' => 'ada'])
+        ->assertSee('No followers yet.');
+});
+
+it('edits the profile and refreshes the cached card', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    $card = ownProfile();
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::sequence()
+            ->push(['data' => $card])
+            ->push(['data' => array_merge($card, ['name' => 'New Name'])]),
+    ]);
+
+    $test = Native::test(EditProfile::class)
+        ->assertSee('Pinkary User')
+        ->assertSee('Profile photos can’t be changed on mobile yet.')
+        ->set('name', 'New Name')
+        ->call('save')
+        ->assertSee('Your profile has been saved.');
+
+    expect($test->get('name'))->toBe('New Name');
+
+    Http::assertSent(fn ($request) => $request->method() === 'PATCH'
+        && str_ends_with($request->url(), '/api/v1/profile')
+        && $request['name'] === 'New Name');
+});
+
+it('shows per-field profile errors from the API', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::sequence()
+            ->push(['data' => ownProfile()])
+            ->push([
+                'message' => 'The given data was invalid.',
+                'errors' => ['username' => ['The username is taken.']],
+            ], 422),
+    ]);
+
+    Native::test(EditProfile::class)
+        ->set('username', 'taken')
+        ->call('save')
+        ->assertSee('The username is taken.');
+});
+
+it('adds and deletes profile links with a confirm tap', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::response(['data' => ownProfile()]),
+        'https://pinkary.test/api/v1/links' => Http::response(['data' => [
+            'id' => 9, 'description' => 'Blog', 'url' => 'https://blog.example.com?ref=pinkary', 'click_count' => 0,
+        ]], 201),
+        'https://pinkary.test/api/v1/links/9' => Http::response(null, 204),
+    ]);
+
+    $test = Native::test(EditProfile::class)
+        ->assertSee('Website')
+        ->set('newDescription', 'Blog')
+        ->set('newUrl', 'https://blog.example.com')
+        ->call('addLink')
+        ->assertSee('Blog');
+
+    expect($test->get('links'))->toHaveCount(2);
+
+    // The first delete tap only arms the confirm.
+    $test->call('deleteLink', 9)->assertSee('Tap again to confirm');
+
+    expect($test->get('links'))->toHaveCount(2);
+
+    $test->call('deleteLink', 9)->assertSee('Link deleted.');
+
+    expect($test->get('links'))->toHaveCount(1);
+
+    Http::assertSent(fn ($request) => $request->method() === 'DELETE'
+        && str_ends_with($request->url(), '/api/v1/links/9'));
+});
+
+it('rejects non-https link URLs without sending', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::response(['data' => ownProfile()]),
+    ]);
+
+    Native::test(EditProfile::class)
+        ->set('newDescription', 'Blog')
+        ->set('newUrl', 'not-a-url')
+        ->call('addLink')
+        ->assertSee('https://');
+
+    Http::assertNotSent(fn ($request) => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/api/v1/links'));
+});
+
+it('surfaces link limit messages from the API', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::response(['data' => ownProfile()]),
+        'https://pinkary.test/api/v1/links' => Http::response([
+            'message' => 'You can only have 10 links at a time.',
+        ], 422),
+    ]);
+
+    Native::test(EditProfile::class)
+        ->set('newDescription', 'Extra')
+        ->set('newUrl', 'https://extra.example.com')
+        ->call('addLink')
+        ->assertSee('10 links at a time');
+});
+
+it('deletes a notification when opening it', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/notifications*' => Http::response([
+            'data' => [array_merge(notificationRow('n1', 'Opened snippet.'), ['read' => false])],
+            'links' => ['next' => null],
+            'meta' => ['unread_count' => 1],
+        ]),
+        'https://pinkary.test/api/v1/notifications/n1' => Http::response(null, 204),
+    ]);
+
+    Native::test(Notifications::class)
+        ->assertSee('Opened snippet.')
+        ->call('open', 'n1')
+        ->assertDontSee('Opened snippet.')
+        ->assertNavigatedTo('/question/q9');
+
+    Http::assertSent(fn ($request) => $request->method() === 'DELETE'
+        && str_ends_with($request->url(), '/api/v1/notifications/n1'));
+    Http::assertNotSent(fn ($request) => str_ends_with((string) $request->url(), '/api/v1/notifications/read'));
+});
+
+it('treats a missing notification as already gone', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/notifications*' => Http::response([
+            'data' => [array_merge(notificationRow('n1', 'Gone snippet.'), ['read' => false])],
+            'links' => ['next' => null],
+            'meta' => ['unread_count' => 1],
+        ]),
+        'https://pinkary.test/api/v1/notifications/n1' => Http::response(['message' => 'Not found.'], 404),
+    ]);
+
+    Native::test(Notifications::class)
+        ->call('open', 'n1')
+        ->assertDontSee('Gone snippet.')
+        ->assertNavigatedTo('/question/q9');
+
+    Http::assertNotSent(fn ($request) => str_ends_with((string) $request->url(), '/api/v1/notifications/read'));
 });

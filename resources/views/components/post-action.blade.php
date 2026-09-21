@@ -37,6 +37,7 @@
         'bookmark' => "toggleBookmark('{$postId}')",
         'translate' => "translatePost('{$postId}', '{$field}')",
         'share' => "sharePost('{$postId}')",
+        'menu' => "openMenu('{$postId}')",
         default => null,
     };
 
@@ -46,6 +47,7 @@
         'bookmark' => $active ? 'Remove bookmark' : 'Bookmark this post',
         'translate' => $field === 'content' ? 'Translate question' : 'Translate answer',
         'share' => 'Share this post',
+        'menu' => 'Open post menu',
         'views' => 'Views',
         default => (string) $type,
     };
@@ -86,6 +88,9 @@
                     @break
                 @case ('share')
                     <native:icon :ios="\App\Icons\Ios::Paperplane" :android="\App\Icons\AndroidOutlined::Send" :size="16" color="{{ $muted }}" dark-color="{{ $mutedDark }}" />
+                    @break
+                @case ('menu')
+                    <native:icon :ios="\App\Icons\Ios::Ellipsis" :android="\App\Icons\AndroidOutlined::MoreHoriz" :size="16" color="{{ $muted }}" dark-color="{{ $mutedDark }}" />
                     @break
             @endswitch
             @if ($showCount)

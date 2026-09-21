@@ -23,6 +23,11 @@ final class Compose extends NativeComponent
     public const int MAX_THREAD_POSTS = 9;
 
     /**
+     * Asks are plain questions to another user — shorter than threads.
+     */
+    public const int MAX_ASK_LENGTH = 255;
+
+    /**
      * Main-post poll durations, mirroring the web composer's dropdown.
      *
      * @var array<int, string>
@@ -88,13 +93,23 @@ final class Compose extends NativeComponent
 
     public ?string $avatar = null;
 
+    /**
+     * Ask mode target — present when opened via /ask/{username}.
+     * Thread, poll, and channel UI hide while asking.
+     */
+    public string $askUsername = '';
+
+    public bool $anonymous = false;
+
     public function navTitle(): string
     {
-        return 'New Thread';
+        return $this->askUsername !== '' ? 'Ask @'.$this->askUsername : 'New Thread';
     }
 
     public function mount(): void
     {
+        $this->askUsername = (string) $this->param('username', '');
+
         $token = $this->token();
 
         if ($token === null) {
@@ -110,6 +125,10 @@ final class Compose extends NativeComponent
             $avatar = $profile->json('data.avatar');
 
             $this->avatar = is_string($avatar) && $avatar !== '' ? $avatar : null;
+        }
+
+        if ($this->askUsername !== '') {
+            return;
         }
 
         $this->searchChannels($token);
@@ -385,6 +404,12 @@ final class Compose extends NativeComponent
             return;
         }
 
+        if ($this->askUsername !== '') {
+            $this->publishAsk();
+
+            return;
+        }
+
         $token = $this->token();
 
         if ($token === null) {
@@ -513,6 +538,69 @@ final class Compose extends NativeComponent
         $this->pollOptions = ['', ''];
         $this->pollDuration = 1;
         $this->navigate($this->route('mobile.feed'));
+    }
+
+    /**
+     * Send a plain question to another user, then open their profile.
+     */
+    public function publishAsk(): void
+    {
+        if ($this->busy || $this->askUsername === '') {
+            return;
+        }
+
+        $token = $this->token();
+
+        if ($token === null) {
+            $this->replace($this->route('mobile.login'));
+
+            return;
+        }
+
+        $content = trim($this->content);
+
+        if ($content === '') {
+            $this->errorMessage = 'Write your question first — it will be sent to @'.$this->askUsername.'.';
+
+            return;
+        }
+
+        if (mb_strlen($content) > self::MAX_ASK_LENGTH) {
+            $this->errorMessage = 'Questions may not be greater than 255 characters.';
+
+            return;
+        }
+
+        $this->busy = true;
+        $this->errorMessage = '';
+
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->askQuestion($token, $this->askUsername, $content, $this->anonymous));
+
+        $this->busy = false;
+
+        if ($response === null) {
+            $this->errorMessage = 'Your question could not be sent. Please try again.';
+
+            return;
+        }
+
+        if ($response->unauthorized()) {
+            app(TokenStorage::class)->clear();
+            $this->replace($this->route('mobile.login'));
+
+            return;
+        }
+
+        if (! $response->successful()) {
+            $this->errorMessage = ApiErrors::first($response, 'Your question could not be sent. Please try again.');
+
+            return;
+        }
+
+        $this->content = '';
+        $this->anonymous = false;
+        $this->navigate($this->route('mobile.user', ['username' => $this->askUsername]));
     }
 
     public function render(): View

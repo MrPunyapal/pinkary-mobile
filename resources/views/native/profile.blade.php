@@ -32,12 +32,15 @@
     ));
 @endphp
 
-@if ($username !== '')
-    <native:top-bar title="{{ '@'.data_get($profile, 'username', $username) }}" back />
-@endif
+<native:list on-end-reached="loadMoreQuestions" class="w-full h-full bg-theme-background">
+    <native:column class="w-full gap-0">
+        @if ($username !== '')
+            <x-page-heading :title="'@'.(data_get($profile, 'username', $username) ?: $username)" :back="true" />
+        @else
+            <x-page-heading title="Profile" />
+        @endif
 
-<native:scroll-view class="w-full h-full bg-theme-background">
-    <native:column class="w-full px-4 py-4 gap-4">
+        <native:column class="w-full px-4 py-4 gap-4">
         @if ($loading)
             <native:column class="w-full items-center gap-3 py-10">
                 <native:activity-indicator />
@@ -72,16 +75,16 @@
                 @endif
 
                 <native:row class="items-center justify-center gap-2 mt-4 flex-wrap">
-                    @if ($followers > 0)
+                    <native:pressable @tap="openFollowers" a11y-label="Open followers">
                         <native:row class="items-center px-3 py-1 rounded-full bg-theme-surface-variant border border-theme-outline-variant">
                             <native:text class="text-sm text-theme-on-surface-variant">{{ $abbreviate($followers) }} {{ $followers === 1 ? 'Follower' : 'Followers' }}</native:text>
                         </native:row>
-                    @endif
-                    @if ($following > 0)
+                    </native:pressable>
+                    <native:pressable @tap="openFollowing" a11y-label="Open following">
                         <native:row class="items-center px-3 py-1 rounded-full bg-theme-surface-variant border border-theme-outline-variant">
                             <native:text class="text-sm text-theme-on-surface-variant">{{ $abbreviate($following) }} Following</native:text>
                         </native:row>
-                    @endif
+                    </native:pressable>
                     @if ($posts > 0)
                         <native:row class="items-center px-3 py-1 rounded-full bg-theme-surface-variant border border-theme-outline-variant">
                             <native:text class="text-sm text-theme-on-surface-variant">{{ $abbreviate($posts) }} {{ $posts === 1 ? 'Post' : 'Posts' }}</native:text>
@@ -95,8 +98,15 @@
                 @if (count($links) > 0)
                     <native:column class="w-full gap-2 mt-4 pt-4 border-t border-theme-outline-variant">
                         @foreach ($links as $link)
+                            {{-- Solid theme color: profile gradients do not
+                                render on native clients, so the card's
+                                gradient/link_shape stay web-only. --}}
                             <native:pressable class="w-full items-center py-3 rounded-full bg-theme-primary" @tap="openUserLink({{ (int) data_get($link, 'id', 0) }})" a11y-label="Open {{ data_get($link, 'description', 'link') }}">
                                 <native:text class="text-sm font-bold text-white">{{ data_get($link, 'description', '') }}</native:text>
+                                @php $clicks = data_get($link, 'click_count'); @endphp
+                                @if (is_int($clicks) || (is_string($clicks) && $clicks !== ''))
+                                    <native:text class="text-xs text-white/80">{{ $clicks }} {{ (int) $clicks === 1 ? 'click' : 'clicks' }}</native:text>
+                                @endif
                             </native:pressable>
                         @endforeach
                     </native:column>
@@ -120,11 +130,19 @@
                     </native:pressable>
                 @endif
                 @unless ($isMe)
+                    <native:pressable class="px-4 py-2 rounded-full border border-theme-primary" @tap="askUser" a11y-label="Ask {{ '@'.data_get($profile, 'username') }}">
+                        <native:text class="text-sm font-medium text-theme-primary">Ask {{ '@'.data_get($profile, 'username') }}</native:text>
+                    </native:pressable>
                     <native:spacer class="flex-1" />
                     <native:pressable class="px-4 py-2 rounded-full bg-theme-primary {{ $followBusy ? 'opacity-40' : '' }}" @tap="toggleFollow" a11y-label="{{ $followed ? 'Unfollow' : 'Follow' }}">
                         <native:text class="text-sm font-medium text-white">{{ $followBusy ? '…' : ($followed ? 'Following' : 'Follow') }}</native:text>
                     </native:pressable>
                 @endunless
+                @if ($isMe)
+                    <native:pressable class="px-4 py-2 rounded-full border border-theme-outline-variant bg-theme-surface" @tap="editProfile" a11y-label="Edit profile">
+                        <native:text class="text-sm font-medium text-theme-on-surface">Edit profile</native:text>
+                    </native:pressable>
+                @endif
             </native:row>
 
             @if (($showQr ?? false) && $isMe)
@@ -142,6 +160,9 @@
                     <native:text class="text-sm font-semibold uppercase tracking-widest text-theme-on-surface-variant">Account</native:text>
                     <native:text class="text-base text-theme-on-surface">{{ data_get($profile, 'email') }}</native:text>
                     <native:text class="text-sm text-theme-on-surface-variant">Member since {{ data_get($profile, 'member_since.human') }}</native:text>
+                    <native:pressable class="self-start py-1" @tap="editProfile" a11y-label="Edit profile and links">
+                        <native:text class="text-sm font-semibold text-theme-primary">Edit profile and links</native:text>
+                    </native:pressable>
                     <native:pressable class="self-start py-1" @tap="logout" a11y-label="Log out">
                         <native:text class="text-sm font-semibold text-theme-destructive">Log out</native:text>
                     </native:pressable>
@@ -157,8 +178,52 @@
                     <native:button variant="secondary" @tap="compose">Post</native:button>
                 </native:pressable>
             @endif
+
+            <native:column class="w-full gap-0 rounded-md bg-theme-surface border border-theme-outline-variant overflow-hidden">
+                <native:column class="w-full px-4 py-3 border-b border-theme-outline-variant">
+                    <native:text class="text-sm font-semibold uppercase tracking-widest text-theme-on-surface-variant">Posts</native:text>
+                </native:column>
+
+                @if ($questionsLoading)
+                    <native:column class="w-full items-center gap-3 py-10">
+                        <native:activity-indicator />
+                        <native:text class="text-sm text-theme-on-surface-variant">Loading posts…</native:text>
+                    </native:column>
+                @elseif ($questionsError !== '')
+                    <native:column class="w-full p-4 gap-3">
+                        <native:text class="text-sm text-theme-destructive">{{ $questionsError }}</native:text>
+                        <native:pressable class="self-start py-1" @tap="retryQuestions">
+                            <native:text class="text-sm font-semibold text-theme-destructive">Try again</native:text>
+                        </native:pressable>
+                    </native:column>
+                @elseif (count($questions) === 0)
+                    <native:column class="w-full items-center gap-1 px-6 py-10">
+                        <native:text class="text-lg font-medium text-theme-on-surface">No posts yet.</native:text>
+                        @if ($isMe)
+                            <native:text class="text-sm text-center text-theme-on-surface-variant">Share your first update to get started.</native:text>
+                        @endif
+                    </native:column>
+                @else
+                    @foreach ($questions as $post)
+                        @if ((bool) data_get($post, 'pinned', false))
+                            <native:row class="w-full items-center gap-1.5 px-4 pt-3">
+                                <native:icon :ios="\App\Icons\Ios::PinFill" :android="\App\Icons\Android::PushPin" :size="12" color="#EC4899" />
+                                <native:text class="text-xs font-semibold uppercase tracking-widest text-theme-primary">Pinned</native:text>
+                            </native:row>
+                        @endif
+                        <x-thread-post :post="$post" :expanded-ids="$expanded" />
+                    @endforeach
+
+                     @if ($loadMoreQuestionsError !== '')
+                         <native:column class="w-full items-center px-5 py-5">
+                             <native:text class="text-sm text-center text-theme-destructive">{{ $loadMoreQuestionsError }}</native:text>
+                         </native:column>
+                     @endif
+                @endif
+            </native:column>
         @endif
 
         <native:column class="w-full h-20" />
+        </native:column>
     </native:column>
-</native:scroll-view>
+</native:list>

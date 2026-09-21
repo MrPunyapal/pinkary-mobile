@@ -395,3 +395,86 @@ it('only makes add-post tappable once a follow-up is allowed', function (): void
 
     expect(treeHasPressableFor($test->tree(), 'Add another post'))->toBeTrue();
 });
+
+it('renders ask mode for another user without thread UI', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
+    ]);
+
+    Native::test(Compose::class, ['username' => 'ada'])
+        ->assertSee('Ask @ada')
+        ->assertSee('Ask anonymously')
+        ->assertSee('Ask')
+        ->assertDontSee('Add another post')
+        ->assertDontSee('Channel');
+
+    Http::assertNotSent(fn ($request) => str_contains((string) $request->url(), '/api/v1/channels'));
+});
+
+it('sends the question and opens the asked profile', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
+        'https://pinkary.test/api/v1/questions' => Http::response(['data' => [[]]], 201),
+    ]);
+
+    Native::test(Compose::class, ['username' => 'ada'])
+        ->set('content', 'What are you building?')
+        ->set('anonymous', true)
+        ->call('publish')
+        ->assertNavigatedTo('/user/ada');
+
+    Http::assertSent(fn ($request) => $request->url() === 'https://pinkary.test/api/v1/questions'
+        && $request['content'] === 'What are you building?'
+        && $request['to_username'] === 'ada'
+        && (bool) $request['anonymously'] === true);
+});
+
+it('requires a question before asking', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
+    ]);
+
+    Native::test(Compose::class, ['username' => 'ada'])
+        ->call('publish')
+        ->assertSee('Write your question first');
+
+    assertQuestionNotPublished();
+});
+
+it('rejects overlong questions without sending', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
+    ]);
+
+    Native::test(Compose::class, ['username' => 'ada'])
+        ->set('content', str_repeat('a', 256))
+        ->call('publish')
+        ->assertSee('255 characters');
+
+    assertQuestionNotPublished();
+});
+
+it('surfaces ask validation errors from the API', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
+        'https://pinkary.test/api/v1/questions' => Http::response([
+            'message' => 'The given data was invalid.',
+            'errors' => ['content' => ['The content has too many blank characters.']],
+        ], 422),
+    ]);
+
+    Native::test(Compose::class, ['username' => 'ada'])
+        ->set('content', 'What are you building?')
+        ->call('publish')
+        ->assertSee('too many blank characters');
+});

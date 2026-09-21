@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\NativeComponents;
 
+use App\NativeComponents\Concerns\TogglesPostReactions;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
 use App\Services\TokenStorage;
@@ -14,6 +15,7 @@ use Native\Mobile\Share;
 
 final class Profile extends NativeComponent
 {
+    use TogglesPostReactions;
     use UsesAppMenu;
 
     /** @var array<string, mixed>|null */
@@ -28,6 +30,24 @@ final class Profile extends NativeComponent
     public bool $followBusy = false;
 
     public bool $showQr = false;
+
+    /** @var list<array<string, mixed>> */
+    public array $questions = [];
+
+    public bool $questionsLoading = true;
+
+    public string $questionsError = '';
+
+    public int $questionsPage = 1;
+
+    public bool $hasMoreQuestions = false;
+
+    public bool $loadingMoreQuestions = false;
+
+    public string $loadMoreQuestionsError = '';
+
+    /** @var list<string> */
+    public array $expanded = [];
 
     public function navTitle(): string
     {
@@ -67,6 +87,202 @@ final class Profile extends NativeComponent
         }
 
         $this->load($token);
+    }
+
+    /**
+     * Retry the posts list without reloading the profile card.
+     */
+    public function retryQuestions(): void
+    {
+        $token = $this->token();
+
+        if ($token === null) {
+            $this->replace($this->route('mobile.login'));
+
+            return;
+        }
+
+        $this->loadQuestions($token, $this->questionsUsername());
+    }
+
+    /**
+     * Open this profile's followers list.
+     */
+    public function openFollowers(): void
+    {
+        $username = $this->questionsUsername();
+
+        if ($username === '') {
+            return;
+        }
+
+        $this->navigate($this->route('mobile.followers', ['username' => $username]));
+    }
+
+    /**
+     * Open this profile's following list.
+     */
+    public function openFollowing(): void
+    {
+        $username = $this->questionsUsername();
+
+        if ($username === '') {
+            return;
+        }
+
+        $this->navigate($this->route('mobile.following', ['username' => $username]));
+    }
+
+    /**
+     * Ask this user a question (other users' profiles only).
+     */
+    public function askUser(): void
+    {
+        $username = (string) data_get($this->profile, 'username', '');
+
+        if ($username === '' || (bool) data_get($this->profile, 'is_me', false)) {
+            return;
+        }
+
+        $this->navigate($this->route('mobile.ask', ['username' => $username]));
+    }
+
+    /**
+     * Edit your own profile (own profile only).
+     */
+    public function editProfile(): void
+    {
+        if (! (bool) data_get($this->profile, 'is_me', false)) {
+            return;
+        }
+
+        $this->navigate($this->route('mobile.profile.edit'));
+    }
+
+    public function openDetail(string $id): void
+    {
+        if ($id === '') {
+            return;
+        }
+
+        $this->navigate($this->route('mobile.detail', ['id' => $id]));
+    }
+
+    public function openProfile(string $username): void
+    {
+        if ($username === '') {
+            return;
+        }
+
+        $this->navigate($this->route('mobile.user', ['username' => $username]));
+    }
+
+    public function openLink(string $url): void
+    {
+        $this->openExternalLink($url);
+    }
+
+    public function toggleShowMore(string $id): void
+    {
+        $this->toggleExpandedId($id);
+    }
+
+    public function toggleLike(string $id): void
+    {
+        $this->reactOnPostPayload($this->questions, $id, 'like', $this->token());
+    }
+
+    public function toggleBookmark(string $id): void
+    {
+        $this->reactOnPostPayload($this->questions, $id, 'bookmark', $this->token());
+    }
+
+    public function translatePost(string $id, string $field = 'answer'): void
+    {
+        $post = $this->readPostPayload($this->questions, $id);
+
+        if ($post === null) {
+            return;
+        }
+
+        $this->translateHtml(data_get($post, $field));
+    }
+
+    public function sharePost(string $id): void
+    {
+        $post = $this->readPostPayload($this->questions, $id);
+
+        if ($post === null) {
+            return;
+        }
+
+        $this->shareQuestion(
+            (string) data_get($post, 'to.username', ''),
+            $id,
+            (string) (data_get($post, 'answer') ?? data_get($post, 'content')),
+        );
+    }
+
+    public function votePoll(string $id, int $optionId): void
+    {
+        $this->voteOnPostPayload($this->questions, $id, $optionId, $this->token());
+    }
+
+    /**
+     * Append the next page of this profile's posts.
+     */
+    public function loadMoreQuestions(): void
+    {
+        if ($this->loadingMoreQuestions || ! $this->hasMoreQuestions) {
+            return;
+        }
+
+        $token = $this->token();
+
+        if ($token === null) {
+            $this->replace($this->route('mobile.login'));
+
+            return;
+        }
+
+        $username = $this->questionsUsername();
+
+        if ($username === '') {
+            return;
+        }
+
+        $this->loadingMoreQuestions = true;
+        $this->loadMoreQuestionsError = '';
+
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->userQuestions($token, $username, $this->questionsPage + 1));
+
+        $this->loadingMoreQuestions = false;
+
+        if ($response === null) {
+            $this->loadMoreQuestionsError = 'Could not load more posts. Please try again.';
+
+            return;
+        }
+
+        if ($response->unauthorized()) {
+            app(TokenStorage::class)->clear();
+            $this->replace($this->route('mobile.login'));
+
+            return;
+        }
+
+        if (! $response->successful()) {
+            $this->loadMoreQuestionsError = 'Could not load more posts. Please try again.';
+
+            return;
+        }
+
+        /** @var list<array<string, mixed>> $next */
+        $next = $response->json('data', []);
+        $this->questions = [...$this->questions, ...$next];
+        $this->questionsPage++;
+        $this->hasMoreQuestions = $response->json('links.next') !== null;
     }
 
     /**
@@ -206,6 +422,7 @@ final class Profile extends NativeComponent
 
         if ($response === null) {
             $this->loading = false;
+            $this->questionsLoading = false;
             $this->errorMessage = $this->username === ''
                 ? 'Your profile could not be loaded. Please try again.'
                 : 'This profile could not be loaded. Please try again.';
@@ -222,6 +439,7 @@ final class Profile extends NativeComponent
 
         if (! $response->successful()) {
             $this->loading = false;
+            $this->questionsLoading = false;
             $this->errorMessage = $this->username === ''
                 ? 'Your profile could not be loaded. Please try again.'
                 : 'This profile could not be loaded. Please try again.';
@@ -233,6 +451,72 @@ final class Profile extends NativeComponent
         $profile = $response->json('data');
         $this->profile = $profile;
         $this->loading = false;
+
+        $this->loadQuestions($token, $this->questionsUsername());
+    }
+
+    /**
+     * The username owning the shown card — the route param for other
+     * users, the loaded card for your own profile.
+     */
+    private function questionsUsername(): string
+    {
+        if ($this->username !== '') {
+            return $this->username;
+        }
+
+        $username = data_get($this->profile, 'username');
+
+        return is_string($username) ? $username : '';
+    }
+
+    /**
+     * Load the profile's answered posts, pinned first (server-side).
+     */
+    private function loadQuestions(string $token, string $username): void
+    {
+        $this->questionsLoading = true;
+        $this->questionsError = '';
+        $this->questions = [];
+        $this->questionsPage = 1;
+        $this->hasMoreQuestions = false;
+        $this->loadMoreQuestionsError = '';
+
+        if ($username === '') {
+            $this->questionsLoading = false;
+
+            return;
+        }
+
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->userQuestions($token, $username));
+
+        if ($response === null) {
+            $this->questionsLoading = false;
+            $this->questionsError = 'Posts could not be loaded. Please try again.';
+
+            return;
+        }
+
+        if ($response->unauthorized()) {
+            app(TokenStorage::class)->clear();
+            $this->replace($this->route('mobile.login'));
+
+            return;
+        }
+
+        if (! $response->successful()) {
+            $this->questionsLoading = false;
+            $this->questionsError = 'Posts could not be loaded. Please try again.';
+
+            return;
+        }
+
+        /** @var list<array<string, mixed>> $questions */
+        $questions = $response->json('data', []);
+        $this->questions = $questions;
+        $this->hasMoreQuestions = $response->json('links.next') !== null;
+        $this->questionsLoading = false;
     }
 
     private function token(): ?string

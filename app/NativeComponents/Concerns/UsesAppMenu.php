@@ -7,6 +7,7 @@ namespace App\NativeComponents\Concerns;
 use App\Services\PinkaryApi;
 use App\Services\TokenStorage;
 use App\Support\CurrentUser;
+use App\Support\UnreadCount;
 use Native\Mobile\Browser;
 use Native\Mobile\Edge\NativeComponent;
 
@@ -55,6 +56,7 @@ trait UsesAppMenu
 
         app(TokenStorage::class)->clear();
         CurrentUser::clear();
+        UnreadCount::clear();
         $this->replace($this->route('mobile.feed'));
     }
 }

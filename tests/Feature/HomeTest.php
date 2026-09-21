@@ -626,6 +626,9 @@ it('toggles bookmarks through the action row', function (): void {
         'https://pinkary.test/api/v1/questions/q1/bookmark' => Http::sequence()
             ->push(['data' => ['bookmarked' => true, 'bookmarks' => 1]])
             ->push(['data' => ['bookmarked' => false, 'bookmarks' => 0]]),
+        // Feed entry also refreshes the tab badge (web nav counts per
+        // render), so the suite accounts for that request here.
+        'https://pinkary.test/api/v1/notifications*' => Http::response(['data' => [], 'meta' => ['unread_count' => 0]]),
     ]);
 
     $test = Native::test(Home::class)
@@ -637,7 +640,7 @@ it('toggles bookmarks through the action row', function (): void {
 
     expect($test->get('posts')[0]['metrics']['bookmarked'])->toBeFalse();
 
-    Http::assertSentCount(3);
+    Http::assertSentCount(4);
 });
 
 it('appends the next page when loading more', function (): void {
@@ -914,7 +917,7 @@ it('pushes the share action trailing with a spacer instead of ml-auto', function
     expect($spacers)->toBeGreaterThanOrEqual(1);
 });
 
-it('chains thread posts with a joined avatar rail like the web', function (): void {
+it('chains thread posts with the web rail connector', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     session(['pinkary_api_token' => 'test-token']);
     Http::fake([
@@ -949,14 +952,23 @@ it('chains thread posts with a joined avatar rail like the web', function (): vo
         ->assertSee('Recent')
         ->tree();
 
-    $rails = 0;
-    $walk = function (array $node) use (&$walk, &$rails): void {
+    $laneRails = 0;
+    $railHeights = [];
+    $railMargins = [];
+    $walk = function (array $node) use (&$walk, &$laneRails, &$railHeights, &$railMargins): void {
         $layout = $node['layout'] ?? [];
 
-        // The chained (non-final) post draws a 2px lane rail under its
-        // avatar; the final post draws none.
+        // Web parity (livewire/questions/show.blade.php:108): the
+        // chained (non-final) post draws the 2px lane rail under its
+        // avatar as a fixed h-12 stub (+ fillHeight stretch, top pulled
+        // 20px over the avatar's lower half so segments connect); the
+        // final post draws none. Fixed sizes paint on the old renderer,
+        // vertical flex-1 collapses to zero there.
         if (($layout['width'] ?? null) == 2) {
-            $rails++;
+            $laneRails++;
+            $railHeights[] = $layout['height'] ?? $layout['minHeight'] ?? null;
+            // Collector nests margins as [top, right, bottom, left].
+            $railMargins[] = $layout['margin'] ?? null;
         }
 
         foreach ($node['children'] ?? [] as $child) {
@@ -965,7 +977,120 @@ it('chains thread posts with a joined avatar rail like the web', function (): vo
     };
     $walk($tree);
 
-    // Exactly one rail: the ancestor's lane. The root stands alone,
-    // and no "Replying to" rows exist (web parity).
-    expect($rails)->toBe(1);
+    expect($laneRails)->toBe(1)
+        ->and($railHeights)->toBe([48.0])
+        ->and($railMargins)->toBe([[-20.0, 0.0, -8.0, 0.0]]);
+});
+
+function homeFeedPost(string $id, string $answer, array $overrides = []): array
+{
+    return array_merge([
+        'id' => $id,
+        'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+        'to' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+        'content' => '__UPDATE__',
+        'answer' => $answer,
+        'pinned' => false,
+        'metrics' => ['likes' => 2, 'comments' => 0],
+        'views' => 10,
+    ], $overrides);
+}
+
+it('pins a feed post and shows the pinned chip', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [
+            homeFeedPost('q1', 'Pinnable answer.'),
+        ]]),
+        'https://pinkary.test/api/v1/questions/q1/pin' => Http::response(['data' => ['pinned' => true]]),
+    ]);
+
+    // press() fails when no element registered the expression, so this
+    // proves the ••• row button opens the screen menu and the Pin
+    // entry fires the pin call.
+    $test = Native::test(Home::class)
+        ->press("openMenu('q1')")
+        ->press('togglePinMenu')
+        ->assertSee('Pinned');
+
+    expect($test->get('posts')[0]['pinned'])->toBeTrue();
+
+    Http::assertSent(fn ($request) => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/api/v1/questions/q1/pin'));
+});
+
+it('hides the pin entry after a pin 403', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [
+            homeFeedPost('q1', 'Not mine to pin.', ['pinned' => true]),
+        ]]),
+        'https://pinkary.test/api/v1/questions/q1/pin' => Http::response(['message' => 'This action is unauthorized.'], 403),
+    ]);
+
+    $test = Native::test(Home::class)
+        ->call('openMenu', 'q1')
+        ->assertSee('Unpin')
+        ->call('togglePinMenu');
+
+    expect($test->get('menuDenied'))->toMatchArray(['q1:pin' => true]);
+
+    $test->call('openMenu', 'q1')
+        ->assertDontSee('Unpin');
+});
+
+it('removes a feed post after confirming deletion', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [
+            homeFeedPost('q1', 'Going away.'),
+            homeFeedPost('q2', 'Staying put.'),
+        ]]),
+        'https://pinkary.test/api/v1/questions/q1/ignore' => Http::response(['data' => ['ignored' => true]]),
+    ]);
+
+    $test = Native::test(Home::class)
+        ->call('openMenu', 'q1')
+        ->call('askDeleteMenu')
+        ->assertSee('Delete this post?')
+        ->call('ignoreMenuPost')
+        ->assertDontSee('Going away.')
+        ->assertSee('Staying put.');
+
+    expect(array_column($test->get('posts'), 'id'))->toBe(['q2']);
+
+    Http::assertSent(fn ($request) => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/api/v1/questions/q1/ignore'));
+});
+
+it('lists likers from the feed menu with pagination', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [
+            homeFeedPost('q1', 'Likable answer.'),
+        ]]),
+        'https://pinkary.test/api/v1/questions/q1/likes*' => Http::sequence()
+            ->push([
+                'data' => [['name' => 'Grace Hopper', 'username' => 'grace']],
+                'links' => ['next' => 'https://pinkary.test/api/v1/questions/q1/likes?page=2'],
+            ])
+            ->push([
+                'data' => [['name' => 'Alan Turing', 'username' => 'alan']],
+                'links' => ['next' => null],
+            ]),
+    ]);
+
+    Native::test(Home::class)
+        ->call('openMenu', 'q1')
+        ->assertSee('View likes')
+        ->call('openLikersMenu')
+        ->assertSee('Grace Hopper')
+        ->assertSee('Load more')
+        ->call('loadMoreLikers')
+        ->assertSee('Alan Turing')
+        ->assertDontSee('Load more');
 });

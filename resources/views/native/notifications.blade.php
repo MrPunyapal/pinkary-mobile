@@ -12,7 +12,7 @@
     };
 @endphp
 
-<native:scroll-view class="w-full h-full bg-theme-background">
+<native:list on-end-reached="loadMore" class="w-full h-full bg-theme-background">
     <native:column class="w-full gap-0">
         <x-page-heading title="Notifications">
             @if (! $loading && $errorMessage === '' && count($items) > 0)
@@ -78,16 +78,13 @@
                 </native:pressable>
             @endforeach
 
-            @if ($hasMore)
-                <native:column class="w-full items-center gap-2 px-5 py-5">
-                    @if ($loadMoreError !== '')
-                        <native:text class="text-sm text-center text-theme-destructive">{{ $loadMoreError }}</native:text>
-                    @endif
-                    <native:button variant="secondary" :disabled="$loadingMore" @tap="loadMore">{{ $loadingMore ? 'Loading…' : 'Load more' }}</native:button>
-                </native:column>
-            @endif
+             @if ($loadMoreError !== '')
+                 <native:column class="w-full items-center px-5 py-5">
+                     <native:text class="text-sm text-center text-theme-destructive">{{ $loadMoreError }}</native:text>
+                 </native:column>
+             @endif
         @endif
 
         <native:column class="w-full h-20" />
     </native:column>
-</native:scroll-view>
+</native:list>

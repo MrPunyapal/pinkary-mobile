@@ -27,6 +27,7 @@
     $questionText = $plainText(data_get($post, 'content'));
     $answerText = $plainText(data_get($post, 'answer'));
     $hasAnswer = $answerText !== '';
+    $pinned = (bool) data_get($post, 'pinned', false);
     $timestamp = $shortTime(data_get($post, 'updated_at'));
     $edited = (bool) data_get($post, 'edited', false);
     $channel = data_get($post, 'channel');
@@ -48,20 +49,27 @@
     $answerShown = $expanded || ! $answerLong
         ? $answerText
         : mb_substr($answerText, 0, $answerLimit).'…';
-    // Row-level vertical padding is zero by design: the avatar lane's
-    // rail runs from below the avatar to the row's bottom edge, and the
-    // next segment starts flush — so chained rails physically touch
-    // instead of leaving seam gaps. Spacing lives inside the content
-    // column (top pad mirrors on the lane to keep the avatar aligned
-    // with the header row).
+    // posts draw a rail under the avatar. Device archaeology: the only
+    // construction ever observed painting on old Jump is the overlay
+    // era's `absolute … w-0.5 h-full` node — i.e. what painted was
+    // `h-full` (fillHeight), with absolute degrading to in-flow. Every
+    // flex-based rail (flex-1, grow, min-h) collapses to zero there.
+    // So the rail is `w-0.5 h-12 h-full -mt-5 -mb-2`: fillHeight stretches
+    // it full lane where honored, the fixed h-12 stub remains where it
+    // is not, -mt-5 (half the h-10 avatar) pulls its top over the
+    // avatar's lower half, and -mb-2 reaches past the lane into the
+    // next segment's top pad so chained segments read as one connected
+    // line passing behind the avatars. No flex keys on this node.
+    // w-0.5 is the web's 2px width.
     $topPad = $flushTop ? 'pt-2' : ($sharedUpdate ? 'pt-3' : 'pt-2');
 @endphp
 
 {{-- Flat web-style post: full-width question box (asks only), then an
-    avatar-lane row. Chained posts draw a rail under the avatar that runs
-    to the row's bottom edge (items-stretch + flex-1, plain flow — no
-    absolute overlays); the thread container owns the single full-bleed
-    divider, so there are no boxes or borders per post. --}}
+    avatar-lane row. Chained posts draw the web's rail under the avatar
+    (w-0.5 h-12 h-full — fillHeight is the only stretch the old
+    renderer ever honored; fixed h-12 is the fallback); segments stack
+    flush. The thread container owns the single full-bleed divider: no
+    boxes, no per-post borders. --}}
 <native:column class="{{ $bare ? 'w-full' : 'w-full bg-theme-background border-b border-theme-outline-variant' }}">
     @unless ($sharedUpdate)
         <native:column class="w-full px-4 pt-3">
@@ -85,16 +93,27 @@
                 @if ($questionText !== '' && $questionText !== '__UPDATE__')
                     <native:text class="text-sm leading-relaxed text-theme-on-surface">{{ $questionText }}</native:text>
                 @endif
+                @if ($pinned)
+                    <native:row class="items-center gap-1">
+                        <native:icon :ios="\App\Icons\Ios::Pin" :android="\App\Icons\Android::PushPin" :size="12" color="#EC4899" />
+                        <native:text class="text-xs font-medium text-theme-primary">Pinned</native:text>
+                    </native:row>
+                @endif
             </native:column>
         </native:column>
     @endunless
 
     @if ($hasAnswer)
         <native:row class="w-full items-stretch gap-3 px-4">
-            <native:column class="w-10 items-center shrink-0 {{ $topPad }}">
+            {{-- The lane carries h-full (fillHeight): the old client
+                ignores the row's items-stretch, so the lane would wrap
+                its content and starve the rail. With the lane filling
+                the row's (content-defined) height, the rail's own
+                fill has a definite height to fill. --}}
+            <native:column class="w-10 h-full items-center shrink-0 {{ $topPad }}">
                 <x-avatar :user="data_get($post, 'to', [])" />
                 @if ($rail)
-                    <native:column class="flex-1 w-0.5 bg-theme-outline" />
+                    <native:column class="w-0.5 h-12 h-full -mt-5 -mb-2 bg-theme-outline" />
                 @endif
             </native:column>
             <native:column class="flex-1 gap-1.5 min-w-0 {{ $topPad }} pb-3">
@@ -174,12 +193,16 @@
                         native:spacer flex-1 pattern as post-poll-option. --}}
                     <native:spacer class="flex-1" />
                     <x-post-action type="share" :post-id="$postId" />
+                    <native:column class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
+                    <x-post-action type="menu" :post-id="$postId" />
                 </native:row>
-
-                @if ($moreLink !== null && $moreLink !== '')
-                    <x-post-divider :link="$moreLink" />
-                @endif
             </native:column>
         </native:row>
+    @endif
+
+    {{-- Thread "View more comments" divider: a full lane-aligned row of
+        its own (like the web), not indented inside the content column. --}}
+    @if ($moreLink !== null && $moreLink !== '')
+        <x-post-divider :link="$moreLink" />
     @endif
 </native:column>

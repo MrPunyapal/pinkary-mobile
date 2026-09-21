@@ -8,6 +8,7 @@ use App\NativeComponents\Concerns\TogglesPostReactions;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
 use App\Services\TokenStorage;
+use App\Support\UnreadCount;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
 
@@ -56,7 +57,9 @@ final class Home extends NativeComponent
 
     public function mount(): void
     {
-        $this->loadFeed($this->token());
+        $token = $this->token();
+        $this->loadFeed($token);
+        $this->refreshUnreadBadge($token);
     }
 
     /**
@@ -297,5 +300,24 @@ final class Home extends NativeComponent
         $token = app(TokenStorage::class)->get();
 
         return is_string($token) && $token !== '' ? $token : null;
+    }
+
+    /**
+     * Refresh the tab-bar notification badge. One tiny request
+     * (per_page=1 — only meta.unread_count is read); failures leave
+     * the last known count in place.
+     */
+    private function refreshUnreadBadge(?string $token): void
+    {
+        if ($token === null) {
+            return;
+        }
+
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->notifications($token, 1, 1));
+
+        if ($response?->successful()) {
+            UnreadCount::store((int) $response->json('meta.unread_count', 0));
+        }
     }
 }

@@ -7,6 +7,7 @@ namespace App\NativeComponents;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
 use App\Services\TokenStorage;
+use App\Support\UnreadCount;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
 
@@ -65,8 +66,10 @@ final class Notifications extends NativeComponent
     }
 
     /**
-     * Mark the notification as read and open its subject — the question
-     * detail or the follower's profile, like the web row link.
+     * Delete the notification (like the web's ignore) and open its
+     * subject — the question detail or the follower's profile. A
+     * missing row is already gone, so 404 counts as success; when
+     * the delete itself fails, fall back to marking it read.
      */
     public function open(string $id): void
     {
@@ -88,30 +91,34 @@ final class Notifications extends NativeComponent
             }
         }
 
-        $response = app(PinkaryApi::class)->attempt(fn () => app(PinkaryApi::class)->markNotificationsRead($token, $id));
+        $api = app(PinkaryApi::class);
+        $deleted = $api->attempt(fn () => $api->deleteNotification($token, $id));
 
-        // Read notifications behave like the web's ignored ones: once
-        // read they leave the list instead of lingering as read rows.
+        if ($deleted !== null && ($deleted->successful() || $deleted->notFound())) {
+            // Deleted rows leave the list like read ones do, and the
+            // delete returns no body — decrement locally instead.
+            $this->removeNotification($id);
+            $this->unreadCount = max(0, $this->unreadCount - 1);
+            UnreadCount::store($this->unreadCount);
+            $this->openTarget($target);
+
+            return;
+        }
+
+        $response = $api->attempt(fn () => $api->markNotificationsRead($token, $id));
+
+        // Fallback when the delete itself fails: mark read, drop the
+        // row locally, and still navigate — the row was handled.
         if ($response !== null) {
-            $this->items = array_values(array_filter(
-                $this->items,
-                fn (mixed $item): bool => (string) data_get($item, 'id') !== $id
-            ));
+            $this->removeNotification($id);
         }
 
         if ($response?->successful()) {
             $this->unreadCount = (int) $response->json('data.unread_count', max(0, $this->unreadCount - 1));
+            UnreadCount::store($this->unreadCount);
         }
 
-        if (! is_array($target)) {
-            return;
-        }
-
-        if (($target['kind'] ?? null) === 'question' && is_string($target['id'] ?? null) && $target['id'] !== '') {
-            $this->navigate($this->route('mobile.detail', ['id' => $target['id']]));
-        } elseif (($target['kind'] ?? null) === 'user' && is_string($target['username'] ?? null) && $target['username'] !== '') {
-            $this->navigate($this->route('mobile.user', ['username' => $target['username']]));
-        }
+        $this->openTarget($target);
     }
 
     public function markAllRead(): void
@@ -131,6 +138,19 @@ final class Notifications extends NativeComponent
         $this->markingRead = true;
 
         $api = app(PinkaryApi::class);
+
+        // Web parity: ignore-all deletes the rows (the web's ignoreAll
+        // deletes every notification). No bulk-delete endpoint exists,
+        // so delete each loaded row best-effort before marking read —
+        // deleted rows stay gone on reload instead of resurrecting.
+        foreach ($this->items as $item) {
+            $id = (string) data_get($item, 'id', '');
+
+            if ($id !== '') {
+                $api->attempt(fn () => $api->deleteNotification($token, $id));
+            }
+        }
+
         $response = $api->attempt(fn () => $api->markNotificationsRead($token));
 
         $this->markingRead = false;
@@ -155,10 +175,11 @@ final class Notifications extends NativeComponent
         }
 
         // "Ignore all" mirrors the web: the list is cleared, not kept
-        // as read rows. The API marks them read server-side; read rows
-        // are dropped on every load so they never resurrect.
+        // as read rows. Rows were deleted above; the mark-read clears
+        // the badge server-side for any stragglers.
         $this->items = [];
         $this->unreadCount = (int) $response->json('data.unread_count', 0);
+        UnreadCount::store($this->unreadCount);
         $this->page = 1;
         $this->hasMore = false;
     }
@@ -211,10 +232,11 @@ final class Notifications extends NativeComponent
 
         /** @var list<array<string, mixed>> $next */
         $next = $response->json('data', []);
-        $this->items = $this->unreadOnly([...$this->items, ...$next]);
+        $this->items = [...$this->items, ...$next];
         $this->page++;
         $this->hasMore = $response->json('links.next') !== null;
         $this->unreadCount = (int) $response->json('meta.unread_count', $this->unreadCount);
+        UnreadCount::store($this->unreadCount);
     }
 
     public function render(): View
@@ -253,8 +275,9 @@ final class Notifications extends NativeComponent
 
         /** @var list<array<string, mixed>> $items */
         $items = $response->json('data', []);
-        $this->items = $this->unreadOnly($items);
+        $this->items = $items;
         $this->unreadCount = (int) $response->json('meta.unread_count', 0);
+        UnreadCount::store($this->unreadCount);
         $this->page = 1;
         $this->hasMore = $response->json('links.next') !== null;
         $this->loadMoreError = '';
@@ -262,18 +285,30 @@ final class Notifications extends NativeComponent
     }
 
     /**
-     * The API index returns read rows too — drop them so the list only
-     * ever holds pending notifications, like the web after ignoring.
-     *
-     * @param  list<array<string, mixed>>  $items
-     * @return list<array<string, mixed>>
+     * Web parity (livewire/notifications/index.blade.php): the list shows
+     * every row whose subject still exists — the web never filters on
+     * read state. The badge (meta.unread_count) carries the pending
+     * count; "Ignore all" deletes the rows like the web's ignoreAll.
      */
-    private function unreadOnly(array $items): array
+    private function removeNotification(string $id): void
     {
-        return array_values(array_filter(
-            $items,
-            fn (mixed $item): bool => ! (bool) data_get($item, 'read', false)
+        $this->items = array_values(array_filter(
+            $this->items,
+            fn (mixed $item): bool => (string) data_get($item, 'id') !== $id
         ));
+    }
+
+    private function openTarget(mixed $target): void
+    {
+        if (! is_array($target)) {
+            return;
+        }
+
+        if (($target['kind'] ?? null) === 'question' && is_string($target['id'] ?? null) && $target['id'] !== '') {
+            $this->navigate($this->route('mobile.detail', ['id' => $target['id']]));
+        } elseif (($target['kind'] ?? null) === 'user' && is_string($target['username'] ?? null) && $target['username'] !== '') {
+            $this->navigate($this->route('mobile.user', ['username' => $target['username']]));
+        }
     }
 
     private function token(): ?string
