@@ -1,6 +1,7 @@
 <?php
 
 use App\NativeComponents\Home;
+use App\Support\CurrentUser;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\Native;
@@ -960,10 +961,9 @@ it('chains thread posts with the web rail connector', function (): void {
     $walk = function (array $node) use (&$walk, &$laneRails): void {
         $layout = $node['layout'] ?? [];
 
-        // Web parity (livewire/questions/show.blade.php:108): the
-        // chained (non-final) post draws the 2px lane rail under its
-        // avatar as an absolute line inside the stretched lane so it
-        // connects outside the post box without adding height after it.
+        // Web parity: thread continuity draws a 2px lane rail coming down
+        // from the top avatar, and a 2px lane rail going up into the bottom
+        // avatar, seamlessly connecting both avatars across the post boundary.
         if (($layout['width'] ?? null) == 2) {
             $laneRails++;
         }
@@ -974,7 +974,69 @@ it('chains thread posts with the web rail connector', function (): void {
     };
     $walk($tree);
 
-    expect($laneRails)->toBe(1);
+    expect($laneRails)->toBe(2);
+});
+
+it('renders thread with more comments divider and continuous lane rails', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
+            'id' => 'q3',
+            'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+            'to' => ['name' => 'Ada Lovelace', 'username' => 'ada', 'avatar' => 'https://example.com/a.png'],
+            'content' => '__UPDATE__',
+            'answer' => 'Third post.',
+            'thread' => [
+                'parent_id' => 'q2',
+                'root_id' => 'q1',
+                'posts' => [
+                    [
+                        'id' => 'q1',
+                        'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+                        'to' => ['name' => 'Ada Lovelace', 'username' => 'ada', 'avatar' => 'https://example.com/a.png'],
+                        'content' => '__UPDATE__',
+                        'answer' => 'Root post.',
+                        'metrics' => ['likes' => 0, 'comments' => 0],
+                    ],
+                    [
+                        'id' => 'q2',
+                        'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+                        'to' => ['name' => 'Ada Lovelace', 'username' => 'ada', 'avatar' => 'https://example.com/a.png'],
+                        'content' => '__UPDATE__',
+                        'answer' => 'Middle post.',
+                        'metrics' => ['likes' => 0, 'comments' => 0],
+                    ],
+                ],
+                'more' => true,
+                'more_id' => 'q1',
+            ],
+            'metrics' => ['likes' => 0, 'comments' => 0],
+        ]]]),
+    ]);
+
+    $tree = Native::test(Home::class)
+        ->assertSee('Root post.')
+        ->assertSee('View more comments')
+        ->assertSee('Middle post.')
+        ->assertSee('Third post.')
+        ->tree();
+
+    $laneRails = 0;
+    $walk = function (array $node) use (&$walk, &$laneRails): void {
+        $layout = $node['layout'] ?? [];
+
+        if (($layout['width'] ?? null) == 2) {
+            $laneRails++;
+        }
+
+        foreach ($node['children'] ?? [] as $child) {
+            $walk($child);
+        }
+    };
+    $walk($tree);
+
+    expect($laneRails)->toBeGreaterThanOrEqual(7);
 });
 
 function homeFeedPost(string $id, string $answer, array $overrides = []): array
@@ -1088,4 +1150,51 @@ it('lists likers from the feed menu with pagination', function (): void {
         ->call('loadMoreLikers')
         ->assertSee('Alan Turing')
         ->assertDontSee('Load more');
+});
+
+it('hydrates the authenticated user on mount', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    CurrentUser::store([
+        'name' => 'Ada Lovelace',
+        'username' => 'ada',
+        'avatar' => 'https://example.com/ada-avatar.png',
+    ]);
+
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => []]),
+    ]);
+
+    $test = Native::test(Home::class)
+        ->assertSee('Pinkary');
+
+    expect($test->get('currentUser.avatar'))->toBe('https://example.com/ada-avatar.png')
+        ->and($test->get('currentUser.username'))->toBe('ada');
+});
+
+it('opens and closes the app menu bottom sheet like post 3 dots', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    session(['pinkary_api_token' => 'test-token']);
+    CurrentUser::store([
+        'name' => 'Ada Lovelace',
+        'username' => 'ada',
+        'avatar' => 'https://example.com/ada-avatar.png',
+    ]);
+
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => []]),
+    ]);
+
+    Native::test(Home::class)
+        ->assertDontSee('Settings')
+        ->call('openAppMenu')
+        ->assertSet('appMenuOpen', true)
+        ->assertSee('Ada Lovelace')
+        ->assertSee('@ada')
+        ->assertSee('Settings')
+        ->assertSee('Source code')
+        ->assertSee('Log out')
+        ->assertSee('Cancel')
+        ->call('closeAppMenu')
+        ->assertSet('appMenuOpen', false);
 });

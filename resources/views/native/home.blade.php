@@ -1,22 +1,17 @@
 {{-- Feed is a native:list: pull-to-refresh + on-end-reached auto-load (web intersect parity). Footer is spinner/error/end-copy only. --}}
- <native:list on-refresh="refreshFeed" on-end-reached="loadMore" class="w-full h-full bg-theme-background">
+<native:list on-refresh="refreshFeed" on-end-reached="loadMore" class="w-full h-full bg-theme-background">
     <native:column class="w-full gap-0">
-        {{-- App header: Profile avatar (left), Pinkary brand (center), balance spacer (right) --}}
+        {{-- App header: Centered Pinkary brand with search action --}}
         <native:column class="w-full bg-theme-surface border-b border-theme-outline-variant justify-center">
             <native:row class="w-full items-center justify-between px-4 py-3 min-h-14">
-                <native:pressable class="w-9 h-9 items-center justify-center shrink-0" @tap="openOwnProfile" a11y-label="Open your profile">
-                    @php $currentUser = \App\Support\CurrentUser::get(); @endphp
-                    @if (is_array($currentUser) && ! empty($currentUser))
-                        <x-avatar :user="$currentUser" :size="8" :link="false" />
-                    @else
-                        <native:icon :ios="\App\Icons\Ios::PersonCropCircle" :android="\App\Icons\Android::AccountCircle" :size="28" color="#64748B" dark-color="#94A3B8" />
-                    @endif
-                </native:pressable>
+                {{-- Left spacer keeps brand centered --}}
+                <native:column class="w-9 h-9 shrink-0" />
 
                 <native:text class="text-xl font-bold text-center text-theme-primary" max-lines="1">Pinkary</native:text>
 
-                {{-- Spacer keeps brand centered --}}
-                <native:column class="w-9 h-9 shrink-0" />
+                <native:pressable class="w-9 h-9 items-center justify-center rounded-full" @tap="openSearch" a11y-label="Search">
+                    <native:icon :ios="\App\Icons\Ios::Magnifyingglass" :android="\App\Icons\Android::Search" :size="20" color="#64748B" dark-color="#94A3B8" />
+                </native:pressable>
             </native:row>
         </native:column>
 
@@ -144,3 +139,5 @@
         </native:column>
     </native:bottom-sheet>
 @endif
+
+@include('native.app-menu-sheet')

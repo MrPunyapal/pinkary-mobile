@@ -15,7 +15,7 @@
         <native:pressable class="flex-1 items-center" @tap="{{ $item['tap'] }}" a11y-label="Show {{ $item['label'] }} feed">
             <native:column class="items-center gap-1.5 px-2 pt-3 pb-2.5">
                 <native:text class="text-sm {{ $tab === $item['key'] ? 'font-semibold text-theme-on-surface' : 'text-theme-on-surface-variant' }}">{{ $item['label'] }}</native:text>
-                <native:column class="h-1 w-10 rounded-full {{ $tab === $item['key'] ? 'bg-theme-primary' : 'bg-theme-surface' }}" />
+                <native:rect class="h-1 w-10 rounded-full {{ $tab === $item['key'] ? 'bg-theme-primary' : 'bg-theme-surface' }}" />
             </native:column>
         </native:pressable>
     @endforeach

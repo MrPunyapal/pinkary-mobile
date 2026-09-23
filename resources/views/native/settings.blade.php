@@ -17,9 +17,13 @@
             </native:column>
         @else
             <native:column class="w-full gap-3 p-5 rounded-md bg-theme-surface border border-theme-outline-variant">
-                <native:text class="text-sm font-semibold uppercase tracking-widest text-theme-on-surface-variant">Account</native:text>
-                <native:text class="text-base text-theme-on-surface">{{ data_get($profile, 'name') }}</native:text>
-                <native:text class="text-sm text-theme-on-surface-variant">{{ '@'.data_get($profile, 'username') }}</native:text>
+                <native:row class="w-full items-center gap-3">
+                    <x-avatar :user="$profile" :size="10" :link="false" />
+                    <native:column class="flex-1 min-w-0">
+                        <native:text class="text-base font-semibold text-theme-on-surface">{{ data_get($profile, 'name') }}</native:text>
+                        <native:text class="text-sm text-theme-on-surface-variant">{{ '@'.data_get($profile, 'username') }}</native:text>
+                    </native:column>
+                </native:row>
                 @if (data_get($profile, 'email'))
                     <native:text class="text-sm text-theme-on-surface">{{ data_get($profile, 'email') }}</native:text>
                 @endif
@@ -45,3 +49,5 @@
         </native:column>
     </native:column>
 </native:scroll-view>
+
+@include('native.app-menu-sheet')

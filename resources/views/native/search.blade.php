@@ -70,3 +70,5 @@
         <native:column class="w-full h-20" />
     </native:column>
 </native:scroll-view>
+
+@include('native.app-menu-sheet')

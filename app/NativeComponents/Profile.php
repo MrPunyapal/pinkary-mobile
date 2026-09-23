@@ -8,6 +8,7 @@ use App\NativeComponents\Concerns\TogglesPostReactions;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
 use App\Services\TokenStorage;
+use App\Support\CurrentUser;
 use Illuminate\View\View;
 use Native\Mobile\Browser;
 use Native\Mobile\Edge\NativeComponent;
@@ -451,6 +452,10 @@ final class Profile extends NativeComponent
         $profile = $response->json('data');
         $this->profile = $profile;
         $this->loading = false;
+
+        if ($this->username === '' && is_array($profile)) {
+            CurrentUser::store($profile);
+        }
 
         $this->loadQuestions($token, $this->questionsUsername());
     }

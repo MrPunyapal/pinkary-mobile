@@ -17,7 +17,7 @@ use App\NativeComponents\Notifications;
 use App\NativeComponents\Profile;
 use App\NativeComponents\Register;
 use App\NativeComponents\Search;
-use App\Support\CurrentUser;
+use App\NativeComponents\Settings;
 use App\Support\UnreadCount;
 use Native\Mobile\Edge\Layouts\Builders\NavBar;
 use Native\Mobile\Edge\Layouts\Builders\Tab;
@@ -55,6 +55,7 @@ final class MobileLayout extends NativeLayout
             || $screen instanceof Bookmarks
             || $screen instanceof Notifications
             || $screen instanceof Search
+            || $screen instanceof Settings
             || $screen instanceof Login
             || $screen instanceof Register
             || $screen instanceof Profile
@@ -82,29 +83,25 @@ final class MobileLayout extends NativeLayout
             $notifications->badge($unread > 20 ? '20+' : (string) $unread);
         }
 
+        // Web parity (../pinkary/resources/views/layouts/navigation.blade.php):
+        // Bottom bar has Home, Profile, Bookmarks, Notifications, and Menu (bars icon).
         return TabBar::make()
             ->activeColor('#EC4899')
             ->labelVisibility('unlabeled')
             ->add(Tab::link('Feed', '/feed', ios: Ios::HouseFill, android: Android::Home))
-            ->add(Tab::link('Search', '/search', ios: Ios::Magnifyingglass, android: Android::Search))
+            ->add(Tab::link('Profile', '/profile', ios: Ios::PersonFill, android: Android::Person))
             ->add(Tab::link('Bookmarks', '/bookmarks', ios: Ios::BookmarkFill, android: Android::Bookmark))
             ->add($notifications)
-            ->add(Tab::link('Profile', '/profile', ios: Ios::PersonFill, android: Android::Person));
+            ->add(Tab::action('Menu', ios: Ios::Line3Horizontal, android: Android::Menu)->press('openAppMenu'));
     }
 
-    // Modal drawer with the real sidebar (its root must stay a plain
-    // column — a scroll-view root instant-closes old Jump apps).
+    // Topbar drawer removed: NativePHP's drawer host hardcodes a floating ☰
+    // affordance at TopStart. Removing it from the layout eliminates the
+    // hamburger button from all topbars, while the Menu tab in the bottom
+    // bar provides access to menu/settings options matching web parity.
     public function drawer(NativeComponent $screen): ?Drawer
     {
-        // Auth screens have no menu actions (missing-method tap risk).
-        // Home uses an in-content header with the user's profile avatar.
-        if ($screen instanceof Login || $screen instanceof Register || $screen instanceof Home) {
-            return null;
-        }
-
-        return Drawer::make(view('native.sidebar', [
-            'user' => CurrentUser::get(),
-        ]))->modal();
+        return null;
     }
 
     // Single compose entry lives in the floating overlay (including

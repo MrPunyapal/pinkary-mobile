@@ -30,10 +30,11 @@
                 :post="$ancestor"
                 :bare="true"
                 :rail="true"
+                :rail-top="$index > 0"
                 :flush-top="$index > 0"
                 :more-link="$linkAfterFirst && $index === 0 ? $threadMoreId : null"
                 :expanded="$isExpanded(data_get($ancestor, 'id'))" />
         @endforeach
-        <x-post :post="$post" :bare="true" :rail="false" :flush-top="true" :expanded="$isExpanded(data_get($post, 'id'))" />
+        <x-post :post="$post" :bare="true" :rail="false" :rail-top="true" :flush-top="true" :expanded="$isExpanded(data_get($post, 'id'))" />
     </native:column>
 @endif

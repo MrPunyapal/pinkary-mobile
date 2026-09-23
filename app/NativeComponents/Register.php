@@ -6,6 +6,7 @@ namespace App\NativeComponents;
 
 use App\Services\PinkaryApi;
 use App\Services\TokenStorage;
+use App\Support\CurrentUser;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
@@ -96,6 +97,12 @@ final class Register extends NativeComponent
 
         if ($response->successful() && is_string($token = $response->json('token'))) {
             app(TokenStorage::class)->store($token);
+
+            $userData = $response->json('data') ?? $response->json('user');
+            if (is_array($userData) && ! empty($userData['username'])) {
+                CurrentUser::store($userData);
+            }
+
             $this->replace($this->route('mobile.feed'));
 
             return;

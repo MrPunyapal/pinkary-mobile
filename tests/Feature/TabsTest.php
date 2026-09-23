@@ -238,15 +238,14 @@ it('keeps chrome off content-titled screens and titleless elsewhere', function (
     // hamburger on old clients).
     expect($layout->navBar(new Profile))->toBeNull();
 
-    // Search now owns its full-width in-content search header and therefore
-    // also suppresses the drawer chrome; Home owns its in-content top header
-    // with profile avatar and centered brand, suppressing chrome and drawer;
-    // Settings keeps the titleless chrome bar (drawer hamburger only).
+    // Screens own their in-content headers; Settings carries an in-content
+    // heading so navBar returns null. Drawer is removed from all topbars,
+    // so drawer() returns null across all screens.
     expect($layout->navBar(new Search))->toBeNull()
         ->and($layout->navBar(new Home))->toBeNull()
-        ->and($layout->navBar(new Settings))->not->toBeNull();
+        ->and($layout->navBar(new Settings))->toBeNull();
 
-    // Auth screens and Home never get the drawer.
+    // Auth screens never get the tab bar. Drawer option is removed from all topbars.
     expect($layout->tabBar(new Login))->toBeNull()
         ->and($layout->drawer(new Login))->toBeNull()
         ->and($layout->floatingOverlay(new Login))->toBeNull()
@@ -256,7 +255,7 @@ it('keeps chrome off content-titled screens and titleless elsewhere', function (
         ->and($layout->drawer(new Home))->toBeNull();
 
     expect($layout->tabBar(new Search))->not->toBeNull()
-        ->and($layout->drawer(new Search))->not->toBeNull()
+        ->and($layout->drawer(new Search))->toBeNull()
         ->and($layout->floatingOverlay(new Search))->not->toBeNull();
 });
 

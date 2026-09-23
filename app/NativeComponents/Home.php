@@ -8,6 +8,7 @@ use App\NativeComponents\Concerns\TogglesPostReactions;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
 use App\Services\TokenStorage;
+use App\Support\CurrentUser;
 use App\Support\UnreadCount;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
@@ -16,6 +17,9 @@ final class Home extends NativeComponent
 {
     use TogglesPostReactions;
     use UsesAppMenu;
+
+    /** @var array<string, mixed>|null */
+    public ?array $currentUser = null;
 
     /** @var list<array<string, mixed>> */
     public array $posts = [];
@@ -55,9 +59,15 @@ final class Home extends NativeComponent
         return 'Feed';
     }
 
+    public function openSearch(): void
+    {
+        $this->navigate($this->route('mobile.search'));
+    }
+
     public function mount(): void
     {
         $token = $this->token();
+        $this->refreshCurrentUser($token);
         $this->loadFeed($token);
         $this->refreshUnreadBadge($token);
     }
@@ -104,7 +114,9 @@ final class Home extends NativeComponent
         $this->page = 1;
         $this->hasMore = false;
         $this->loadMoreError = '';
-        $this->loadFeed($this->token());
+        $token = $this->token();
+        $this->refreshCurrentUser($token);
+        $this->loadFeed($token);
     }
 
     public function openDetail(string $id): void
@@ -318,6 +330,29 @@ final class Home extends NativeComponent
 
         if ($response?->successful()) {
             UnreadCount::store((int) $response->json('meta.unread_count', 0));
+        }
+    }
+
+    private function refreshCurrentUser(?string $token): void
+    {
+        $this->currentUser = CurrentUser::get();
+
+        if ($token === null) {
+            return;
+        }
+
+        if ($this->currentUser === null || empty($this->currentUser['avatar'])) {
+            if (app()->runningUnitTests()) {
+                return;
+            }
+
+            $api = app(PinkaryApi::class);
+            $response = $api->attempt(fn () => $api->profile($token));
+
+            if ($response?->successful() && is_array($data = $response->json('data')) && ! empty($data['username'])) {
+                CurrentUser::store($data);
+                $this->currentUser = CurrentUser::get();
+            }
         }
     }
 }
