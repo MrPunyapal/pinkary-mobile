@@ -31,7 +31,15 @@ jobs:
 
       - name: Point the build at a local API URL (debug testing only)
         if: inputs.api-url != ''
-        run: echo "PINKARY_API_URL=${{ inputs.api-url }}" >> $GITHUB_ENV
+        run: |
+          cp .env.example .env
+          if grep -q '^PINKARY_API_URL=' .env; then
+            sed -i 's|^PINKARY_API_URL=.*|PINKARY_API_URL=${{ inputs.api-url }}|' .env
+          else
+            echo 'PINKARY_API_URL=${{ inputs.api-url }}' >> .env
+          fi
+          grep '^PINKARY_API_URL=' .env
+          echo "PINKARY_API_URL=${{ inputs.api-url }}" >> $GITHUB_ENV
 
       - name: Build NativePHP Android application
         id: build
