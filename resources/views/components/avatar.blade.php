@@ -40,7 +40,7 @@
 @elseif ($openProfile)
     <native:pressable @tap="openProfile('{{ $username }}')" a11y-label="Open {{ '@'.$username }}’s profile">
         @if (is_string($avatar) && $avatar !== '')
-            <native:image src="{{ $avatar }}" alt="{{ $username }}" class="{{ $box }} object-cover {{ $radius }} {{ $border }}" />
+            <x-lazy-image src="{{ $avatar }}" alt="{{ $username }}" class="{{ $box }} object-cover {{ $radius }} {{ $border }}" />
         @else
             <native:column class="{{ $box }} items-center justify-center {{ $radius }} bg-theme-avatar {{ $border }}">
                 <native:text class="{{ $initialSize }} text-theme-on-avatar">{{ $initial }}</native:text>
@@ -48,7 +48,7 @@
         @endif
     </native:pressable>
 @elseif (is_string($avatar) && $avatar !== '')
-    <native:image src="{{ $avatar }}" alt="{{ $username !== '' ? $username : $name }}" class="{{ $box }} object-cover {{ $radius }} {{ $border }}" />
+    <x-lazy-image src="{{ $avatar }}" alt="{{ $username !== '' ? $username : $name }}" class="{{ $box }} object-cover {{ $radius }} {{ $border }}" />
 @else
     <native:column class="{{ $box }} items-center justify-center {{ $radius }} bg-theme-avatar {{ $border }}">
         <native:text class="{{ $initialSize }} text-theme-on-avatar">{{ $initial }}</native:text>

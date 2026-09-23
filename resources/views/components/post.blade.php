@@ -179,7 +179,7 @@
                         shared trait), so a tap opens the image full-size
                         instead of leaving it a fixed h-48 stack. --}}
                     <native:pressable @tap="openLink('{{ $src }}')" a11y-label="Open image fullscreen">
-                        <native:image src="{{ $src }}" alt="Post image" class="w-full h-48 object-cover rounded-md border border-theme-outline-variant" />
+                        <x-lazy-image src="{{ $src }}" alt="Post image" class="w-full h-48 object-cover rounded-md border border-theme-outline-variant" />
                     </native:pressable>
                 @endforeach
 
@@ -187,7 +187,7 @@
                     <native:pressable @tap="openLink('{{ $preview['url'] }}')" a11y-label="Open link: {{ $preview['host'] ?? $preview['url'] }}">
                         <native:column class="w-full gap-0 rounded-md border border-theme-outline-variant overflow-hidden">
                             @if (($preview['image'] ?? null) !== null && $preview['image'] !== '')
-                                <native:image src="{{ $preview['image'] }}" alt="{{ $preview['title'] ?? $preview['url'] }}" class="w-full h-36 object-cover" />
+                                <x-lazy-image src="{{ $preview['image'] }}" alt="{{ $preview['title'] ?? $preview['url'] }}" class="w-full h-36 object-cover" />
                             @endif
                             <native:column class="w-full gap-0.5 px-3 py-2 bg-theme-bubble">
                                 <native:text class="text-xs font-semibold text-theme-on-surface">{{ $preview['title'] ?? $preview['url'] }}</native:text>

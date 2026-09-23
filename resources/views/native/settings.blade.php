@@ -2,12 +2,13 @@
     <native:column class="w-full gap-0">
         <x-page-heading title="Settings" />
 
+        @if ($refreshing ?? false)
+            <x-refresh-bar />
+        @endif
+
         <native:column class="w-full px-4 py-4 gap-4">
         @if ($loading)
-            <native:column class="w-full items-center gap-3 py-10">
-                <native:activity-indicator />
-                <native:text class="text-sm text-theme-on-surface-variant">Loading settings…</native:text>
-            </native:column>
+            <x-skeleton-settings />
         @elseif ($errorMessage !== '')
             <native:column class="w-full p-4 gap-3 rounded-md bg-theme-destructive/15 border border-theme-destructive">
                 <native:text class="text-sm text-theme-destructive">{{ $errorMessage }}</native:text>
