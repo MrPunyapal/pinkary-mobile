@@ -4,6 +4,7 @@ use App\NativeComponents\Home;
 use App\NativeComponents\Profile;
 use App\Support\AccountStore;
 use Illuminate\Support\Facades\Http;
+use Native\Mobile\Facades\System;
 use Native\Mobile\Testing\Native;
 
 function ownProfile(): array
@@ -157,7 +158,7 @@ it('opens author profiles from the feed', function (): void {
     Native::visit('/user/ada')->assertSee('Ada Lovelace');
 });
 
-it('toggles the profile QR code section', function (): void {
+it('toggles the profile QR code section with light and dark themes', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
@@ -165,9 +166,21 @@ it('toggles the profile QR code section', function (): void {
         'https://pinkary.test/api/v1/users/pinkaryuser/questions*' => Http::response(['data' => []]),
     ]);
 
-    Native::test(Profile::class)
-        ->call('toggleQr')
-        ->assertSee('https://pinkary.test/@pinkaryuser');
+    try {
+        System::rememberAppearance('light');
+        $testLight = Native::test(Profile::class)
+            ->call('toggleQr')
+            ->assertSee('https://pinkary.test/@pinkaryuser');
+        expect(json_encode($testLight->tree()))->toContain('qr-code?theme=light');
+
+        System::rememberAppearance('dark');
+        $testDark = Native::test(Profile::class)
+            ->call('toggleQr')
+            ->assertSee('https://pinkary.test/@pinkaryuser');
+        expect(json_encode($testDark->tree()))->toContain('qr-code?theme=dark');
+    } finally {
+        System::rememberAppearance('light');
+    }
 });
 
 it('renders other users with a single in-content top bar title', function (): void {
