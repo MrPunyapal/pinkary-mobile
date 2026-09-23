@@ -65,10 +65,13 @@
     // painted as blank space between threads). The -mb-1.5 reaches 6px
     // into the next segment's pad instead: negative margins collapse,
     // so the line connects without pushing the row taller.
+    // Calibrated against the test collector (lane 8 + avatar 40): a
+    // 1-line post needs ~90px of content, so base 60 + 24/line lands the
+    // rail at content height instead of overshooting into a gap.
     $textLines = max(1, (int) ceil(mb_strlen($answerShown) / 36));
-    $estimatedContentHeight = 68 + ($textLines * 24) + $bottomPadDp
+    $estimatedContentHeight = 60 + ($textLines * 24) + $bottomPadDp
         + (count($images) * 198)
-        + (is_array($preview) && ($preview['url'] ?? '') !== '' ? 184 : 0)
+        + (is_array($preview) && ($preview['url'] ?? '') !== '' ? 192 : 0)
         + (is_array($poll) && $poll !== [] ? 120 : 0)
         + ($answerLong ? 28 : 0);
     // Rail starts at avatar bottom (40dp avatar). Height matches content.
@@ -88,7 +91,9 @@
         {{-- Chained thread segments stack tight (bare): smaller top pad
             so the gap between two questions stays compact. --}}
         <native:column class="w-full px-4 {{ $bare ? 'pt-2' : 'pt-3' }}">
-            <native:column class="w-full gap-2 px-3 py-2.5 rounded-md bg-theme-surface-variant border border-theme-outline-variant">
+            {{-- Hairline pale edge: 1px outline at half opacity reads as a
+                seam, not a box; the tint still lifts it off the feed. --}}
+            <native:column class="w-full gap-2 px-3 py-2.5 rounded-md bg-theme-surface-variant border border-theme-outline-variant/50">
                 <native:row class="w-full items-start justify-between gap-3">
                     <native:column class="flex-1 min-w-0">
                         @if ($anonymous)

@@ -6,6 +6,7 @@ namespace App\NativeComponents;
 
 use App\Services\PinkaryApi;
 use App\Services\TokenStorage;
+use App\Support\AccountStore;
 use App\Support\ApiErrors;
 use App\Support\CurrentUser;
 use Illuminate\Support\Facades\Validator;
@@ -97,13 +98,29 @@ final class Register extends NativeComponent
         ]);
 
         if ($response->successful() && is_string($token = $response->json('token'))) {
-            app(TokenStorage::class)->store($token);
-
             $userData = $response->json('data') ?? $response->json('user');
-            if (is_array($userData) && ! empty($userData['username'])) {
-                CurrentUser::store($userData);
+            $userData = is_array($userData) ? $userData : [];
+            $username = (string) ($userData['username'] ?? $this->username);
+
+            // Re-registration mints a fresh token: revoke the previous
+            // one for this username server-side so dead tokens never
+            // pile up.
+            $previous = $username !== '' ? AccountStore::tokenForUsername($username) : null;
+
+            if (is_string($previous) && $previous !== '' && $previous !== $token) {
+                app(PinkaryApi::class)->attempt(fn () => app(PinkaryApi::class)->logout($previous));
             }
 
+            app(TokenStorage::class)->store($token, $username);
+
+            if ($username !== '') {
+                CurrentUser::store($userData !== [] ? $userData : [
+                    'name' => $this->name,
+                    'username' => $username,
+                ]);
+            }
+
+            session()->forget('pinkary_add_account');
             $this->replace($this->route('mobile.feed'));
 
             return;

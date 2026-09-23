@@ -4,53 +4,42 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use Native\Mobile\Facades\SecureStorage;
+use App\Support\AccountStore;
 
 final readonly class TokenStorage
 {
-    private const string KEY = 'pinkary_api_token';
-
     /**
-     * Read the API token from the native keychain/keystore. The session
-     * is only a fallback for environments without a native bridge
-     * (tests, local preview) — on device the session is never touched.
+     * Read the active account's API token. Backed by AccountStore, so the
+     * native keychain/keystore holds one token per account and this
+     * always resolves the one in use. The session is only a fallback for
+     * environments without a native bridge (tests, local preview) — on
+     * device the session is never touched.
      */
     public function get(): ?string
     {
-        $result = SecureStorage::read(self::KEY);
-
-        if ($result->found()) {
-            return $result->value;
-        }
-
-        if ($result->failed()) {
-            $token = session(self::KEY);
-
-            return is_string($token) && $token !== '' ? $token : null;
-        }
-
-        return null;
+        return AccountStore::activeToken();
     }
 
     /**
-     * Persist the API token in the native keychain/keystore, falling back
-     * to the session only when the native bridge is unavailable.
+     * Persist the API token for a username (insert or replace that
+     * account, then make it active). Without a username the token joins
+     * the active account, preserving the legacy single-token contract.
      */
-    public function store(string $token): void
+    public function store(string $token, ?string $username = null): void
     {
-        if (! SecureStorage::set(self::KEY, $token)) {
-            session([self::KEY => $token]);
-        }
+        AccountStore::add(
+            $username ?? AccountStore::active()['username'] ?? '',
+            $token,
+            []
+        );
     }
 
     /**
-     * Remove the API token from the native keychain/keystore, falling back
-     * to the session only when the native bridge is unavailable.
+     * Remove the active account's token (falling through to the next
+     * account), backing the same bridge-then-session contract as get().
      */
     public function clear(): void
     {
-        if (! SecureStorage::delete(self::KEY)) {
-            session()->forget(self::KEY);
-        }
+        AccountStore::removeActive();
     }
 }

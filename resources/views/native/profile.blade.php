@@ -157,61 +157,28 @@
                 @endif
             </native:row>
 
-            @if (($showQr ?? false) && $isMe)
-                @php
-                    $qrProfileUrl = rtrim((string) config('services.pinkary.url'), '/').'/@'.data_get($profile, 'username', '');
-                @endphp
-                <native:column class="w-full items-center gap-2 p-4 rounded-md bg-theme-surface border border-theme-outline-variant">
-                    <native:image src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={{ urlencode($qrProfileUrl) }}" alt="Profile QR code" class="w-56 h-56 rounded-md border border-theme-outline-variant" />
-                    <native:text class="text-sm text-center text-theme-on-surface-variant">{{ $qrProfileUrl }}</native:text>
-                </native:column>
-            @endif
-
             {{-- Email, member-since, and logout live in Settings (web parity:
                 the public profile card never shows them). --}}
 
-            @if ($isMe)
-                <native:pressable class="w-full gap-3 p-4 rounded-md bg-theme-surface border border-theme-outline-variant" @tap="compose" a11y-label="Share an update">
-                    <native:row class="items-center gap-3">
-                        <x-avatar :user="$profile" :size="10" :link="false" />
-                        <native:text class="text-sm text-theme-on-surface-variant">Share an update...</native:text>
-                    </native:row>
-                    <native:button variant="secondary" @tap="compose">Post</native:button>
-                </native:pressable>
-            @endif
-
-            <native:column class="w-full gap-0 rounded-md bg-theme-surface border border-theme-outline-variant overflow-hidden">
-                <native:column class="w-full px-4 py-3 border-b border-theme-outline-variant">
-                    <native:text class="text-sm font-semibold uppercase tracking-widest text-theme-on-surface-variant">Posts</native:text>
-                </native:column>
-
+            {{-- Flat feed rows like home/bookmarks/detail: no card, no
+                section header — the shared thread-post owns dividers. --}}
+            <native:column class="w-full gap-0">
                 @if ($questionsLoading)
-                    <native:column class="w-full items-center gap-3 py-10">
+                    <native:column class="w-full items-center gap-3 px-5 py-10">
                         <native:activity-indicator />
                         <native:text class="text-sm text-theme-on-surface-variant">Loading posts…</native:text>
                     </native:column>
                 @elseif ($questionsError !== '')
-                    <native:column class="w-full p-4 gap-3">
+                    <native:column class="mx-4 my-5 p-4 gap-3 rounded-md bg-theme-destructive/15 border border-theme-destructive">
                         <native:text class="text-sm text-theme-destructive">{{ $questionsError }}</native:text>
                         <native:pressable class="self-start py-1" @tap="retryQuestions" a11y-label="Try again">
                             <native:text class="text-sm font-semibold text-theme-destructive">Try again</native:text>
                         </native:pressable>
                     </native:column>
                 @elseif (count($questions) === 0)
-                    <native:column class="w-full items-center gap-1 px-6 py-10">
-                        <native:text class="text-lg font-medium text-theme-on-surface">No posts yet.</native:text>
-                        @if ($isMe)
-                            <native:text class="text-sm text-center text-theme-on-surface-variant">Share your first update to get started.</native:text>
-                        @endif
-                    </native:column>
+                    <x-empty-state title="No posts yet." :subtitle="$isMe ? 'Share your first update to get started.' : ''" />
                 @else
                     @foreach ($questions as $post)
-                        @if ((bool) data_get($post, 'pinned', false))
-                            <native:row class="w-full items-center gap-1.5 px-4 pt-3">
-                                <native:icon :ios="\App\Icons\Ios::PinFill" :android="\App\Icons\Android::PushPin" :size="12" color="#EC4899" />
-                                <native:text class="text-xs font-semibold uppercase tracking-widest text-theme-primary">Pinned</native:text>
-                            </native:row>
-                        @endif
                         <x-thread-post :post="$post" :expanded-ids="$expanded" />
                     @endforeach
 
@@ -224,5 +191,21 @@
         </native:column>
     </native:column>
 </native:list>
+
+@if (($showQr ?? false) && $isMe)
+    @php
+        $qrProfileUrl = rtrim((string) config('services.pinkary.url'), '/').'/@'.data_get($profile, 'username', '');
+        $qrImageUrl = rtrim((string) config('services.pinkary.url'), '/').'/api/v1/users/'.data_get($profile, 'username', '').'/qr-code?theme=light';
+    @endphp
+    <native:bottom-sheet visible @dismiss="toggleQr">
+        <native:column class="w-full gap-3 px-5 py-4 bg-theme-surface">
+            <native:column class="w-full items-center gap-2 bg-white p-3 rounded-md">
+                <native:image src="{{ $qrImageUrl }}" alt="Profile QR code" class="w-56 h-56 rounded-md" />
+                <native:text class="text-sm text-center text-slate-600">{{ $qrProfileUrl }}</native:text>
+            </native:column>
+            <native:button variant="secondary" @tap="toggleQr">Close</native:button>
+        </native:column>
+    </native:bottom-sheet>
+@endif
 
 @include('native.app-menu-sheet')
