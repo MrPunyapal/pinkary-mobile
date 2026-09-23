@@ -17,11 +17,12 @@
 
         <x-feed-tabs :tab="$tab" />
 
+        @if ($refreshing ?? false)
+            <x-refresh-bar />
+        @endif
+
         @if ($loading)
-            <native:column class="w-full items-center gap-3 px-5 py-10">
-                <native:activity-indicator />
-                <native:text class="text-sm text-theme-on-surface-variant">Loading the latest conversations…</native:text>
-            </native:column>
+            <x-skeleton-feed />
         @elseif ($errorMessage !== '')
             <native:column class="mx-4 my-5 p-4 gap-3 rounded-md bg-theme-destructive/15 border border-theme-destructive">
                 <native:text class="text-sm text-theme-destructive">{{ $errorMessage }}</native:text>

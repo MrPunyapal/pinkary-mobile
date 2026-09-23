@@ -10,10 +10,18 @@
 <native:list on-end-reached="loadMore" class="w-full h-full bg-theme-background">
     <native:column class="w-full gap-0">
         <x-page-heading :title="$title" :back="true" />
+
+        @if ($refreshing ?? false)
+            <x-refresh-bar />
+        @endif
+
         @if ($loading)
-            <native:column class="w-full items-center gap-3 px-5 py-10">
-                <native:activity-indicator />
-                <native:text class="text-sm text-theme-on-surface-variant">Loading this list…</native:text>
+            <native:column class="w-full gap-0">
+                <x-skeleton-user-row />
+                <x-skeleton-user-row />
+                <x-skeleton-user-row />
+                <x-skeleton-user-row />
+                <x-skeleton-user-row />
             </native:column>
         @elseif ($errorMessage !== '')
             <native:column class="mx-4 my-5 p-4 gap-3 rounded-md bg-theme-destructive/15 border border-theme-destructive">

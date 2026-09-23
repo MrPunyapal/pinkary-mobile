@@ -3,8 +3,11 @@
         <x-search-bar :query="$query" />
 
         @if ($searching)
-            <native:column class="w-full items-center gap-3 px-5 py-10">
-                <native:activity-indicator />
+            <native:column class="w-full gap-0">
+                <x-skeleton-user-row />
+                <x-skeleton-user-row />
+                <x-skeleton-user-row />
+                <x-skeleton-user-row />
             </native:column>
         @else
             @if (($errorMessage ?? '') !== '')
