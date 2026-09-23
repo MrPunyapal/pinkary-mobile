@@ -2,6 +2,7 @@
 
 use App\NativeComponents\Compose;
 use App\Support\AccountStore;
+use App\Support\CurrentUser;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\Native;
 use Native\Mobile\Testing\TestableComponent;
@@ -459,6 +460,110 @@ it('rejects overlong questions without sending', function (): void {
         ->set('content', str_repeat('a', 256))
         ->call('publish')
         ->assertSee('255 characters');
+
+    assertQuestionNotPublished();
+});
+
+it('opens the composer without waiting on a profile response', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', [
+        'username' => 'ada',
+        'name' => 'Ada',
+        'avatar' => 'https://example.com/ada.png',
+    ]);
+    CurrentUser::store([
+        'username' => 'ada',
+        'name' => 'Ada',
+        'avatar' => 'https://example.com/ada.png',
+    ]);
+
+    Http::fake(function ($request) {
+        if (str_contains((string) $request->url(), '/api/v1/profile')) {
+            throw new RuntimeException('profile must not block compose');
+        }
+
+        return Http::response(['data' => []]);
+    });
+
+    Native::test(Compose::class)
+        ->assertSee('Share an update');
+
+    Http::assertNotSent(fn ($request) => str_contains((string) $request->url(), '/api/v1/profile'));
+});
+
+it('restores a thread draft when the composer is reopened', function (): void {
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake();
+
+    Native::test(Compose::class)
+        ->set('content', 'Half-written thought')
+        ->call('addPost')
+        ->fireEvent('updatePost(0)', TestableComponent::EVENT_TEXT_CHANGE, ['text' => 'A follow-up.'])
+        ->call('togglePoll');
+
+    Native::test(Compose::class)
+        ->assertSet('content', 'Half-written thought')
+        ->assertSet('posts', ['A follow-up.'])
+        ->assertSet('isPoll', true)
+        ->assertSee('Share an update');
+});
+
+it('clears the draft after a successful publish', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
+        'https://pinkary.test/api/v1/channels*' => Http::response(['data' => []]),
+        'https://pinkary.test/api/v1/questions' => Http::response(['data' => [[]]], 201),
+    ]);
+
+    Native::test(Compose::class)
+        ->set('content', 'First post.')
+        ->call('publish')
+        ->assertNavigatedTo('/feed');
+
+    Native::test(Compose::class)
+        ->assertSet('content', '');
+});
+
+it('shows live over-limit validation without publishing', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake();
+
+    $test = Native::test(Compose::class)
+        ->set('content', str_repeat('a', 1001))
+        ->assertSee('Over the 1000 character limit.');
+
+    expect($test->instance())->toBeInstanceOf(Compose::class)
+        ->and($test->instance()->canPublish())->toBeFalse();
+
+    $test->call('publish');
+
+    Http::assertNotSent(fn ($request) => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/api/v1/questions'));
+});
+
+it('uses the 255 character ask limit and does not restore thread drafts', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
+    ]);
+
+    Native::test(Compose::class)
+        ->set('content', 'A thread draft that should stay in the thread composer.');
+
+    $ask = Native::test(Compose::class, ['username' => 'grace'])
+        ->assertSet('content', '')
+        ->assertDontSee('thread draft')
+        ->set('content', str_repeat('a', 256))
+        ->assertSee('Over the 255 character limit.');
+
+    expect($ask->instance())->toBeInstanceOf(Compose::class)
+        ->and($ask->instance()->canPublish())->toBeFalse();
+
+    $ask->call('publish');
 
     assertQuestionNotPublished();
 });
