@@ -22,16 +22,13 @@ final readonly class TokenStorage
 
     /**
      * Persist the API token for a username (insert or replace that
-     * account, then make it active). Without a username the token joins
-     * the active account, preserving the legacy single-token contract.
+     * account, then make it active).
+     *
+     * @param  array<string, mixed>  $profile
      */
-    public function store(string $token, ?string $username = null): void
+    public function store(string $token, string $username, array $profile = []): void
     {
-        AccountStore::add(
-            $username ?? AccountStore::active()['username'] ?? '',
-            $token,
-            []
-        );
+        AccountStore::add($username, $token, $profile);
     }
 
     /**

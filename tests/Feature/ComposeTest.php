@@ -1,6 +1,7 @@
 <?php
 
 use App\NativeComponents\Compose;
+use App\Support\AccountStore;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\Native;
 use Native\Mobile\Testing\TestableComponent;
@@ -55,7 +56,7 @@ it('redirects guests to login', function (): void {
 });
 
 it('renders the composer', function (): void {
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake();
 
     Native::test(Compose::class)
@@ -65,7 +66,7 @@ it('renders the composer', function (): void {
 
 it('requires content before publishing', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake();
 
     Native::test(Compose::class)
@@ -77,7 +78,7 @@ it('requires content before publishing', function (): void {
 });
 
 it('adds and removes thread posts up to the limit', function (): void {
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake();
 
     // Like the web, follow-ups unlock only once the first post is written.
@@ -107,7 +108,7 @@ it('adds and removes thread posts up to the limit', function (): void {
 });
 
 it('captures follow-up text through change events', function (): void {
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake();
 
     Native::test(Compose::class)
@@ -119,7 +120,7 @@ it('captures follow-up text through change events', function (): void {
 
 it('publishes a thread and returns to the feed', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
         'https://pinkary.test/api/v1/channels*' => Http::response(['data' => []]),
@@ -140,7 +141,7 @@ it('publishes a thread and returns to the feed', function (): void {
 
 it('returns to login when the token is rejected', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
         'https://pinkary.test/api/v1/channels*' => Http::response(['data' => []]),
@@ -155,7 +156,7 @@ it('returns to login when the token is rejected', function (): void {
 
 it('rejects overlong follow-up posts without sending', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake();
 
     Native::test(Compose::class)
@@ -171,7 +172,7 @@ it('rejects overlong follow-up posts without sending', function (): void {
 
 it('surfaces validation errors from the API', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
         'https://pinkary.test/api/v1/channels*' => Http::response(['data' => []]),
@@ -189,7 +190,7 @@ it('surfaces validation errors from the API', function (): void {
 
 it('surfaces rate limit messages from the API', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
         'https://pinkary.test/api/v1/channels*' => Http::response(['data' => []]),
@@ -206,7 +207,7 @@ it('surfaces rate limit messages from the API', function (): void {
 
 it('clears the composer after publishing', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
         'https://pinkary.test/api/v1/channels*' => Http::response(['data' => []]),
@@ -226,7 +227,7 @@ it('clears the composer after publishing', function (): void {
 
 it('searches and selects a channel', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
         'https://pinkary.test/api/v1/channels*' => Http::response(['data' => []]),
@@ -246,7 +247,7 @@ it('searches and selects a channel', function (): void {
 
 it('toggles a poll and validates its options locally', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake();
 
     Native::test(Compose::class)
@@ -261,7 +262,7 @@ it('toggles a poll and validates its options locally', function (): void {
 
 it('publishes a poll with a channel and duration', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
         'https://pinkary.test/api/v1/channels*' => Http::response(['data' => []]),
@@ -287,7 +288,7 @@ it('publishes a poll with a channel and duration', function (): void {
 
 it('rejects overlong poll options without sending', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake();
 
     Native::test(Compose::class)
@@ -304,7 +305,7 @@ it('rejects overlong poll options without sending', function (): void {
 
 it('stages a new channel name for creation at publish', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
         'https://pinkary.test/api/v1/channels*' => Http::response(['data' => []]),
@@ -325,7 +326,7 @@ it('stages a new channel name for creation at publish', function (): void {
 });
 
 it('rejects invalid staged channel names without sending', function (): void {
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake();
 
     Native::test(Compose::class)
@@ -340,7 +341,7 @@ it('rejects invalid staged channel names without sending', function (): void {
 
 it('publishes a follow-up poll aligned with its post', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
         'https://pinkary.test/api/v1/channels*' => Http::response(['data' => []]),
@@ -365,7 +366,7 @@ it('publishes a follow-up poll aligned with its post', function (): void {
 });
 
 it('validates follow-up polls locally without sending', function (): void {
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake();
 
     Native::test(Compose::class)
@@ -381,7 +382,7 @@ it('validates follow-up polls locally without sending', function (): void {
 });
 
 it('only makes add-post tappable once a follow-up is allowed', function (): void {
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake();
 
     $test = Native::test(Compose::class)
@@ -398,7 +399,7 @@ it('only makes add-post tappable once a follow-up is allowed', function (): void
 
 it('renders ask mode for another user without thread UI', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
     ]);
@@ -415,7 +416,7 @@ it('renders ask mode for another user without thread UI', function (): void {
 
 it('sends the question and opens the asked profile', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
         'https://pinkary.test/api/v1/questions' => Http::response(['data' => [[]]], 201),
@@ -435,7 +436,7 @@ it('sends the question and opens the asked profile', function (): void {
 
 it('requires a question before asking', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
     ]);
@@ -449,7 +450,7 @@ it('requires a question before asking', function (): void {
 
 it('rejects overlong questions without sending', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
     ]);
@@ -464,7 +465,7 @@ it('rejects overlong questions without sending', function (): void {
 
 it('surfaces ask validation errors from the API', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
         'https://pinkary.test/api/v1/questions' => Http::response([

@@ -1,6 +1,7 @@
 <?php
 
 use App\NativeComponents\Login;
+use App\Support\AccountStore;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\Native;
 
@@ -26,5 +27,5 @@ it('stores the token and opens the feed after login', function (): void {
         ->tap('Log in')
         ->assertReplacedWith('/feed');
 
-    expect(session('pinkary_api_token'))->toBe('test-token');
+    expect(AccountStore::activeToken())->toBe('test-token');
 });

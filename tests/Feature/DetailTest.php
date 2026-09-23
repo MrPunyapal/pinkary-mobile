@@ -1,6 +1,7 @@
 <?php
 
 use App\NativeComponents\Detail;
+use App\Support\AccountStore;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\Native;
 
@@ -43,7 +44,7 @@ it('redirects guests to login', function (): void {
 
 it('returns to the feed without an id', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake();
 
     Native::test(Detail::class)
@@ -54,7 +55,7 @@ it('returns to the feed without an id', function (): void {
 
 it('renders the post with its comments', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake(detailFakes(comments: [
         commentRow('c1', 'First comment.'),
         commentRow('c2', 'Second comment.'),
@@ -68,7 +69,7 @@ it('renders the post with its comments', function (): void {
 
 it('resolves through the native route', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake(detailFakes(comments: [
         commentRow('c1', 'Routed comment.'),
     ]));
@@ -80,7 +81,7 @@ it('resolves through the native route', function (): void {
 
 it('renders the connected thread above the post', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/questions/q3' => Http::response([
             'data' => [
@@ -126,7 +127,7 @@ it('renders the connected thread above the post', function (): void {
 
 it('votes in a thread ancestor poll', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/questions/q1' => Http::response([
             'data' => [
@@ -176,7 +177,7 @@ it('votes in a thread ancestor poll', function (): void {
 
 it('shows just the composer without comments', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake(detailFakes());
 
     // Like the web question page, no comments box renders at all —
@@ -190,7 +191,7 @@ it('shows just the composer without comments', function (): void {
 
 it('shows an error when comments fail to load', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/questions/q1' => Http::response(['data' => [
             'id' => 'q1',
@@ -210,7 +211,7 @@ it('shows an error when comments fail to load', function (): void {
 
 it('retries loading a missing post', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/questions/q1' => Http::sequence()
             ->push(null, 404)
@@ -233,7 +234,7 @@ it('retries loading a missing post', function (): void {
 
 it('posts a comment and appends it last', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/questions/q1' => Http::response(['data' => [
             'id' => 'q1',
@@ -266,7 +267,7 @@ it('posts a comment and appends it last', function (): void {
 
 it('requires comment content before posting', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake(detailFakes());
 
     Native::test(Detail::class, ['id' => 'q1'])
@@ -278,7 +279,7 @@ it('requires comment content before posting', function (): void {
 
 it('rejects overlong comments without sending', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake(detailFakes());
 
     Native::test(Detail::class, ['id' => 'q1'])
@@ -291,7 +292,7 @@ it('rejects overlong comments without sending', function (): void {
 
 it('surfaces comment errors from the API', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake(array_merge([
         'https://pinkary.test/api/v1/questions/q1/comments' => Http::response(['message' => 'You can only send 3 questions per minute.'], 429),
     ], detailFakes()));
@@ -304,7 +305,7 @@ it('surfaces comment errors from the API', function (): void {
 
 it('toggles likes on the detail post', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake(array_merge(detailFakes(), [
         'https://pinkary.test/api/v1/questions/q1/like' => Http::response(['data' => ['liked' => true, 'likes' => 6]]),
     ]));
@@ -317,7 +318,7 @@ it('toggles likes on the detail post', function (): void {
 
 it('toggles likes on the answered post', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake(array_merge(detailFakes(comments: [
         commentRow('c1', 'Likable comment.'),
     ]), [
@@ -335,7 +336,7 @@ it('toggles likes on the answered post', function (): void {
 
 it('appends older comments when loading more', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/questions/q1' => Http::response(['data' => [
             'id' => 'q1',
@@ -366,7 +367,7 @@ it('appends older comments when loading more', function (): void {
 
 it('toggles bookmarks on the detail post', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake(array_merge(detailFakes(), [
         'https://pinkary.test/api/v1/questions/q1/bookmark' => Http::response(['data' => ['bookmarked' => true, 'bookmarks' => 1]]),
     ]));
@@ -382,7 +383,7 @@ it('toggles bookmarks on the detail post', function (): void {
 
 it('opens another post without self-linking the open one', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake(detailFakes(comments: [
         commentRow('c1', 'Plain bubble comment.'),
     ]));
@@ -398,7 +399,7 @@ it('opens another post without self-linking the open one', function (): void {
 
 it('hides the reply composer on unanswered questions', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/questions/q1' => Http::response(['data' => [
             'id' => 'q1',
@@ -428,7 +429,7 @@ it('hides the reply composer on unanswered questions', function (): void {
 
 it('does not duplicate a new comment when the next page replays it', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     // One ordered sequence for every comments request: Laravel
     // evaluates all matching stubs eagerly, so an exact POST stub next
     // to a wildcard sequence would silently drain the sequence.
@@ -466,7 +467,7 @@ it('does not duplicate a new comment when the next page replays it', function ()
 
 it('surfaces poll vote failures instead of failing silently', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/questions/q1' => Http::response([
             'data' => [
@@ -521,7 +522,7 @@ it('surfaces poll vote failures instead of failing silently', function (): void 
 
 it('renders expired polls static', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/questions/q1' => Http::response([
             'data' => [
@@ -576,7 +577,7 @@ function menuFakes(array $post, array $extra = []): array
 
 it('pins the post and shows the pinned chip', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake(menuFakes(menuPost(), [
         'https://pinkary.test/api/v1/questions/q1/pin' => Http::response(['data' => ['pinned' => true]]),
     ]));
@@ -596,7 +597,7 @@ it('pins the post and shows the pinned chip', function (): void {
 
 it('unpins the post and drops the pinned chip', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake(menuFakes(menuPost(overrides: ['pinned' => true]), [
         'https://pinkary.test/api/v1/questions/q1/pin' => Http::response(['data' => ['pinned' => false]]),
     ]));
@@ -617,7 +618,7 @@ it('unpins the post and drops the pinned chip', function (): void {
 
 it('hides the pin entry after a pin 403', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake(menuFakes(menuPost(overrides: ['pinned' => true]), [
         'https://pinkary.test/api/v1/questions/q1/pin' => Http::response(['message' => 'This action is unauthorized.'], 403),
     ]));
@@ -635,7 +636,7 @@ it('hides the pin entry after a pin 403', function (): void {
 
 it('edits the answer inline and updates the post', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake(menuFakes(menuPost(), [
         'https://pinkary.test/api/v1/questions/q1/answer' => Http::response(['data' => [
             'id' => 'q1',
@@ -663,7 +664,7 @@ it('edits the answer inline and updates the post', function (): void {
 
 it('surfaces answer validation errors from the API', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake(menuFakes(menuPost(), [
         'https://pinkary.test/api/v1/questions/q1/answer' => Http::response([
             'message' => 'The answer must not be greater than 1000 characters.',
@@ -683,7 +684,7 @@ it('surfaces answer validation errors from the API', function (): void {
 
 it('hides the edit entry after an answer 403', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake(menuFakes(menuPost(), [
         'https://pinkary.test/api/v1/questions/q1/answer' => Http::response(['message' => 'This action is unauthorized.'], 403),
     ]));
@@ -701,7 +702,7 @@ it('hides the edit entry after an answer 403', function (): void {
 
 it('confirms deletion and navigates back to the feed', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake(menuFakes(menuPost(), [
         'https://pinkary.test/api/v1/questions/q1/ignore' => Http::response(['data' => ['ignored' => true]]),
     ]));
@@ -719,7 +720,7 @@ it('confirms deletion and navigates back to the feed', function (): void {
 
 it('hard-deletes the post and navigates back to the feed', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/questions/q1' => Http::sequence()
             ->push(['data' => menuPost()])
@@ -739,7 +740,7 @@ it('hard-deletes the post and navigates back to the feed', function (): void {
 
 it('hides the delete entry after an ignore 403', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake(menuFakes(menuPost(), [
         'https://pinkary.test/api/v1/questions/q1/ignore' => Http::response(['message' => 'This action is unauthorized.'], 403),
     ]));
@@ -756,7 +757,7 @@ it('hides the delete entry after an ignore 403', function (): void {
 
 it('lists likers inside the sheet', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake(menuFakes(menuPost(), [
         'https://pinkary.test/api/v1/questions/q1/likes*' => Http::response([
             'data' => [
@@ -778,7 +779,7 @@ it('lists likers inside the sheet', function (): void {
 
 it('hides the likes entry when the count is zero', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake(menuFakes(menuPost(overrides: ['metrics' => ['likes' => 0, 'comments' => 0]])));
 
     Native::test(Detail::class, ['id' => 'q1'])
@@ -790,7 +791,7 @@ it('hides the likes entry when the count is zero', function (): void {
 
 it('hides the likes entry after a likers 403', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake(menuFakes(menuPost(), [
         'https://pinkary.test/api/v1/questions/q1/likes*' => Http::response(['message' => 'This action is unauthorized.'], 403),
     ]));

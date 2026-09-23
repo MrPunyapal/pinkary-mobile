@@ -1,6 +1,7 @@
 <?php
 
 use App\NativeComponents\Register;
+use App\Support\AccountStore;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\Native;
 
@@ -29,5 +30,5 @@ it('stores the token and opens the feed after registration', function (): void {
         ->tap('Create account')
         ->assertReplacedWith('/feed');
 
-    expect(session('pinkary_api_token'))->toBe('test-token');
+    expect(AccountStore::activeToken())->toBe('test-token');
 });

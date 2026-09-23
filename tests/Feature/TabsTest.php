@@ -11,6 +11,7 @@ use App\NativeComponents\Register;
 use App\NativeComponents\Search;
 use App\NativeComponents\Settings;
 use App\NativeLayout\MobileLayout;
+use App\Support\AccountStore;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\Native;
 
@@ -35,7 +36,7 @@ it('redirects guests away from the new screens', function (): void {
 
 it('lists bookmarked posts with an empty state', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/bookmarks*' => Http::response(['data' => []]),
     ]);
@@ -46,7 +47,7 @@ it('lists bookmarked posts with an empty state', function (): void {
 
 it('renders bookmarked posts and paginates', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/bookmarks*' => Http::sequence()
             ->push([
@@ -67,7 +68,7 @@ it('renders bookmarked posts and paginates', function (): void {
 
 it('lists web-style rows and opens the question', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/notifications*' => Http::response([
             'data' => [[
@@ -99,7 +100,7 @@ it('lists web-style rows and opens the question', function (): void {
 
 it('opens follower profiles from follow rows', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/notifications*' => Http::response([
             'data' => [[
@@ -126,7 +127,7 @@ it('opens follower profiles from follow rows', function (): void {
 
 it('shows the web empty state', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/notifications*' => Http::response([
             'data' => [],
@@ -142,7 +143,7 @@ it('shows the web empty state', function (): void {
 
 it('searches people and hashtags', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/search*' => Http::response(['data' => [
             'users' => [[
@@ -171,7 +172,7 @@ it('searches people and hashtags', function (): void {
 
 it('clears results when the query is emptied', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/search*' => Http::response(['data' => ['users' => [], 'hashtags' => []]]),
     ]);
@@ -184,7 +185,7 @@ it('clears results when the query is emptied', function (): void {
 
 it('uses in-content headings instead of a native top bar on tab screens', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/bookmarks*' => Http::response(['data' => []]),
         'https://pinkary.test/api/v1/notifications*' => Http::response(['data' => [], 'meta' => ['unread_count' => 0]]),
@@ -205,7 +206,7 @@ it('uses in-content headings instead of a native top bar on tab screens', functi
 
 it('resolves the tabbed routes', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/bookmarks*' => Http::response(['data' => []]),
         'https://pinkary.test/api/v1/notifications*' => Http::response(['data' => [], 'meta' => ['unread_count' => 0]]),
@@ -275,7 +276,7 @@ function notificationRow(string $id, string $snippet): array
 
 it('paginates notifications and surfaces load-more failures', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/notifications*' => Http::sequence()
             ->push([
@@ -357,7 +358,7 @@ it('shows per-field registration errors from the API', function (): void {
 
 it('shows every notification like the web instead of filtering read rows', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/notifications*' => Http::response([
             'data' => [
@@ -379,7 +380,7 @@ it('shows every notification like the web instead of filtering read rows', funct
 
 it('removes a notification once it is opened', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/notifications*' => Http::response([
             'data' => [array_merge(notificationRow('n1', 'Opened snippet.'), ['read' => false])],
@@ -400,7 +401,7 @@ it('removes a notification once it is opened', function (): void {
 
 it('clears the list on ignore all like the web delete', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/notifications*' => Http::response([
             'data' => [array_merge(notificationRow('n1', 'Pending snippet.'), ['read' => false])],
@@ -421,7 +422,7 @@ it('clears the list on ignore all like the web delete', function (): void {
 
 it('returns to the feed from the bookmarks empty state', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/bookmarks*' => Http::response(['data' => []]),
     ]);
@@ -434,7 +435,7 @@ it('returns to the feed from the bookmarks empty state', function (): void {
 
 it('returns to the feed from the notifications empty state', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/notifications*' => Http::response([
             'data' => [],
@@ -451,7 +452,7 @@ it('returns to the feed from the notifications empty state', function (): void {
 
 it('clears the search and recalls recent searches locally', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/search*' => Http::response(['data' => [
             'users' => [[
@@ -517,7 +518,7 @@ function followRow(string $username, string $name, bool $followed = false, bool 
 
 it('lists followers with pagination', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/users/ada/followers*' => Http::sequence()
             ->push([
@@ -539,7 +540,7 @@ it('lists followers with pagination', function (): void {
 
 it('lists following in following mode and resolves the routes', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/users/ada/following*' => Http::response([
             'data' => [followRow('grace', 'Grace Hopper', true)],
@@ -563,7 +564,7 @@ it('lists following in following mode and resolves the routes', function (): voi
 
 it('opens profiles from follow rows', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/users/ada/followers*' => Http::response([
             'data' => [followRow('grace', 'Grace Hopper')],
@@ -578,7 +579,7 @@ it('opens profiles from follow rows', function (): void {
 
 it('follows and unfollows inline from the list', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/users/ada/followers*' => Http::response([
             'data' => [followRow('grace', 'Grace Hopper')],
@@ -600,7 +601,7 @@ it('follows and unfollows inline from the list', function (): void {
 
 it('shows an empty follow list like the web', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/users/ada/followers*' => Http::response(['data' => []]),
     ]);
@@ -611,7 +612,7 @@ it('shows an empty follow list like the web', function (): void {
 
 it('edits the profile and refreshes the cached card', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     $card = ownProfile();
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::sequence()
@@ -635,7 +636,7 @@ it('edits the profile and refreshes the cached card', function (): void {
 
 it('shows per-field profile errors from the API', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::sequence()
             ->push(['data' => ownProfile()])
@@ -653,7 +654,7 @@ it('shows per-field profile errors from the API', function (): void {
 
 it('adds and deletes profile links with a confirm tap', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => ownProfile()]),
         'https://pinkary.test/api/v1/links' => Http::response(['data' => [
@@ -686,7 +687,7 @@ it('adds and deletes profile links with a confirm tap', function (): void {
 
 it('rejects non-https link URLs without sending', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => ownProfile()]),
     ]);
@@ -703,7 +704,7 @@ it('rejects non-https link URLs without sending', function (): void {
 
 it('surfaces link limit messages from the API', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => ownProfile()]),
         'https://pinkary.test/api/v1/links' => Http::response([
@@ -720,7 +721,7 @@ it('surfaces link limit messages from the API', function (): void {
 
 it('deletes a notification when opening it', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/notifications*' => Http::response([
             'data' => [array_merge(notificationRow('n1', 'Opened snippet.'), ['read' => false])],
@@ -743,7 +744,7 @@ it('deletes a notification when opening it', function (): void {
 
 it('treats a missing notification as already gone', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/notifications*' => Http::response([
             'data' => [array_merge(notificationRow('n1', 'Gone snippet.'), ['read' => false])],

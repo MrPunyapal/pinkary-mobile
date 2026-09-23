@@ -1,6 +1,7 @@
 <?php
 
 use App\NativeComponents\Home;
+use App\Support\AccountStore;
 use App\Support\CurrentUser;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
@@ -8,7 +9,7 @@ use Native\Mobile\Testing\Native;
 
 it('shows the error state when the api is unreachable', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake(function (): void {
         throw new ConnectionException('timeout');
     });
@@ -19,7 +20,7 @@ it('shows the error state when the api is unreachable', function (): void {
 
 it('reverts optimistic likes when the api is unreachable', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q1',
@@ -42,7 +43,7 @@ it('reverts optimistic likes when the api is unreachable', function (): void {
 
 it('renders expired polls static with no vote handler', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q1',
@@ -71,7 +72,7 @@ it('renders expired polls static with no vote handler', function (): void {
 
 it('shows the recent feed to guests without redirecting to login', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session()->forget('pinkary_api_token');
+    AccountStore::clear();
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'guest-q1',
@@ -91,7 +92,7 @@ it('shows the recent feed to guests without redirecting to login', function (): 
 
 it('renders the Pinkary feed from the API', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response([
             'data' => [[
@@ -112,7 +113,7 @@ it('renders the Pinkary feed from the API', function (): void {
 
 it('renders channel, edited time, preview, images, and polls', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q1',
@@ -157,7 +158,7 @@ it('renders channel, edited time, preview, images, and polls', function (): void
 
 it('hides zero counts like the web feed', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q1',
@@ -178,7 +179,7 @@ it('hides zero counts like the web feed', function (): void {
 
 it('votes in a poll and reconciles with the server', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q1',
@@ -221,7 +222,7 @@ it('votes in a poll and reconciles with the server', function (): void {
 
 it('ignores non-http links', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q1',
@@ -240,7 +241,7 @@ it('ignores non-http links', function (): void {
 
 it('displays plain text when the API returns HTML', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q1',
@@ -259,7 +260,7 @@ it('displays plain text when the API returns HTML', function (): void {
 
 it('abbreviates counts exactly like the web', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q1',
@@ -281,7 +282,7 @@ it('abbreviates counts exactly like the web', function (): void {
 
 it('translates a post without leaving the app', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q1',
@@ -300,7 +301,7 @@ it('translates a post without leaving the app', function (): void {
 
 it('shows the following feed when switching tabs', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::sequence()
             ->push(['data' => []])
@@ -321,7 +322,7 @@ it('shows the following feed when switching tabs', function (): void {
 
 it('shows the trending feed when switching tabs', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::sequence()
             ->push(['data' => []])
@@ -342,7 +343,7 @@ it('shows the trending feed when switching tabs', function (): void {
 
 it('retries loading the feed after a failure', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::sequence()
             ->push(null, 500)
@@ -363,7 +364,7 @@ it('retries loading the feed after a failure', function (): void {
 
 it('shows a tailored empty state for the following tab', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => []]),
     ]);
@@ -376,7 +377,7 @@ it('shows a tailored empty state for the following tab', function (): void {
 
 it('shows the web empty copy on the recent and trending tabs', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => []]),
     ]);
@@ -389,7 +390,7 @@ it('shows the web empty copy on the recent and trending tabs', function (): void
 
 it('renders thread context above feed replies like the web', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q3',
@@ -435,7 +436,7 @@ it('renders thread context above feed replies like the web', function (): void {
 
 it('shows the end-of-feed message when nothing is left', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response([
             'data' => [[
@@ -456,7 +457,7 @@ it('shows the end-of-feed message when nothing is left', function (): void {
 
 it('marks company-verified authors', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response([
             'data' => [[
@@ -476,7 +477,7 @@ it('marks company-verified authors', function (): void {
 
 it('abbreviates large metric counts', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response([
             'data' => [[
@@ -498,7 +499,7 @@ it('abbreviates large metric counts', function (): void {
 
 it('likes a post through the action row', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q1',
@@ -523,7 +524,7 @@ it('likes a post through the action row', function (): void {
 
 it('opens the detail screen from the comments row', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q1',
@@ -543,7 +544,7 @@ it('opens the detail screen from the comments row', function (): void {
 
 it('unlikes an already liked post', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q1',
@@ -568,7 +569,7 @@ it('unlikes an already liked post', function (): void {
 
 it('reverts the like when the server rejects it', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q1',
@@ -590,7 +591,7 @@ it('reverts the like when the server rejects it', function (): void {
 
 it('returns to login when liking with a rejected token', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q1',
@@ -608,12 +609,12 @@ it('returns to login when liking with a rejected token', function (): void {
         ->tap('5')
         ->assertReplacedWith('/login');
 
-    expect(session('pinkary_api_token'))->toBeNull();
+    expect(AccountStore::activeToken())->toBeNull();
 });
 
 it('toggles bookmarks through the action row', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q1',
@@ -646,7 +647,7 @@ it('toggles bookmarks through the action row', function (): void {
 
 it('appends the next page when loading more', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::sequence()
             ->push([
@@ -684,7 +685,7 @@ it('appends the next page when loading more', function (): void {
 
 it('keeps the feed when loading more fails', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::sequence()
             ->push([
@@ -711,7 +712,7 @@ it('keeps the feed when loading more fails', function (): void {
 
 it('does not redirect guests from the home feed', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session()->forget('pinkary_api_token');
+    AccountStore::clear();
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => []]),
     ]);
@@ -722,7 +723,7 @@ it('does not redirect guests from the home feed', function (): void {
 
 it('returns to login when the feed rejects the token', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(null, 401),
     ]);
@@ -730,12 +731,12 @@ it('returns to login when the feed rejects the token', function (): void {
     Native::test(Home::class)
         ->assertReplacedWith('/login');
 
-    expect(session('pinkary_api_token'))->toBeNull();
+    expect(AccountStore::activeToken())->toBeNull();
 });
 
 it('reverts the bookmark when the server rejects it', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q1',
@@ -757,7 +758,7 @@ it('reverts the bookmark when the server rejects it', function (): void {
 
 it('resets the list when switching tabs so the change is always visible', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => []]),
     ]);
@@ -773,7 +774,7 @@ it('resets the list when switching tabs so the change is always visible', functi
 
 it('reloads the feed on pull-to-refresh', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::sequence()
             ->push(['data' => [[
@@ -803,7 +804,7 @@ it('reloads the feed on pull-to-refresh', function (): void {
 
 it('toggles likes on nested thread ancestors like the web', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q2',
@@ -839,7 +840,7 @@ it('toggles likes on nested thread ancestors like the web', function (): void {
 
 it('clamps long answers with Show more and Show less like the web', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     $long = rtrim(str_repeat('Long answer sentence. ', 40));
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
@@ -864,7 +865,7 @@ it('clamps long answers with Show more and Show less like the web', function ():
 
 it('opens post images fullscreen through the in-app browser link handler', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q1',
@@ -886,7 +887,7 @@ it('opens post images fullscreen through the in-app browser link handler', funct
 
 it('pushes the share action trailing with a spacer instead of ml-auto', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q1',
@@ -922,7 +923,7 @@ it('pushes the share action trailing with a spacer instead of ml-auto', function
 
 it('chains thread posts with the web rail connector', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q2',
@@ -979,7 +980,7 @@ it('chains thread posts with the web rail connector', function (): void {
 
 it('renders thread with more comments divider and continuous lane rails', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q3',
@@ -1055,7 +1056,7 @@ function homeFeedPost(string $id, string $answer, array $overrides = []): array
 
 it('pins a feed post and shows the pinned chip', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [
             homeFeedPost('q1', 'Pinnable answer.'),
@@ -1079,7 +1080,7 @@ it('pins a feed post and shows the pinned chip', function (): void {
 
 it('hides the pin entry after a pin 403', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [
             homeFeedPost('q1', 'Not mine to pin.', ['pinned' => true]),
@@ -1100,7 +1101,7 @@ it('hides the pin entry after a pin 403', function (): void {
 
 it('removes a feed post after confirming deletion', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [
             homeFeedPost('q1', 'Going away.'),
@@ -1125,7 +1126,7 @@ it('removes a feed post after confirming deletion', function (): void {
 
 it('lists likers from the feed menu with pagination', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [
             homeFeedPost('q1', 'Likable answer.'),
@@ -1154,7 +1155,7 @@ it('lists likers from the feed menu with pagination', function (): void {
 
 it('hydrates the authenticated user on mount', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     CurrentUser::store([
         'name' => 'Ada Lovelace',
         'username' => 'ada',
@@ -1174,7 +1175,7 @@ it('hydrates the authenticated user on mount', function (): void {
 
 it('opens and closes the app menu bottom sheet like post 3 dots', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada', 'name' => 'Ada Lovelace']);
     CurrentUser::store([
         'name' => 'Ada Lovelace',
         'username' => 'ada',

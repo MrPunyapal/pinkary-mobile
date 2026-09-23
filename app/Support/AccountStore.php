@@ -26,8 +26,6 @@ final class AccountStore
 
     private const string ACTIVE_KEY = 'pinkary_active_account';
 
-    private const string LEGACY_KEY = 'pinkary_api_token';
-
     /**
      * Accounts for the switcher UI, newest first. Tokens are stripped —
      * safe to hand to Blade.
@@ -222,10 +220,9 @@ final class AccountStore
     {
         $accountsDeleted = SecureStorage::delete(self::ACCOUNTS_KEY);
         $activeDeleted = SecureStorage::delete(self::ACTIVE_KEY);
-        SecureStorage::delete(self::LEGACY_KEY);
 
         if (! $accountsDeleted || ! $activeDeleted) {
-            session()->forget([self::ACCOUNTS_KEY, self::ACTIVE_KEY, self::LEGACY_KEY]);
+            session()->forget([self::ACCOUNTS_KEY, self::ACTIVE_KEY]);
         }
     }
 
@@ -266,36 +263,11 @@ final class AccountStore
 
         if ($result->failed()) {
             $fallback = session(self::ACCOUNTS_KEY, []);
-            $accounts = self::sanitize(is_array($fallback) ? $fallback : []);
-            $activeId = self::stringOrNull(session(self::ACTIVE_KEY));
 
-            if ($accounts === [] && $activeId === null) {
-                // Pre-multi-account callers (and tests) seed the legacy
-                // single-token key: surface it as one account, read-only.
-                $legacyToken = session(self::LEGACY_KEY);
-
-                if (is_string($legacyToken) && $legacyToken !== '') {
-                    $user = CurrentUser::get();
-                    $accounts = [[
-                        'id' => 'legacy',
-                        'username' => is_array($user) ? (string) ($user['username'] ?? '') : '',
-                        'name' => is_array($user) ? (string) ($user['name'] ?? '') : '',
-                        'avatar' => is_array($user) ? ($user['avatar'] ?? null) : null,
-                        'email' => is_array($user) ? ($user['email'] ?? null) : null,
-                        'member_since' => is_array($user) ? ($user['member_since'] ?? null) : null,
-                        'token' => $legacyToken,
-                    ]];
-                    $activeId = 'legacy';
-                }
-            }
-
-            return [$accounts, $activeId];
-        }
-
-        $migrated = self::migrateLegacy();
-
-        if ($migrated !== null) {
-            return $migrated;
+            return [
+                self::sanitize(is_array($fallback) ? $fallback : []),
+                self::stringOrNull(session(self::ACTIVE_KEY)),
+            ];
         }
 
         return [[], null];
@@ -308,46 +280,6 @@ final class AccountStore
     }
 
     /**
-     * Adopt a pre-multi-account single token (stored under the legacy key
-     * by older installs) instead of logging the user out on upgrade. The
-     * legacy secret is deleted once the new keys persist.
-     *
-     * @return array{0: list<array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, token: string}>, 1: ?string}|null
-     */
-    private static function migrateLegacy(): ?array
-    {
-        $legacy = SecureStorage::read(self::LEGACY_KEY);
-        $token = null;
-
-        if ($legacy->found() && is_string($legacy->value) && $legacy->value !== '') {
-            $token = $legacy->value;
-        } elseif ($legacy->failed()) {
-            $sessionToken = session(self::LEGACY_KEY);
-            $token = is_string($sessionToken) && $sessionToken !== '' ? $sessionToken : null;
-        }
-
-        if ($token === null) {
-            return null;
-        }
-
-        $user = CurrentUser::get();
-        $account = [
-            'id' => Str::random(32),
-            'username' => is_array($user) ? (string) ($user['username'] ?? '') : '',
-            'name' => is_array($user) ? (string) ($user['name'] ?? '') : '',
-            'avatar' => is_array($user) ? ($user['avatar'] ?? null) : null,
-            'email' => is_array($user) ? ($user['email'] ?? null) : null,
-            'member_since' => is_array($user) ? ($user['member_since'] ?? null) : null,
-            'token' => $token,
-        ];
-
-        self::write([$account], $account['id']);
-        SecureStorage::delete(self::LEGACY_KEY);
-
-        return [[$account], $account['id']];
-    }
-
-    /**
      * @param  list<array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, token: string}>  $accounts
      */
     private static function write(array $accounts, ?string $activeId): void
@@ -356,15 +288,6 @@ final class AccountStore
 
         if (! SecureStorage::set(self::ACCOUNTS_KEY, (string) $payload)) {
             session([self::ACCOUNTS_KEY => $accounts, self::ACTIVE_KEY => $activeId]);
-
-            // Legacy mirror keeps single-account callers working.
-            $active = $activeId === null ? null : self::find($accounts, $activeId);
-
-            if ($active !== null) {
-                session([self::LEGACY_KEY => $active['token']]);
-            } else {
-                session()->forget(self::LEGACY_KEY);
-            }
         } elseif ($activeId !== null) {
             SecureStorage::set(self::ACTIVE_KEY, $activeId);
         } else {

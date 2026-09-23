@@ -12,6 +12,11 @@ on:
           - debug
           - release
           - bundle
+      api-url:
+        description: Pinkary API base URL baked into the build (debug only, e.g. http://192.168.31.59:8001)
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -23,6 +28,10 @@ jobs:
     steps:
       - name: Check out Pinkary Mobile
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Point the build at a local API URL (debug testing only)
+        if: inputs.api-url != ''
+        run: echo "PINKARY_API_URL=${{ inputs.api-url }}" >> $GITHUB_ENV
 
       - name: Build NativePHP Android application
         id: build

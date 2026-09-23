@@ -111,7 +111,10 @@ final class Register extends NativeComponent
                 app(PinkaryApi::class)->attempt(fn () => app(PinkaryApi::class)->logout($previous));
             }
 
-            app(TokenStorage::class)->store($token, $username);
+            app(TokenStorage::class)->store($token, $username, $userData !== [] ? $userData : [
+                'name' => $this->name,
+                'username' => $username,
+            ]);
 
             if ($username !== '') {
                 CurrentUser::store($userData !== [] ? $userData : [

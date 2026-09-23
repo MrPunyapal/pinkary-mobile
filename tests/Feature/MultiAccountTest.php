@@ -12,12 +12,12 @@ use Native\Mobile\Testing\Native;
 beforeEach(function (): void {
     FakeBridge::enable();
     AccountStore::clear();
-    session()->forget(['pinkary_accounts', 'pinkary_active_account', 'pinkary_api_token', 'pinkary_add_account']);
+    session()->forget(['pinkary_accounts', 'pinkary_active_account', 'pinkary_add_account']);
 });
 
 afterEach(function (): void {
     AccountStore::clear();
-    session()->forget(['pinkary_accounts', 'pinkary_active_account', 'pinkary_api_token', 'pinkary_add_account']);
+    session()->forget(['pinkary_accounts', 'pinkary_active_account', 'pinkary_add_account']);
     FakeBridge::disable();
 });
 
@@ -31,8 +31,7 @@ it('stores multiple accounts newest-first without exposing tokens', function ():
         ->and(array_column($list, 'username'))->toBe(['grace', 'ada'])
         ->and($list[0])->not->toHaveKey('token')
         ->and(AccountStore::activeToken())->toBe('token-b')
-        ->and(app(TokenStorage::class)->get())->toBe('token-b')
-        ->and(session('pinkary_api_token'))->toBe('token-b');
+        ->and(app(TokenStorage::class)->get())->toBe('token-b');
 });
 
 it('replaces the token on re-login instead of duplicating the account', function (): void {
@@ -52,14 +51,6 @@ it('falls through to the next account when the active one is removed', function 
     expect(AccountStore::count())->toBe(1)
         ->and(AccountStore::activeId())->toBe($ada)
         ->and(AccountStore::activeToken())->toBe('token-a');
-});
-
-it('reads a legacy single token as one account', function (): void {
-    session(['pinkary_api_token' => 'legacy-token']);
-
-    expect(AccountStore::count())->toBe(1)
-        ->and(AccountStore::activeToken())->toBe('legacy-token')
-        ->and(app(TokenStorage::class)->get())->toBe('legacy-token');
 });
 
 it('adds a second account through login and revokes nothing new', function (): void {

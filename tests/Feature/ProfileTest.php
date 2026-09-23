@@ -2,6 +2,7 @@
 
 use App\NativeComponents\Home;
 use App\NativeComponents\Profile;
+use App\Support\AccountStore;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\Native;
 
@@ -45,7 +46,7 @@ function otherProfile(): array
 
 it('renders the authenticated profile card like the web', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => ownProfile()]),
         'https://pinkary.test/api/v1/users/pinkaryuser/questions*' => Http::response(['data' => []]),
@@ -66,7 +67,7 @@ it('renders the authenticated profile card like the web', function (): void {
 
 it('shows the empty-links hint on your own card only', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => array_merge(ownProfile(), ['links' => []])]),
         'https://pinkary.test/api/v1/users/pinkaryuser/questions*' => Http::response(['data' => []]),
@@ -78,7 +79,7 @@ it('shows the empty-links hint on your own card only', function (): void {
 
 it('renders another user with a follow button and no email', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/users/ada' => Http::response(['data' => otherProfile()]),
         'https://pinkary.test/api/v1/users/ada/questions*' => Http::response(['data' => []]),
@@ -94,7 +95,7 @@ it('renders another user with a follow button and no email', function (): void {
 
 it('follows and unfollows from the card', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/users/ada' => Http::response(['data' => otherProfile()]),
         'https://pinkary.test/api/v1/users/ada/questions*' => Http::response(['data' => []]),
@@ -118,7 +119,7 @@ it('follows and unfollows from the card', function (): void {
 
 it('records link visits when opening them', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => ownProfile()]),
         'https://pinkary.test/api/v1/users/pinkaryuser/questions*' => Http::response(['data' => []]),
@@ -135,7 +136,7 @@ it('records link visits when opening them', function (): void {
 
 it('opens author profiles from the feed', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q1',
@@ -158,7 +159,7 @@ it('opens author profiles from the feed', function (): void {
 
 it('toggles the profile QR code section', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => ownProfile()]),
         'https://pinkary.test/api/v1/users/pinkaryuser/questions*' => Http::response(['data' => []]),
@@ -171,7 +172,7 @@ it('toggles the profile QR code section', function (): void {
 
 it('renders other users with a single in-content top bar title', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/users/ada' => Http::response(['data' => otherProfile()]),
         'https://pinkary.test/api/v1/users/ada/questions*' => Http::response(['data' => []]),
@@ -200,7 +201,7 @@ function profileQuestionRow(string $id, string $answer, bool $pinned = false): a
 
 it('lists the profile posts with pagination', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => ownProfile()]),
         'https://pinkary.test/api/v1/users/pinkaryuser/questions*' => Http::sequence()
@@ -223,7 +224,7 @@ it('lists the profile posts with pagination', function (): void {
 
 it('surfaces post list failures with a retry', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => ownProfile()]),
         'https://pinkary.test/api/v1/users/pinkaryuser/questions*' => Http::sequence()
@@ -239,7 +240,7 @@ it('surfaces post list failures with a retry', function (): void {
 
 it('opens the followers and following lists from the pills', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => ownProfile()]),
         'https://pinkary.test/api/v1/users/pinkaryuser/questions*' => Http::response(['data' => []]),
@@ -256,7 +257,7 @@ it('opens the followers and following lists from the pills', function (): void {
 
 it('asks other users from their profile', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/users/ada' => Http::response(['data' => otherProfile()]),
         'https://pinkary.test/api/v1/users/ada/questions*' => Http::response(['data' => []]),
@@ -270,7 +271,7 @@ it('asks other users from their profile', function (): void {
 
 it('edits your own profile from the profile screen', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => ownProfile()]),
         'https://pinkary.test/api/v1/users/pinkaryuser/questions*' => Http::response(['data' => []]),
@@ -285,7 +286,7 @@ it('edits your own profile from the profile screen', function (): void {
 
 it('shows link click counts on the card', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    session(['pinkary_api_token' => 'test-token']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => array_merge(ownProfile(), [
             'links' => [

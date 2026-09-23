@@ -80,7 +80,7 @@ final class Login extends NativeComponent
                 app(PinkaryApi::class)->attempt(fn () => app(PinkaryApi::class)->logout($previous));
             }
 
-            app(TokenStorage::class)->store($token, $username);
+            app(TokenStorage::class)->store($token, $username, $userData);
 
             if ($username !== '') {
                 CurrentUser::store($userData);
