@@ -6,6 +6,8 @@ namespace App\NativeComponents;
 
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
+use App\Support\AccountStore;
+use App\Support\FeedCache;
 use App\Support\UnreadCount;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
@@ -20,6 +22,8 @@ final class Notifications extends NativeComponent
     public int $unreadCount = 0;
 
     public bool $loading = true;
+
+    public bool $refreshing = false;
 
     public string $errorMessage = '';
 
@@ -220,6 +224,7 @@ final class Notifications extends NativeComponent
         $this->hasMore = $response->json('links.next') !== null;
         $this->unreadCount = (int) $response->json('meta.unread_count', $this->unreadCount);
         UnreadCount::store($this->unreadCount);
+        $this->rememberNotifications();
     }
 
     public function render(): View
@@ -229,15 +234,14 @@ final class Notifications extends NativeComponent
 
     private function load(string $token): void
     {
-        $this->loading = true;
+        $this->hydrateFromCache();
         $this->errorMessage = '';
 
         $api = app(PinkaryApi::class);
         $response = $api->attempt(fn () => $api->notifications($token));
 
         if ($response === null) {
-            $this->loading = false;
-            $this->errorMessage = 'Your notifications could not be loaded. Please try again.';
+            $this->failNotificationsLoad();
 
             return;
         }
@@ -247,8 +251,7 @@ final class Notifications extends NativeComponent
         }
 
         if (! $response->successful()) {
-            $this->loading = false;
-            $this->errorMessage = 'Your notifications could not be loaded. Please try again.';
+            $this->failNotificationsLoad();
 
             return;
         }
@@ -262,6 +265,69 @@ final class Notifications extends NativeComponent
         $this->hasMore = $response->json('links.next') !== null;
         $this->loadMoreError = '';
         $this->loading = false;
+        $this->refreshing = false;
+        $this->rememberNotifications();
+    }
+
+    /**
+     * Serve a cached page immediately. `$loading` stays false when the
+     * list already has rows so skeletons never flash over content.
+     */
+    private function hydrateFromCache(): void
+    {
+        $payload = FeedCache::get(FeedCache::notificationsKey($this->cacheUsername()));
+
+        if ($payload !== null) {
+            $this->items = $payload['items'];
+            $this->page = $payload['page'];
+            $this->hasMore = $payload['hasMore'];
+            $this->unreadCount = $payload['unreadCount'] ?? $this->unreadCount;
+            UnreadCount::store($this->unreadCount);
+            $this->loading = false;
+            $this->refreshing = true;
+
+            return;
+        }
+
+        if ($this->items !== []) {
+            $this->loading = false;
+            $this->refreshing = true;
+
+            return;
+        }
+
+        $this->loading = true;
+        $this->refreshing = false;
+    }
+
+    private function rememberNotifications(): void
+    {
+        FeedCache::put(FeedCache::notificationsKey($this->cacheUsername()), [
+            'items' => $this->items,
+            'page' => $this->page,
+            'hasMore' => $this->hasMore,
+            'unreadCount' => $this->unreadCount,
+        ]);
+    }
+
+    private function failNotificationsLoad(): void
+    {
+        $keepStale = $this->refreshing || $this->items !== [];
+        $this->loading = false;
+        $this->refreshing = false;
+
+        if ($keepStale) {
+            return;
+        }
+
+        $this->errorMessage = 'Your notifications could not be loaded. Please try again.';
+    }
+
+    private function cacheUsername(): string
+    {
+        $username = AccountStore::active()['username'] ?? null;
+
+        return is_string($username) && $username !== '' ? $username : 'guest';
     }
 
     /**

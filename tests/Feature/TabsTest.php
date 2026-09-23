@@ -12,6 +12,7 @@ use App\NativeComponents\Search;
 use App\NativeComponents\Settings;
 use App\NativeLayout\MobileLayout;
 use App\Support\AccountStore;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\Native;
 
@@ -760,4 +761,53 @@ it('treats a missing notification as already gone', function (): void {
         ->assertNavigatedTo('/question/q9');
 
     Http::assertNotSent(fn ($request) => str_ends_with((string) $request->url(), '/api/v1/notifications/read'));
+});
+
+it('keeps cached bookmarks when a remount cannot reach the api', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/bookmarks*' => Http::sequence()
+            ->push(['data' => [bookmarkRow('b1', 'Cached bookmark.')]])
+            ->pushResponse(function (): never {
+                throw new ConnectionException('timeout');
+            }),
+    ]);
+
+    Native::test(Bookmarks::class)->assertSee('Cached bookmark.');
+
+    $test = Native::test(Bookmarks::class)
+        ->assertSee('Cached bookmark.')
+        ->assertDontSee('Your bookmarks could not be loaded.');
+
+    expect($test->get('loading'))->toBeFalse()
+        ->and($test->get('refreshing'))->toBeFalse()
+        ->and($test->get('errorMessage'))->toBe('');
+});
+
+it('keeps cached notifications when a remount cannot reach the api', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/notifications*' => Http::sequence()
+            ->push([
+                'data' => [notificationRow('n1', 'Cached snippet.')],
+                'links' => ['next' => null],
+                'meta' => ['unread_count' => 1],
+            ])
+            ->pushResponse(function (): never {
+                throw new ConnectionException('timeout');
+            }),
+    ]);
+
+    Native::test(Notifications::class)->assertSee('Cached snippet.');
+
+    $test = Native::test(Notifications::class)
+        ->assertSee('Cached snippet.')
+        ->assertDontSee('Your notifications could not be loaded.');
+
+    expect($test->get('loading'))->toBeFalse()
+        ->and($test->get('refreshing'))->toBeFalse()
+        ->and($test->get('unreadCount'))->toBe(1)
+        ->and($test->get('errorMessage'))->toBe('');
 });

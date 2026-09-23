@@ -3,6 +3,7 @@
 use App\NativeComponents\Home;
 use App\Support\AccountStore;
 use App\Support\CurrentUser;
+use App\Support\FeedCache;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\Native;
@@ -1198,4 +1199,70 @@ it('opens and closes the app menu bottom sheet like post 3 dots', function (): v
         ->assertSee('Cancel')
         ->call('closeAppMenu')
         ->assertSet('appMenuOpen', false);
+});
+
+it('writes the feed payload to the cache after a successful load', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [
+            homeFeedPost('q1', 'Cached write.'),
+        ], 'links' => ['next' => null]]),
+    ]);
+
+    $test = Native::test(Home::class)
+        ->assertSee('Cached write.');
+
+    $payload = FeedCache::get(FeedCache::feedKey('ada', 'recent'));
+
+    expect($test->get('loading'))->toBeFalse()
+        ->and($test->get('refreshing'))->toBeFalse();
+    expect($payload)->toBeArray()
+        ->and(data_get($payload, 'items.0.answer'))->toBe('Cached write.')
+        ->and(data_get($payload, 'page'))->toBe(1)
+        ->and(data_get($payload, 'hasMore'))->toBeFalse();
+});
+
+it('shows cached posts when a remount cannot reach the api', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::sequence()
+            ->push(['data' => [homeFeedPost('q1', 'Cached post.')]])
+            ->pushResponse(function (): never {
+                throw new ConnectionException('timeout');
+            }),
+    ]);
+
+    Native::test(Home::class)->assertSee('Cached post.');
+
+    $test = Native::test(Home::class)
+        ->assertSee('Cached post.')
+        ->assertDontSee('The Pinkary feed could not be loaded. Please try again.');
+
+    expect($test->get('loading'))->toBeFalse()
+        ->and($test->get('refreshing'))->toBeFalse()
+        ->and($test->get('errorMessage'))->toBe('');
+});
+
+it('hydrates a cached tab when switching back offline', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::sequence()
+            ->push(['data' => [homeFeedPost('q1', 'Recent cached post.')]])
+            ->push(['data' => [homeFeedPost('q2', 'Following cached post.')]])
+            ->pushResponse(function (): never {
+                throw new ConnectionException('timeout');
+            }),
+    ]);
+
+    Native::test(Home::class)
+        ->assertSee('Recent cached post.')
+        ->call('showFollowing')
+        ->assertSee('Following cached post.')
+        ->call('showRecent')
+        ->assertSee('Recent cached post.')
+        ->assertDontSee('Following cached post.')
+        ->assertDontSee('The Pinkary feed could not be loaded. Please try again.');
 });

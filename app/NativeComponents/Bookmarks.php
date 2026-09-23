@@ -7,6 +7,8 @@ namespace App\NativeComponents;
 use App\NativeComponents\Concerns\TogglesPostReactions;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
+use App\Support\AccountStore;
+use App\Support\FeedCache;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
 
@@ -19,6 +21,8 @@ final class Bookmarks extends NativeComponent
     public array $posts = [];
 
     public bool $loading = true;
+
+    public bool $refreshing = false;
 
     public string $errorMessage = '';
 
@@ -183,6 +187,7 @@ final class Bookmarks extends NativeComponent
         $this->posts = [...$this->posts, ...$next];
         $this->page++;
         $this->hasMore = $response->json('links.next') !== null;
+        $this->rememberBookmarks();
     }
 
     public function render(): View
@@ -192,15 +197,14 @@ final class Bookmarks extends NativeComponent
 
     private function load(string $token): void
     {
-        $this->loading = true;
+        $this->hydrateFromCache();
         $this->errorMessage = '';
 
         $api = app(PinkaryApi::class);
         $response = $api->attempt(fn () => $api->bookmarks($token));
 
         if ($response === null) {
-            $this->loading = false;
-            $this->errorMessage = 'Your bookmarks could not be loaded. Please try again.';
+            $this->failBookmarksLoad();
 
             return;
         }
@@ -210,8 +214,7 @@ final class Bookmarks extends NativeComponent
         }
 
         if (! $response->successful()) {
-            $this->loading = false;
-            $this->errorMessage = 'Your bookmarks could not be loaded. Please try again.';
+            $this->failBookmarksLoad();
 
             return;
         }
@@ -223,5 +226,65 @@ final class Bookmarks extends NativeComponent
         $this->hasMore = $response->json('links.next') !== null;
         $this->loadMoreError = '';
         $this->loading = false;
+        $this->refreshing = false;
+        $this->rememberBookmarks();
+    }
+
+    /**
+     * Serve a cached page immediately. `$loading` stays false when the
+     * list already has rows so skeletons never flash over content.
+     */
+    private function hydrateFromCache(): void
+    {
+        $payload = FeedCache::get(FeedCache::bookmarksKey($this->cacheUsername()));
+
+        if ($payload !== null) {
+            $this->posts = $payload['items'];
+            $this->page = $payload['page'];
+            $this->hasMore = $payload['hasMore'];
+            $this->loading = false;
+            $this->refreshing = true;
+
+            return;
+        }
+
+        if ($this->posts !== []) {
+            $this->loading = false;
+            $this->refreshing = true;
+
+            return;
+        }
+
+        $this->loading = true;
+        $this->refreshing = false;
+    }
+
+    private function rememberBookmarks(): void
+    {
+        FeedCache::put(FeedCache::bookmarksKey($this->cacheUsername()), [
+            'items' => $this->posts,
+            'page' => $this->page,
+            'hasMore' => $this->hasMore,
+        ]);
+    }
+
+    private function failBookmarksLoad(): void
+    {
+        $keepStale = $this->refreshing || $this->posts !== [];
+        $this->loading = false;
+        $this->refreshing = false;
+
+        if ($keepStale) {
+            return;
+        }
+
+        $this->errorMessage = 'Your bookmarks could not be loaded. Please try again.';
+    }
+
+    private function cacheUsername(): string
+    {
+        $username = AccountStore::active()['username'] ?? null;
+
+        return is_string($username) && $username !== '' ? $username : 'guest';
     }
 }

@@ -7,7 +7,9 @@ namespace App\NativeComponents;
 use App\NativeComponents\Concerns\TogglesPostReactions;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
+use App\Support\AccountStore;
 use App\Support\CurrentUser;
+use App\Support\FeedCache;
 use App\Support\UnreadCount;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
@@ -24,6 +26,8 @@ final class Home extends NativeComponent
     public array $posts = [];
 
     public bool $loading = true;
+
+    public bool $refreshing = false;
 
     public string $errorMessage = '';
 
@@ -242,6 +246,7 @@ final class Home extends NativeComponent
         $this->posts = [...$this->posts, ...$next];
         $this->page++;
         $this->hasMore = $response->json('links.next') !== null;
+        $this->rememberFeed();
     }
 
     public function render(): View
@@ -254,28 +259,28 @@ final class Home extends NativeComponent
         $index = isset(self::TABS[$index]) ? $index : 0;
         $this->selectedTab = $index;
         $this->tab = self::TABS[$index];
+        $this->loadMoreError = '';
 
-        // Reset first so the switch is always visible (spinner), even
-        // when the incoming page overlaps the previous tab's posts.
+        // Drop the previous tab's posts so a cache miss cannot keep
+        // showing the wrong tab. hydrateFromCache restores this tab
+        // when it was cached; otherwise the cold-start spinner shows.
         $this->posts = [];
         $this->page = 1;
         $this->hasMore = false;
-        $this->loadMoreError = '';
 
         $this->loadFeed($this->token());
     }
 
     private function loadFeed(?string $token): void
     {
-        $this->loading = true;
+        $this->hydrateFromCache();
         $this->errorMessage = '';
 
         $api = app(PinkaryApi::class);
         $response = $api->attempt(fn () => $api->feed($token, $this->tab));
 
         if ($response === null) {
-            $this->loading = false;
-            $this->errorMessage = 'The Pinkary feed could not be loaded. Please try again.';
+            $this->failFeedLoad();
 
             return;
         }
@@ -285,8 +290,7 @@ final class Home extends NativeComponent
         }
 
         if (! $response->successful()) {
-            $this->loading = false;
-            $this->errorMessage = 'The Pinkary feed could not be loaded. Please try again.';
+            $this->failFeedLoad();
 
             return;
         }
@@ -298,6 +302,66 @@ final class Home extends NativeComponent
         $this->hasMore = $response->json('links.next') !== null;
         $this->loadMoreError = '';
         $this->loading = false;
+        $this->refreshing = false;
+        $this->rememberFeed();
+    }
+
+    /**
+     * Serve a cached page immediately. `$loading` stays false when the
+     * list already has rows so skeletons never flash over content.
+     */
+    private function hydrateFromCache(): void
+    {
+        $payload = FeedCache::get(FeedCache::feedKey($this->cacheUsername(), $this->tab));
+
+        if ($payload !== null) {
+            $this->posts = $payload['items'];
+            $this->page = $payload['page'];
+            $this->hasMore = $payload['hasMore'];
+            $this->loading = false;
+            $this->refreshing = true;
+
+            return;
+        }
+
+        if ($this->posts !== []) {
+            $this->loading = false;
+            $this->refreshing = true;
+
+            return;
+        }
+
+        $this->loading = true;
+        $this->refreshing = false;
+    }
+
+    private function rememberFeed(): void
+    {
+        FeedCache::put(FeedCache::feedKey($this->cacheUsername(), $this->tab), [
+            'items' => $this->posts,
+            'page' => $this->page,
+            'hasMore' => $this->hasMore,
+        ]);
+    }
+
+    private function failFeedLoad(): void
+    {
+        $keepStale = $this->refreshing || $this->posts !== [];
+        $this->loading = false;
+        $this->refreshing = false;
+
+        if ($keepStale) {
+            return;
+        }
+
+        $this->errorMessage = 'The Pinkary feed could not be loaded. Please try again.';
+    }
+
+    private function cacheUsername(): ?string
+    {
+        $username = AccountStore::active()['username'] ?? null;
+
+        return is_string($username) && $username !== '' ? $username : null;
     }
 
     /**
