@@ -1,11 +1,14 @@
 <?php
 
 use App\NativeComponents\Home;
+use App\NativeLayout\MobileLayout;
 use App\Support\AccountStore;
 use App\Support\CurrentUser;
 use App\Support\FeedCache;
+use App\Support\UnreadCount;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
+use Native\Mobile\Testing\FakeBridge;
 use Native\Mobile\Testing\Native;
 
 it('shows the error state when the api is unreachable', function (): void {
@@ -1265,4 +1268,91 @@ it('hydrates a cached tab when switching back offline', function (): void {
         ->assertSee('Recent cached post.')
         ->assertDontSee('Following cached post.')
         ->assertDontSee('The Pinkary feed could not be loaded. Please try again.');
+});
+
+it('hides pin and delete when the viewer does not own the post', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [
+            homeFeedPost('q1', 'Someone else answered.', [
+                'from' => ['name' => 'Grace Hopper', 'username' => 'grace'],
+                'to' => ['name' => 'Grace Hopper', 'username' => 'grace'],
+            ]),
+        ]]),
+    ]);
+
+    $test = Native::test(Home::class)
+        ->call('openMenu', 'q1')
+        ->assertSee('Share')
+        ->assertDontSee('View likes')
+        ->assertDontSee('Edit answer')
+        ->call('togglePinMenu')
+        ->call('askDeleteMenu');
+
+    $hasExact = function (array $node, string $text) use (&$hasExact): bool {
+        foreach ((array) ($node['props'] ?? []) as $value) {
+            if ($value === $text) {
+                return true;
+            }
+        }
+
+        foreach ($node['children'] ?? [] as $child) {
+            if (is_array($child) && $hasExact($child, $text)) {
+                return true;
+            }
+        }
+
+        return false;
+    };
+
+    expect($hasExact($test->tree(), 'Pin'))->toBeFalse()
+        ->and($hasExact($test->tree(), 'Delete'))->toBeFalse();
+
+    Http::assertNotSent(function ($request): bool {
+        $path = parse_url($request->url(), PHP_URL_PATH);
+
+        return is_string($path) && (str_ends_with($path, '/pin') || str_ends_with($path, '/ignore'));
+    });
+});
+
+it('shows the unread count on the notifications tab', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => []]),
+        'https://pinkary.test/api/v1/notifications*' => Http::response([
+            'data' => [],
+            'meta' => ['unread_count' => 4],
+        ]),
+    ]);
+
+    Native::test(Home::class);
+
+    expect(UnreadCount::get())->toBe(4);
+
+    $stored = false;
+
+    foreach (FakeBridge::current()?->calls ?? [] as $call) {
+        if ($call['method'] === 'SecureStorage.Set'
+            && ($call['params']['key'] ?? null) === 'pinkary_unread_count'
+            && ($call['params']['value'] ?? null) === '4') {
+            $stored = true;
+        }
+    }
+
+    expect($stored)->toBeTrue();
+
+    $badge = null;
+
+    foreach ((new MobileLayout)->tabBar(new Home)->tabElements() as $tab) {
+        $props = new ReflectionProperty($tab, 'props');
+        $values = $props->getValue($tab);
+
+        if (($values['label'] ?? null) === 'Notifications') {
+            $badge = $values['badge'] ?? null;
+        }
+    }
+
+    expect($badge)->toBe('4');
 });

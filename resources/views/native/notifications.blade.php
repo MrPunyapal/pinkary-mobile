@@ -15,8 +15,13 @@
 <native:list on-end-reached="loadMore" class="w-full h-full bg-theme-background">
     <native:column class="w-full gap-0">
         <x-page-heading title="Notifications">
+            @if ($unreadCount > 0)
+                <native:column class="px-2 py-0.5 rounded-full bg-theme-primary">
+                    <native:text class="text-xs font-semibold text-white">{{ $unreadCount > 20 ? '20+' : $unreadCount }}</native:text>
+                </native:column>
+            @endif
             @if (! $loading && $errorMessage === '' && count($items) > 0)
-                <native:pressable class="shrink-0 px-3 py-1.5 rounded-full border border-theme-outline-variant {{ $markingRead ? 'opacity-40' : '' }}" @tap="markAllRead" a11y-label="Ignore all">
+                <native:pressable class="shrink-0 px-3 py-1 rounded-full border border-theme-outline-variant {{ $markingRead ? 'opacity-40' : '' }}" @tap="markAllRead" a11y-label="Ignore all">
                     <native:text class="text-sm font-medium text-theme-on-surface-variant">Ignore all</native:text>
                 </native:pressable>
             @endif
