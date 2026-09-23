@@ -1,11 +1,25 @@
-{{-- Pull-to-refresh wraps the feed (vendor Refreshable: native spinner
-    on both platforms). No nested scroll-view inside — the refreshable
-    IS the scroller. Bottom pagination stays a slim tap footer: native
-    has no scroll-end event (nothing implements onEndReached), so the
-    web's intersect auto-load cannot be wired. --}}
+{{-- Feed is a native:list: pull-to-refresh + on-end-reached auto-load (web intersect parity). Footer is spinner/error/end-copy only. --}}
  <native:list on-refresh="refreshFeed" on-end-reached="loadMore" class="w-full h-full bg-theme-background">
     <native:column class="w-full gap-0">
-        <x-page-heading title="Pinkary" brand />
+        {{-- App header: Profile avatar (left), Pinkary brand (center), balance spacer (right) --}}
+        <native:column class="w-full bg-theme-surface border-b border-theme-outline-variant justify-center">
+            <native:row class="w-full items-center justify-between px-4 py-3 min-h-14">
+                <native:pressable class="w-9 h-9 items-center justify-center shrink-0" @tap="openOwnProfile" a11y-label="Open your profile">
+                    @php $currentUser = \App\Support\CurrentUser::get(); @endphp
+                    @if (is_array($currentUser) && ! empty($currentUser))
+                        <x-avatar :user="$currentUser" :size="8" :link="false" />
+                    @else
+                        <native:icon :ios="\App\Icons\Ios::PersonCropCircle" :android="\App\Icons\Android::AccountCircle" :size="28" color="#64748B" dark-color="#94A3B8" />
+                    @endif
+                </native:pressable>
+
+                <native:text class="text-xl font-bold text-center text-theme-primary" max-lines="1">Pinkary</native:text>
+
+                {{-- Spacer keeps brand centered --}}
+                <native:column class="w-9 h-9 shrink-0" />
+            </native:row>
+        </native:column>
+
         <x-feed-tabs :tab="$tab" />
 
         @if ($loading)
@@ -39,15 +53,7 @@
                 <x-thread-post :post="$post" :expanded-ids="$expanded" />
             @endforeach
 
-             @if (! $hasMore && $loadMoreError === '')
-                 <native:column class="w-full items-center px-5 py-5">
-                     <native:text class="text-sm text-center text-theme-on-surface-variant">There are no more questions to load, or you have scrolled too far.</native:text>
-                 </native:column>
-             @elseif ($loadMoreError !== '')
-                 <native:column class="w-full items-center px-5 py-5">
-                     <native:text class="text-sm text-center text-theme-destructive">{{ $loadMoreError }}</native:text>
-                 </native:column>
-             @endif
+            <x-list-footer :loading="$loadingMore" :error="$loadMoreError" tap="loadMore" :has-more="$hasMore" end-text="There are no more questions to load, or you have scrolled too far." />
         @endif
 
         <native:column class="w-full h-20" />

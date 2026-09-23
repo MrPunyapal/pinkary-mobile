@@ -358,7 +358,7 @@ it('appends older comments when loading more', function (): void {
 
     Native::test(Detail::class, ['id' => 'q1'])
         ->assertSee('First comment.')
-        ->assertSee('Load more comments')
+        ->assertDontSee('Load more comments')
         ->call('loadMoreComments')
         ->assertSee('Second comment.')
         ->assertDontSee('Load more comments');

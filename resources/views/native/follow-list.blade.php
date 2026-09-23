@@ -55,11 +55,7 @@
                 </native:row>
             @endforeach
 
-             @if ($loadMoreError !== '')
-                 <native:column class="w-full items-center px-5 py-5">
-                     <native:text class="text-sm text-center text-theme-destructive">{{ $loadMoreError }}</native:text>
-                 </native:column>
-             @endif
+            <x-list-footer :loading="$loadingMore" :error="$loadMoreError" tap="loadMore" :has-more="$hasMore" />
         @endif
 
         <native:column class="w-full h-20" />

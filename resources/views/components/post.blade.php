@@ -49,27 +49,25 @@
     $answerShown = $expanded || ! $answerLong
         ? $answerText
         : mb_substr($answerText, 0, $answerLimit).'…';
-    // posts draw a rail under the avatar. Device archaeology: the only
-    // construction ever observed painting on old Jump is the overlay
-    // era's `absolute … w-0.5 h-full` node — i.e. what painted was
-    // `h-full` (fillHeight), with absolute degrading to in-flow. Every
-    // flex-based rail (flex-1, grow, min-h) collapses to zero there.
-    // So the rail is `w-0.5 h-12 h-full -mt-5 -mb-2`: fillHeight stretches
-    // it full lane where honored, the fixed h-12 stub remains where it
-    // is not, -mt-5 (half the h-10 avatar) pulls its top over the
-    // avatar's lower half, and -mb-2 reaches past the lane into the
-    // next segment's top pad so chained segments read as one connected
-    // line passing behind the avatars. No flex keys on this node.
-    // w-0.5 is the web's 2px width.
+    // Web rail: responsive flex-1 lane connector (livewire/questions/show.blade.php:108
+    // is `min-h-4 w-0.5 flex-1 bg-slate-300`). The avatar lane stretches to the
+    // row's height (row `items-stretch` + lane `self-stretch`), so the rail's
+    // `flex-1` fills exactly the remaining space — no estimated heights, no
+    // extra blank after the post, and the line sits outside the content box.
+    // Top is pulled 20px over the avatar's lower half (-mt-5), bottom reaches
+    // 12px into the next segment's pad (-mb-3) hidden behind its avatar.
+    // On the old Jump renderer `flex-1` collapsed; after the 4.5.1 upgrade the
+    // FlexContainer handles it and estimated stacks are no longer needed.
     $topPad = $flushTop ? 'pt-2' : ($sharedUpdate ? 'pt-3' : 'pt-2');
 @endphp
 
 {{-- Flat web-style post: full-width question box (asks only), then an
-    avatar-lane row. Chained posts draw the web's rail under the avatar
-    (w-0.5 h-12 h-full — fillHeight is the only stretch the old
-    renderer ever honored; fixed h-12 is the fallback); segments stack
-    flush. The thread container owns the single full-bleed divider: no
-    boxes, no per-post borders. --}}
+    avatar-lane row. Chained posts draw the web's rail as an absolute
+    line inside the stretched lane (w-0.5, top 20px over avatar half,
+    bottom 12px beyond the row into the next pad) so it extends outside
+    the post box to the next avatar without adding blank space after the
+    post. The flex-1 path collapsed on device, estimated stacks added
+    height after the post — absolute avoids both. Web truth: 108. --}}
 <native:column class="{{ $bare ? 'w-full' : 'w-full bg-theme-background border-b border-theme-outline-variant' }}">
     @unless ($sharedUpdate)
         <native:column class="w-full px-4 pt-3">
@@ -104,39 +102,41 @@
     @endunless
 
     @if ($hasAnswer)
-        <native:row class="w-full items-stretch gap-3 px-4">
-            {{-- The lane carries h-full (fillHeight): the old client
-                ignores the row's items-stretch, so the lane would wrap
-                its content and starve the rail. With the lane filling
-                the row's (content-defined) height, the rail's own
-                fill has a definite height to fill. --}}
-            <native:column class="w-10 h-full items-center shrink-0 {{ $topPad }}">
+        <native:row class="relative w-full items-stretch gap-3 px-4">
+            @if ($rail)
+                {{-- Absolute rail: anchored to the row (whose height is driven
+                    by the content column) at the avatar center (left-9 = 36dp),
+                    starting below avatar center (top-6 = 24dp) and filling row height
+                    so it connects cleanly to the next post/avatar without collapsing to 0dp. --}}
+                <native:column class="absolute left-9 top-6 w-0.5 h-full bg-theme-outline" />
+            @endif
+            <native:column class="w-10 items-center shrink-0 {{ $topPad }}">
                 <x-avatar :user="data_get($post, 'to', [])" />
-                @if ($rail)
-                    <native:column class="w-0.5 h-12 h-full -mt-5 -mb-2 bg-theme-outline" />
-                @endif
             </native:column>
             <native:column class="flex-1 gap-1.5 min-w-0 {{ $topPad }} pb-3">
                 <native:row class="w-full items-center justify-between gap-2">
                     <native:pressable class="flex-1 min-w-0" @tap="openProfile('{{ data_get($post, 'to.username', '') }}')" a11y-label="Open {{ '@'.data_get($post, 'to.username', '') }}’s profile">
+                        {{-- Web parity (questions/show): the name never wraps
+                            and the handle truncates with … — the channel pill
+                            and timestamp on the right always stay visible. --}}
                         <native:row class="items-center gap-1.5">
-                            <native:text class="text-sm font-medium text-theme-on-surface shrink-0">{{ data_get($post, 'to.name') }}</native:text>
+                            <native:text class="text-sm font-medium text-theme-on-surface shrink-0" max-lines="1">{{ data_get($post, 'to.name') }}</native:text>
                             @if (data_get($post, 'to.verified') || data_get($post, 'to.company_verified'))
                                 <native:icon :ios="\App\Icons\Ios::CheckmarkSealFill" :android="\App\Icons\Android::Verified" :size="14" color="#EC4899" />
                             @endif
-                            <native:text class="text-sm text-theme-on-surface-variant truncate">{{ '@'.data_get($post, 'to.username') }}</native:text>
+                            <native:text class="text-sm text-theme-on-surface-variant flex-1" max-lines="1">{{ '@'.data_get($post, 'to.username') }}</native:text>
                         </native:row>
                     </native:pressable>
                     <native:row class="items-center gap-1.5 shrink-0">
                         @if (is_array($channel) && ($channel['name'] ?? '') !== '')
                             <native:row class="items-center gap-1 px-1.5 py-0.5 rounded-md bg-theme-surface-variant border border-theme-outline-variant">
                                 <native:icon :ios="\App\Icons\Ios::Tag" :android="\App\Icons\AndroidOutlined::Sell" :size="12" color="#EC4899" />
-                                <native:text class="text-xs text-theme-on-surface-variant">{{ $channel['name'] }}</native:text>
+                                <native:text class="text-xs text-theme-on-surface-variant" max-lines="1">{{ $channel['name'] }}</native:text>
                             </native:row>
                             <native:column class="w-1 h-1 rounded-full bg-theme-outline" />
                         @endif
                         @if ($timestamp !== '')
-                            <native:text class="text-xs text-theme-on-surface-variant">{{ $edited ? 'Edited: ' : '' }}{{ $timestamp }}</native:text>
+                            <native:text class="text-xs text-theme-on-surface-variant shrink-0" max-lines="1">{{ $edited ? 'Edited: ' : '' }}{{ $timestamp }}</native:text>
                         @endif
                     </native:row>
                 </native:row>

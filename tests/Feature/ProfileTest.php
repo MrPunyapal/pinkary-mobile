@@ -59,8 +59,9 @@ it('renders the authenticated profile card like the web', function (): void {
         ->assertSee('1.5K Followers')
         ->assertSee('34 Posts')
         ->assertSee('Website')
-        ->assertSee('pinkary@example.com')
-        ->assertSee('Log out');
+        ->assertDontSee('pinkary@example.com')
+        ->assertSee('Edit profile')
+        ->assertSee('Edit links');
 });
 
 it('shows the empty-links hint on your own card only', function (): void {
@@ -277,7 +278,7 @@ it('edits your own profile from the profile screen', function (): void {
 
     Native::test(Profile::class)
         ->assertSee('Edit profile')
-        ->assertSee('Edit profile and links')
+        ->assertSee('Edit links')
         ->call('editProfile')
         ->assertNavigatedTo('/profile/edit');
 });

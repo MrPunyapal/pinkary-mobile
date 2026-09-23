@@ -239,20 +239,21 @@ it('keeps chrome off content-titled screens and titleless elsewhere', function (
     expect($layout->navBar(new Profile))->toBeNull();
 
     // Search now owns its full-width in-content search header and therefore
-    // also suppresses the drawer chrome; Settings and Home keep the
-    // titleless chrome bar (drawer hamburger only).
+    // also suppresses the drawer chrome; Home owns its in-content top header
+    // with profile avatar and centered brand, suppressing chrome and drawer;
+    // Settings keeps the titleless chrome bar (drawer hamburger only).
     expect($layout->navBar(new Search))->toBeNull()
-        ->and($layout->navBar(new Settings))->not->toBeNull()
-        ->and($layout->navBar(new Home))->not->toBeNull();
+        ->and($layout->navBar(new Home))->toBeNull()
+        ->and($layout->navBar(new Settings))->not->toBeNull();
 
-    // Auth screens never get tabs, drawer, or the compose entry (they
-    // also sit outside the layout route group).
+    // Auth screens and Home never get the drawer.
     expect($layout->tabBar(new Login))->toBeNull()
         ->and($layout->drawer(new Login))->toBeNull()
         ->and($layout->floatingOverlay(new Login))->toBeNull()
         ->and($layout->tabBar(new Register))->toBeNull()
         ->and($layout->drawer(new Register))->toBeNull()
-        ->and($layout->floatingOverlay(new Register))->toBeNull();
+        ->and($layout->floatingOverlay(new Register))->toBeNull()
+        ->and($layout->drawer(new Home))->toBeNull();
 
     expect($layout->tabBar(new Search))->not->toBeNull()
         ->and($layout->drawer(new Search))->not->toBeNull()

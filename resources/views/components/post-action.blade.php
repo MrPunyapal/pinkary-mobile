@@ -29,7 +29,9 @@
     $pink = '#EC4899';
     $showCount = (int) $count > 0;
     $countLabel = $showCount ? $abbreviate($count) : '';
-    $countClass = $active ? 'text-theme-primary' : 'text-theme-on-surface-variant';
+    // Web parity (questions/show): only the like keeps a pink count —
+    // the bookmark toggles solid vs outline at the muted tone.
+    $countClass = ($active && $type !== 'bookmark') ? 'text-theme-primary' : 'text-theme-on-surface-variant';
 
     $tap = match ($type) {
         'comments' => "openDetail('{$postId}')",
@@ -77,8 +79,10 @@
                     @endif
                     @break
                 @case ('bookmark')
+                    {{-- Web parity: solid vs outline at the muted tone, never
+                        pink — only the like carries the pink active state. --}}
                     @if ($active)
-                        <native:icon :ios="\App\Icons\Ios::BookmarkFill" :android="\App\Icons\Android::Bookmark" :size="16" color="{{ $pink }}" />
+                        <native:icon :ios="\App\Icons\Ios::BookmarkFill" :android="\App\Icons\Android::Bookmark" :size="16" color="{{ $muted }}" dark-color="{{ $mutedDark }}" />
                     @else
                         <native:icon :ios="\App\Icons\Ios::Bookmark" :android="\App\Icons\AndroidOutlined::Bookmark" :size="16" color="{{ $muted }}" dark-color="{{ $mutedDark }}" />
                     @endif

@@ -25,15 +25,7 @@
                 <x-thread-post :post="$post" :expanded-ids="$expanded" />
             @endforeach
 
-             @if (! $hasMore && $loadMoreError === '')
-                 <native:column class="w-full items-center px-5 py-5">
-                     <native:text class="text-sm text-center text-theme-on-surface-variant">There are no more bookmarks to load, or you have scrolled too far.</native:text>
-                 </native:column>
-             @elseif ($loadMoreError !== '')
-                 <native:column class="w-full items-center px-5 py-5">
-                     <native:text class="text-sm text-center text-theme-destructive">{{ $loadMoreError }}</native:text>
-                 </native:column>
-             @endif
+            <x-list-footer :loading="$loadingMore" :error="$loadMoreError" tap="loadMore" :has-more="$hasMore" end-text="There are no more bookmarks to load, or you have scrolled too far." />
         @endif
 
         <native:column class="w-full h-20" />

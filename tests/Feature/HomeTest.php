@@ -674,9 +674,10 @@ it('appends the next page when loading more', function (): void {
 
     Native::test(Home::class)
         ->assertSee('First page answer.')
-        ->assertSee('Load more')
+        ->assertDontSee('Load more')
         ->call('loadMore')
         ->assertSee('Second page answer.')
+        ->assertSee('There are no more questions to load, or you have scrolled too far.')
         ->assertDontSee('Load more');
 });
 
@@ -703,7 +704,8 @@ it('keeps the feed when loading more fails', function (): void {
         ->call('loadMore')
         ->assertSee('Persisted answer.')
         ->assertSee('Could not load more posts.')
-        ->assertSee('Load more');
+        ->assertSee('Try again')
+        ->assertDontSee('Load more');
 });
 
 it('does not redirect guests from the home feed', function (): void {
@@ -955,20 +957,15 @@ it('chains thread posts with the web rail connector', function (): void {
     $laneRails = 0;
     $railHeights = [];
     $railMargins = [];
-    $walk = function (array $node) use (&$walk, &$laneRails, &$railHeights, &$railMargins): void {
+    $walk = function (array $node) use (&$walk, &$laneRails): void {
         $layout = $node['layout'] ?? [];
 
         // Web parity (livewire/questions/show.blade.php:108): the
         // chained (non-final) post draws the 2px lane rail under its
-        // avatar as a fixed h-12 stub (+ fillHeight stretch, top pulled
-        // 20px over the avatar's lower half so segments connect); the
-        // final post draws none. Fixed sizes paint on the old renderer,
-        // vertical flex-1 collapses to zero there.
+        // avatar as an absolute line inside the stretched lane so it
+        // connects outside the post box without adding height after it.
         if (($layout['width'] ?? null) == 2) {
             $laneRails++;
-            $railHeights[] = $layout['height'] ?? $layout['minHeight'] ?? null;
-            // Collector nests margins as [top, right, bottom, left].
-            $railMargins[] = $layout['margin'] ?? null;
         }
 
         foreach ($node['children'] ?? [] as $child) {
@@ -977,9 +974,7 @@ it('chains thread posts with the web rail connector', function (): void {
     };
     $walk($tree);
 
-    expect($laneRails)->toBe(1)
-        ->and($railHeights)->toBe([48.0])
-        ->and($railMargins)->toBe([[-20.0, 0.0, -8.0, 0.0]]);
+    expect($laneRails)->toBe(1);
 });
 
 function homeFeedPost(string $id, string $answer, array $overrides = []): array

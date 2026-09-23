@@ -9,14 +9,14 @@
     segment's top pad — one connected line through the divider. Renders
     nothing without a link. --}}
 @if ($link !== null && $link !== '')
-    <native:row class="w-full items-stretch gap-3 px-4 py-1 -mt-1">
+    <native:row class="w-full items-center gap-3 px-4 py-1.5">
         <native:column class="w-10 items-center shrink-0 gap-1">
             @for ($i = 0; $i < 3; $i++)
                 <native:column class="w-0.5 h-2 bg-theme-outline shrink-0" />
             @endfor
-            <native:column class="w-0.5 h-6 -mb-2 bg-theme-outline shrink-0" />
+            <native:column class="w-0.5 h-4 bg-theme-outline shrink-0" />
         </native:column>
-        <native:pressable class="flex-1 justify-center py-1" @tap="openDetail('{{ $link }}')" a11y-label="View more comments">
+        <native:pressable class="flex-1 justify-center" @tap="openDetail('{{ $link }}')" a11y-label="View more comments">
             <native:text class="text-sm font-medium text-theme-primary">View more comments</native:text>
         </native:pressable>
     </native:row>

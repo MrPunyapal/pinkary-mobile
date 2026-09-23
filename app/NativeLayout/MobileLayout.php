@@ -57,7 +57,8 @@ final class MobileLayout extends NativeLayout
             || $screen instanceof Search
             || $screen instanceof Login
             || $screen instanceof Register
-            || $screen instanceof Profile) {
+            || $screen instanceof Profile
+            || $screen instanceof Home) {
             return null;
         }
 
@@ -96,7 +97,8 @@ final class MobileLayout extends NativeLayout
     public function drawer(NativeComponent $screen): ?Drawer
     {
         // Auth screens have no menu actions (missing-method tap risk).
-        if ($screen instanceof Login || $screen instanceof Register) {
+        // Home uses an in-content header with the user's profile avatar.
+        if ($screen instanceof Login || $screen instanceof Register || $screen instanceof Home) {
             return null;
         }
 

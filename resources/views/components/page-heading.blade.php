@@ -17,7 +17,10 @@
         @endif
 
         @if ($brand)
-            <native:text class="flex-1 text-xl font-bold text-center text-theme-primary">{{ $title }}</native:text>
+            {{-- Centered wordmark. A logo image was tried here but
+                public_path() is a server disk path the phone cannot load
+                (image slots need an http(s) URL); text always renders. --}}
+            <native:text class="flex-1 text-xl font-bold text-center text-theme-primary" max-lines="1">{{ $title }}</native:text>
         @else
             <native:text class="flex-1 text-2xl font-semibold text-center text-theme-on-surface">{{ $title }}</native:text>
         @endif

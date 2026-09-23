@@ -55,11 +55,7 @@
                     @endif
                 @endforelse
 
-                 @if ($loadMoreCommentsError !== '')
-                     <native:column class="w-full items-center px-5 py-5">
-                         <native:text class="text-sm text-center text-theme-destructive">{{ $loadMoreCommentsError }}</native:text>
-                     </native:column>
-                 @endif
+                <x-list-footer :loading="$loadingMoreComments" :error="$loadMoreCommentsError" tap="loadMoreComments" :has-more="$hasMoreComments" />
             @endif
         @endif
 

@@ -116,6 +116,13 @@
                         <native:text class="text-sm text-center text-theme-on-surface-variant">Add your first link to complete the profile card.</native:text>
                     </native:column>
                 @endif
+                {{-- Web parity (links/index): owners manage links inline from
+                    their own card — email/logout live in Settings instead. --}}
+                @if ($isMe)
+                    <native:pressable class="self-center py-1" @tap="editProfile" a11y-label="Edit links">
+                        <native:text class="text-sm font-medium text-theme-primary">Edit links</native:text>
+                    </native:pressable>
+                @endif
             </native:column>
 
             {{-- In-flow action row (no absolute positioning — older Jump
@@ -155,19 +162,8 @@
                 </native:column>
             @endif
 
-            @if ($isMe)
-                <native:column class="w-full gap-3 p-5 bg-theme-surface rounded-md border border-theme-outline-variant">
-                    <native:text class="text-sm font-semibold uppercase tracking-widest text-theme-on-surface-variant">Account</native:text>
-                    <native:text class="text-base text-theme-on-surface">{{ data_get($profile, 'email') }}</native:text>
-                    <native:text class="text-sm text-theme-on-surface-variant">Member since {{ data_get($profile, 'member_since.human') }}</native:text>
-                    <native:pressable class="self-start py-1" @tap="editProfile" a11y-label="Edit profile and links">
-                        <native:text class="text-sm font-semibold text-theme-primary">Edit profile and links</native:text>
-                    </native:pressable>
-                    <native:pressable class="self-start py-1" @tap="logout" a11y-label="Log out">
-                        <native:text class="text-sm font-semibold text-theme-destructive">Log out</native:text>
-                    </native:pressable>
-                </native:column>
-            @endif
+            {{-- Email, member-since, and logout live in Settings (web parity:
+                the public profile card never shows them). --}}
 
             @if ($isMe)
                 <native:pressable class="w-full gap-3 p-4 rounded-md bg-theme-surface border border-theme-outline-variant" @tap="compose" a11y-label="Share an update">
@@ -214,11 +210,7 @@
                         <x-thread-post :post="$post" :expanded-ids="$expanded" />
                     @endforeach
 
-                     @if ($loadMoreQuestionsError !== '')
-                         <native:column class="w-full items-center px-5 py-5">
-                             <native:text class="text-sm text-center text-theme-destructive">{{ $loadMoreQuestionsError }}</native:text>
-                         </native:column>
-                     @endif
+                    <x-list-footer :loading="$loadingMoreQuestions" :error="$loadMoreQuestionsError" tap="loadMoreQuestions" :has-more="$hasMoreQuestions" />
                 @endif
             </native:column>
         @endif
