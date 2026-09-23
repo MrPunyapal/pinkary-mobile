@@ -35,7 +35,7 @@ jobs:
 
       - name: Build NativePHP Android application
         id: build
-        uses: mrpunyapal/nativephp-build-action@70d3b8eaf6b36c7f6564e69df9029b7e1c5346d0 # main
+        uses: mrpunyapal/nativephp-build-action@a3bfe19ed0d12287c38c17701837e41ca39c26be # fix/actions-cache-v4 (PR #2) — re-pin to main after merge
         with:
           platform: android
           build-type: ${{ inputs.build-type }}
