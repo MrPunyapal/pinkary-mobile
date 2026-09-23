@@ -75,7 +75,7 @@ final class MobileLayout extends NativeLayout
         $badge = $this->unreadBadge();
 
         if ($badge !== null) {
-            $notifications->badge($badge);
+            $notifications->badge($badge, self::ACTIVE_COLOR);
         }
 
         // Web parity (../pinkary/resources/views/layouts/navigation.blade.php):

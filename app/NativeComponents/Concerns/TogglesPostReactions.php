@@ -6,7 +6,10 @@ namespace App\NativeComponents\Concerns;
 
 use App\Services\PinkaryApi;
 use App\Services\TokenStorage;
+use App\Support\AccountStore;
 use App\Support\ApiErrors;
+use App\Support\CurrentUser;
+use Illuminate\Support\Carbon;
 use Native\Mobile\Browser;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Share;
@@ -24,9 +27,10 @@ trait TogglesPostReactions
 
     /**
      * Owner-menu sheet state. One sheet per screen, driven by
-     * $menuPostId — never one sheet per row. The API carries no
-     * ownership flags, so every entry calls the API and a 403 hides
-     * that entry henceforth (see $menuDenied).
+     * $menuPostId — never one sheet per row. Ownership follows the web
+     * QuestionPolicy: pin, edit, delete, and likes belong to the
+     * question's `to` user. A later 403 still hides that entry
+     * (see $menuDenied).
      */
     public string $menuPostId = '';
 
@@ -476,6 +480,80 @@ trait TogglesPostReactions
     }
 
     /**
+     * Web parity (QuestionPolicy): only the recipient (`to`) may pin,
+     * edit, delete, or view likes. The API sends `to.username`.
+     */
+    public function viewerOwnsMenuPost(): bool
+    {
+        return $this->viewerOwnsPost($this->menuPostData());
+    }
+
+    public function canPinMenuPost(): bool
+    {
+        $post = $this->menuPostData();
+
+        if ($post === null || ! $this->viewerOwnsPost($post) || $this->menuDeniedFor($this->menuPostId, 'pin')) {
+            return false;
+        }
+
+        $answer = data_get($post, 'answer');
+
+        return is_string($answer) && trim(strip_tags($answer)) !== '';
+    }
+
+    /**
+     * Edit stays available when the payload has no answered_at — the
+     * API enforces the 24-hour window and returns the error. A known
+     * timestamp older than 24 hours hides the entry up front.
+     */
+    public function canEditMenuPost(): bool
+    {
+        $post = $this->menuPostData();
+
+        if ($post === null || ! $this->viewerOwnsPost($post) || $this->menuDeniedFor($this->menuPostId, 'edit')) {
+            return false;
+        }
+
+        $answer = data_get($post, 'answer');
+
+        if (! is_string($answer) || trim(strip_tags($answer)) === '') {
+            return false;
+        }
+
+        $answeredAt = data_get($post, 'answered_at');
+
+        if (! is_string($answeredAt) || $answeredAt === '') {
+            return true;
+        }
+
+        try {
+            return Carbon::parse($answeredAt)->greaterThan(now()->subHours(24));
+        } catch (\Throwable) {
+            return true;
+        }
+    }
+
+    public function canDeleteMenuPost(): bool
+    {
+        $post = $this->menuPostData();
+
+        return $post !== null
+            && $this->viewerOwnsPost($post)
+            && ! $this->menuDeniedFor($this->menuPostId, 'delete');
+    }
+
+    public function canViewMenuLikes(): bool
+    {
+        $post = $this->menuPostData();
+
+        if ($post === null || ! $this->viewerOwnsPost($post) || $this->menuDeniedFor($this->menuPostId, 'likes')) {
+            return false;
+        }
+
+        return (int) data_get($post, 'metrics.likes', 0) > 0;
+    }
+
+    /**
      * The loaded menu post for sheet rendering. Returns a copy.
      *
      * @return array<string, mixed>|null
@@ -509,7 +587,7 @@ trait TogglesPostReactions
 
         $post = $this->findPostForMenu($id);
 
-        if ($post === null) {
+        if ($post === null || ! $this->viewerOwnsPost($post)) {
             $this->closeMenu();
 
             return;
@@ -573,7 +651,7 @@ trait TogglesPostReactions
     {
         $post = $this->menuPostData();
 
-        if ($post === null) {
+        if ($post === null || ! $this->viewerOwnsPost($post)) {
             return;
         }
 
@@ -674,7 +752,7 @@ trait TogglesPostReactions
      */
     public function askDeleteMenu(): void
     {
-        if ($this->menuPostId === '') {
+        if ($this->menuPostId === '' || ! $this->viewerOwnsPost($this->menuPostData())) {
             return;
         }
 
@@ -696,7 +774,7 @@ trait TogglesPostReactions
 
         $token = $this->menuToken();
 
-        if ($token === null) {
+        if ($token === null || ! $this->viewerOwnsPost($this->findPostForMenu($id))) {
             return;
         }
 
@@ -755,7 +833,7 @@ trait TogglesPostReactions
 
         $token = $this->menuToken();
 
-        if ($token === null) {
+        if ($token === null || ! $this->viewerOwnsPost($this->findPostForMenu($id))) {
             return;
         }
 
@@ -820,7 +898,7 @@ trait TogglesPostReactions
 
         $post = $this->findPostForMenu($id);
 
-        if ($post === null) {
+        if ($post === null || ! $this->viewerOwnsPost($post)) {
             $this->closeMenu();
 
             return;
@@ -976,9 +1054,44 @@ trait TogglesPostReactions
     }
 
     /**
+     * QuestionPolicy::update/pin/ignore/viewLikes: the signed-in user
+     * must be the question's `to` account.
+     *
+     * @param  array<string, mixed>|null  $post
+     */
+    private function viewerOwnsPost(?array $post): bool
+    {
+        if ($post === null) {
+            return false;
+        }
+
+        $owner = mb_strtolower(trim((string) data_get($post, 'to.username', '')));
+        $viewer = mb_strtolower(trim($this->viewerUsername()));
+
+        return $owner !== '' && $viewer !== '' && $owner === $viewer;
+    }
+
+    private function viewerUsername(): string
+    {
+        $active = AccountStore::active();
+
+        if (is_array($active) && is_string($active['username'] ?? null) && $active['username'] !== '') {
+            return $active['username'];
+        }
+
+        $current = CurrentUser::get();
+
+        if (is_array($current) && is_string($current['username'] ?? null)) {
+            return $current['username'];
+        }
+
+        return '';
+    }
+
+    /**
      * Read any rendered row on the screen: feed/bookmark lists, the
-     * detail post (with ancestors), or a detail comment. Returns a
-     * copy — mutations go through updatePostForMenu().
+     * detail post (with ancestors), profile questions, or a detail
+     * comment. Returns a copy — mutations go through updatePostForMenu().
      *
      * @return array<string, mixed>|null
      */
@@ -988,11 +1101,13 @@ trait TogglesPostReactions
             return null;
         }
 
-        if (isset($this->posts) && is_array($this->posts)) {
-            $found = $this->readPostPayload($this->posts, $id);
+        foreach (['posts', 'questions'] as $property) {
+            if (isset($this->{$property}) && is_array($this->{$property})) {
+                $found = $this->readPostPayload($this->{$property}, $id);
 
-            if ($found !== null) {
-                return $found;
+                if ($found !== null) {
+                    return $found;
+                }
             }
         }
 
@@ -1031,20 +1146,26 @@ trait TogglesPostReactions
             return false;
         }
 
-        if (isset($this->posts) && is_array($this->posts)) {
-            $location = $this->locateNestedPost($this->posts, $id);
-
-            if ($location !== null) {
-                [$index, $key] = $location;
-
-                if ($key === null) {
-                    $mutate($this->posts[$index]);
-                } else {
-                    $mutate($this->posts[$index]['thread']['posts'][$key]);
-                }
-
-                return true;
+        foreach (['posts', 'questions'] as $property) {
+            if (! isset($this->{$property}) || ! is_array($this->{$property})) {
+                continue;
             }
+
+            $location = $this->locateNestedPost($this->{$property}, $id);
+
+            if ($location === null) {
+                continue;
+            }
+
+            [$index, $key] = $location;
+
+            if ($key === null) {
+                $mutate($this->{$property}[$index]);
+            } else {
+                $mutate($this->{$property}[$index]['thread']['posts'][$key]);
+            }
+
+            return true;
         }
 
         if (isset($this->post) && is_array($this->post) && $this->post !== []) {
@@ -1102,25 +1223,31 @@ trait TogglesPostReactions
             return;
         }
 
-        if (isset($this->posts) && is_array($this->posts)) {
-            $location = $this->locateNestedPost($this->posts, $id);
+        foreach (['posts', 'questions'] as $property) {
+            if (! isset($this->{$property}) || ! is_array($this->{$property})) {
+                continue;
+            }
 
-            if ($location !== null) {
-                [$index, $key] = $location;
+            $location = $this->locateNestedPost($this->{$property}, $id);
 
-                if ($key === null) {
-                    $this->posts = array_values(array_filter(
-                        $this->posts,
-                        fn (mixed $row): bool => ! is_array($row) || (string) data_get($row, 'id', '') !== $id
-                    ));
-                } else {
-                    $thread = array_values(array_filter(
-                        (array) data_get($this->posts[$index], 'thread.posts', []),
-                        fn (mixed $row): bool => ! is_array($row) || (string) data_get($row, 'id', '') !== $id
-                    ));
+            if ($location === null) {
+                continue;
+            }
 
-                    data_set($this->posts[$index], 'thread.posts', $thread);
-                }
+            [$index, $key] = $location;
+
+            if ($key === null) {
+                $this->{$property} = array_values(array_filter(
+                    $this->{$property},
+                    fn (mixed $row): bool => ! is_array($row) || (string) data_get($row, 'id', '') !== $id
+                ));
+            } else {
+                $thread = array_values(array_filter(
+                    (array) data_get($this->{$property}[$index], 'thread.posts', []),
+                    fn (mixed $row): bool => ! is_array($row) || (string) data_get($row, 'id', '') !== $id
+                ));
+
+                data_set($this->{$property}[$index], 'thread.posts', $thread);
             }
         }
 
