@@ -6,7 +6,10 @@ namespace App\NativeComponents;
 
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
+use App\Support\AccountStore;
 use App\Support\ApiErrors;
+use App\Support\CurrentUser;
+use App\Support\DraftStore;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
 
@@ -68,6 +71,8 @@ final class Compose extends NativeComponent
 
     public string $errorMessage = '';
 
+    public string $validationMessage = '';
+
     public ?int $channelId = null;
 
     public string $channelName = '';
@@ -115,13 +120,12 @@ final class Compose extends NativeComponent
             return;
         }
 
-        $api = app(PinkaryApi::class);
-        $profile = $api->attempt(fn () => $api->profile($token));
+        $this->hydrateAvatar();
+        $this->restoreDraft();
+        $this->validateState();
 
-        if ($profile?->successful()) {
-            $avatar = $profile->json('data.avatar');
-
-            $this->avatar = is_string($avatar) && $avatar !== '' ? $avatar : null;
+        if ($this->shouldFetchProfile()) {
+            $this->refreshAvatarFromProfile($token);
         }
 
         if ($this->askUsername !== '') {
@@ -129,6 +133,63 @@ final class Compose extends NativeComponent
         }
 
         $this->searchChannels($token);
+    }
+
+    /**
+     * native:model on the outlined-text-input fires this after each sync.
+     */
+    public function updatedContent(): void
+    {
+        $this->touchDraft();
+    }
+
+    public function updatedAnonymous(): void
+    {
+        $this->persistDraft();
+    }
+
+    public function contentTooLong(): bool
+    {
+        return mb_strlen($this->content) > $this->maxContentLength();
+    }
+
+    /**
+     * Live publish gate: over-limit content/posts or an incomplete poll
+     * disable the button. Empty first post stays tappable so publish()
+     * can show the existing "write something first" copy.
+     */
+    public function canPublish(): bool
+    {
+        if ($this->contentTooLong()) {
+            return false;
+        }
+
+        if ($this->askUsername !== '') {
+            return true;
+        }
+
+        foreach ($this->posts as $post) {
+            if (mb_strlen($post) > self::MAX_CONTENT_LENGTH) {
+                return false;
+            }
+        }
+
+        if ($this->isPoll && ! $this->pollOptionsAreValid($this->pollOptions)) {
+            return false;
+        }
+
+        foreach ($this->postPolls as $poll) {
+            if (($poll['isPoll'] ?? false) && ! $this->pollOptionsAreValid($poll['options'] ?? [])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public function validateState(): void
+    {
+        $this->validationMessage = $this->overLimitMessage();
     }
 
     /**
@@ -159,6 +220,7 @@ final class Compose extends NativeComponent
 
         $this->posts[] = '';
         $this->postPolls[] = $this->emptyPostPoll();
+        $this->touchDraft();
     }
 
     public function removePost(int $index): void
@@ -171,6 +233,7 @@ final class Compose extends NativeComponent
         unset($this->postPolls[$index]);
         $this->posts = array_values($this->posts);
         $this->postPolls = array_values($this->postPolls);
+        $this->touchDraft();
     }
 
     public function updatePost(int $index, string $text): void
@@ -180,6 +243,7 @@ final class Compose extends NativeComponent
         }
 
         $this->posts[$index] = $text;
+        $this->touchDraft();
     }
 
     public function togglePostPoll(int $index): void
@@ -196,6 +260,7 @@ final class Compose extends NativeComponent
         }
 
         $this->postPolls[$index] = $poll;
+        $this->touchDraft();
     }
 
     public function addPostPollOption(int $index): void
@@ -212,6 +277,7 @@ final class Compose extends NativeComponent
 
         $poll['options'][] = '';
         $this->postPolls[$index] = $poll;
+        $this->touchDraft();
     }
 
     public function removePostPollOption(int $index, int $optionIndex): void
@@ -226,6 +292,7 @@ final class Compose extends NativeComponent
 
         unset($this->postPolls[$index]['options'][$optionIndex]);
         $this->postPolls[$index]['options'] = array_values($this->postPolls[$index]['options']);
+        $this->touchDraft();
     }
 
     public function updatePostPollOption(int $index, int $optionIndex, string $text): void
@@ -235,6 +302,7 @@ final class Compose extends NativeComponent
         }
 
         $this->postPolls[$index]['options'][$optionIndex] = $text;
+        $this->touchDraft();
     }
 
     public function setPostPollDuration(int $index, int $days): void
@@ -244,6 +312,7 @@ final class Compose extends NativeComponent
         }
 
         $this->postPolls[$index]['duration'] = $days;
+        $this->persistDraft();
     }
 
     public function togglePicker(): void
@@ -307,6 +376,7 @@ final class Compose extends NativeComponent
         $this->channelQuery = '';
         $this->channelError = '';
         $this->pickerOpen = false;
+        $this->persistDraft();
     }
 
     /**
@@ -334,6 +404,7 @@ final class Compose extends NativeComponent
         $this->channelQuery = '';
         $this->channelError = '';
         $this->pickerOpen = false;
+        $this->persistDraft();
     }
 
     public function clearChannel(): void
@@ -341,6 +412,7 @@ final class Compose extends NativeComponent
         $this->channelId = null;
         $this->channelName = '';
         $this->channelError = '';
+        $this->persistDraft();
     }
 
     public function togglePoll(): void
@@ -354,6 +426,8 @@ final class Compose extends NativeComponent
         if ($this->isPoll && count($this->pollOptions) < 2) {
             $this->pollOptions = ['', ''];
         }
+
+        $this->touchDraft();
     }
 
     public function addPollOption(): void
@@ -363,6 +437,7 @@ final class Compose extends NativeComponent
         }
 
         $this->pollOptions[] = '';
+        $this->touchDraft();
     }
 
     public function removePollOption(int $index): void
@@ -373,6 +448,7 @@ final class Compose extends NativeComponent
 
         unset($this->pollOptions[$index]);
         $this->pollOptions = array_values($this->pollOptions);
+        $this->touchDraft();
     }
 
     public function updatePollOption(int $index, string $text): void
@@ -382,6 +458,7 @@ final class Compose extends NativeComponent
         }
 
         $this->pollOptions[$index] = $text;
+        $this->touchDraft();
     }
 
     public function setPollDuration(int $days): void
@@ -391,6 +468,7 @@ final class Compose extends NativeComponent
         }
 
         $this->pollDuration = $days;
+        $this->persistDraft();
     }
 
     public function publish(): void
@@ -421,6 +499,7 @@ final class Compose extends NativeComponent
 
         if (mb_strlen($content) > self::MAX_CONTENT_LENGTH) {
             $this->errorMessage = 'The first post may not be greater than 1000 characters.';
+            $this->persistDraft();
 
             return;
         }
@@ -442,6 +521,7 @@ final class Compose extends NativeComponent
 
             if (mb_strlen($trimmed) > self::MAX_CONTENT_LENGTH) {
                 $this->errorMessage = 'Post '.($index + 2).' may not be greater than 1000 characters.';
+                $this->persistDraft();
 
                 return;
             }
@@ -449,6 +529,8 @@ final class Compose extends NativeComponent
             $poll = $this->validatedPostPoll($index);
 
             if ($poll === false) {
+                $this->persistDraft();
+
                 return;
             }
 
@@ -466,12 +548,14 @@ final class Compose extends NativeComponent
 
             if (count($pollOptions) < 2) {
                 $this->errorMessage = 'A poll must have at least 2 options.';
+                $this->persistDraft();
 
                 return;
             }
 
             if (count($pollOptions) !== count($this->pollOptions)) {
                 $this->errorMessage = 'All poll options are required.';
+                $this->persistDraft();
 
                 return;
             }
@@ -479,6 +563,7 @@ final class Compose extends NativeComponent
             foreach ($pollOptions as $option) {
                 if (mb_strlen($option) > 40) {
                     $this->errorMessage = 'Poll options cannot exceed 40 characters.';
+                    $this->persistDraft();
 
                     return;
                 }
@@ -504,6 +589,7 @@ final class Compose extends NativeComponent
 
         if ($response === null) {
             $this->errorMessage = 'The thread could not be published. Please try again.';
+            $this->persistDraft();
 
             return;
         }
@@ -514,10 +600,12 @@ final class Compose extends NativeComponent
 
         if (! $response->successful()) {
             $this->errorMessage = ApiErrors::first($response, 'The thread could not be published. Please try again.');
+            $this->persistDraft();
 
             return;
         }
 
+        $this->clearDraft();
         $this->content = '';
         $this->posts = [];
         $this->postPolls = [];
@@ -529,6 +617,7 @@ final class Compose extends NativeComponent
         $this->isPoll = false;
         $this->pollOptions = ['', ''];
         $this->pollDuration = 1;
+        $this->validationMessage = '';
         $this->navigate($this->route('mobile.feed'));
     }
 
@@ -557,6 +646,7 @@ final class Compose extends NativeComponent
 
         if (mb_strlen($content) > self::MAX_ASK_LENGTH) {
             $this->errorMessage = 'Questions may not be greater than 255 characters.';
+            $this->persistDraft();
 
             return;
         }
@@ -571,6 +661,7 @@ final class Compose extends NativeComponent
 
         if ($response === null) {
             $this->errorMessage = 'Your question could not be sent. Please try again.';
+            $this->persistDraft();
 
             return;
         }
@@ -581,12 +672,15 @@ final class Compose extends NativeComponent
 
         if (! $response->successful()) {
             $this->errorMessage = ApiErrors::first($response, 'Your question could not be sent. Please try again.');
+            $this->persistDraft();
 
             return;
         }
 
+        $this->clearDraft();
         $this->content = '';
         $this->anonymous = false;
+        $this->validationMessage = '';
         $this->navigate($this->route('mobile.user', ['username' => $this->askUsername]));
     }
 
@@ -667,5 +761,143 @@ final class Compose extends NativeComponent
         /** @var list<array<string, mixed>> $channels */
         $channels = $response->json('data', []);
         $this->channelResults = $channels;
+    }
+
+    private function hydrateAvatar(): void
+    {
+        $user = CurrentUser::get() ?? AccountStore::active();
+
+        if (! is_array($user)) {
+            return;
+        }
+
+        $avatar = $user['avatar'] ?? null;
+        $this->avatar = is_string($avatar) && $avatar !== '' ? $avatar : null;
+    }
+
+    /**
+     * Skip the profile round-trip when a stored avatar or name already
+     * exists, and never block unit tests on it.
+     */
+    private function shouldFetchProfile(): bool
+    {
+        if ($this->avatar !== null) {
+            return false;
+        }
+
+        $user = CurrentUser::get() ?? AccountStore::active();
+        $name = is_array($user) ? (string) ($user['name'] ?? '') : '';
+
+        if ($name !== '') {
+            return false;
+        }
+
+        return ! app()->runningUnitTests();
+    }
+
+    private function refreshAvatarFromProfile(string $token): void
+    {
+        $api = app(PinkaryApi::class);
+        $profile = $api->attempt(fn () => $api->profile($token));
+
+        if ($profile?->successful()) {
+            $avatar = $profile->json('data.avatar');
+
+            $this->avatar = is_string($avatar) && $avatar !== '' ? $avatar : null;
+        }
+    }
+
+    private function restoreDraft(): void
+    {
+        $draft = DraftStore::get($this->draftTarget());
+
+        if ($draft === null) {
+            return;
+        }
+
+        $this->content = $draft['content'];
+        $this->posts = $draft['posts'];
+        $this->postPolls = $draft['postPolls'];
+        $this->channelId = $draft['channelId'];
+        $this->channelName = $draft['channelName'];
+        $this->isPoll = $draft['isPoll'];
+        $this->pollOptions = $draft['pollOptions'];
+        $this->pollDuration = $draft['pollDuration'];
+        $this->anonymous = $draft['anonymous'];
+    }
+
+    private function persistDraft(): void
+    {
+        DraftStore::put($this->draftTarget(), [
+            'content' => $this->content,
+            'posts' => $this->posts,
+            'postPolls' => $this->postPolls,
+            'channelId' => $this->channelId,
+            'channelName' => $this->channelName,
+            'isPoll' => $this->isPoll,
+            'pollOptions' => $this->pollOptions,
+            'pollDuration' => $this->pollDuration,
+            'anonymous' => $this->anonymous,
+        ]);
+    }
+
+    private function clearDraft(): void
+    {
+        DraftStore::clear($this->draftTarget());
+    }
+
+    private function draftTarget(): ?string
+    {
+        return $this->askUsername !== '' ? $this->askUsername : null;
+    }
+
+    private function touchDraft(): void
+    {
+        $this->validateState();
+        $this->persistDraft();
+    }
+
+    private function maxContentLength(): int
+    {
+        return $this->askUsername !== '' ? self::MAX_ASK_LENGTH : self::MAX_CONTENT_LENGTH;
+    }
+
+    private function overLimitMessage(): string
+    {
+        if ($this->contentTooLong()) {
+            return 'Over the '.$this->maxContentLength().' character limit.';
+        }
+
+        foreach ($this->posts as $index => $post) {
+            if (mb_strlen($post) > self::MAX_CONTENT_LENGTH) {
+                return 'Post '.($index + 2).' is over the '.self::MAX_CONTENT_LENGTH.' character limit.';
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param  list<string>|array<int, mixed>  $options
+     */
+    private function pollOptionsAreValid(array $options): bool
+    {
+        $filled = 0;
+
+        foreach ($options as $option) {
+            $text = trim((string) $option);
+
+            if ($text === '') {
+                continue;
+            }
+
+            if (mb_strlen($text) > 40) {
+                return false;
+            }
+
+            $filled++;
+        }
+
+        return $filled >= 2;
     }
 }

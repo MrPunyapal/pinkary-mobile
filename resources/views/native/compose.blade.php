@@ -21,6 +21,9 @@
                     @if (mb_strlen($content) > 200)
                         <native:text class="text-xs text-right {{ mb_strlen($content) > 255 ? 'text-theme-destructive' : 'text-theme-on-surface-variant' }}">{{ mb_strlen($content) }} / 255</native:text>
                     @endif
+                    @if ($this->contentTooLong())
+                        <native:text class="text-xs text-theme-destructive">Over the 255 character limit.</native:text>
+                    @endif
                 </native:column>
             </native:row>
 
@@ -29,7 +32,7 @@
                 <native:text class="text-sm text-theme-on-surface-variant">Your name stays hidden from {{ '@'.$askUsername }}.</native:text>
             </native:column>
 
-            <native:button variant="primary" :disabled="$busy" @tap="publish">{{ $busy ? 'Sending…' : 'Ask' }}</native:button>
+            <native:button variant="primary" :disabled="$busy || ! $this->canPublish()" @tap="publish">{{ $busy ? 'Sending…' : 'Ask' }}</native:button>
         @else
 
         {{-- No connector rails: step order is carried by the Post N labels
@@ -43,6 +46,9 @@
                 <native:outlined-text-input label="Share an update..." placeholder="Share an update..." multiline native:model="content" />
                 @if (mb_strlen($content) > 800)
                     <native:text class="text-xs text-right {{ mb_strlen($content) >= 1000 ? 'text-theme-destructive' : 'text-theme-on-surface-variant' }}">{{ mb_strlen($content) }} / 1000</native:text>
+                @endif
+                @if ($this->contentTooLong())
+                    <native:text class="text-xs text-theme-destructive">Over the 1000 character limit.</native:text>
                 @endif
             </native:column>
         </native:row>
@@ -67,6 +73,9 @@
                             <native:text class="text-xs {{ mb_strlen($post) >= 1000 ? 'text-theme-destructive' : 'text-theme-on-surface-variant' }}">{{ mb_strlen($post) }} / 1000</native:text>
                         @endif
                     </native:row>
+                    @if (mb_strlen($post) > 1000)
+                        <native:text class="text-xs text-theme-destructive">Over the 1000 character limit.</native:text>
+                    @endif
 
                     @if ($postPolls[$index]['isPoll'] ?? false)
                         <native:column class="w-full gap-2 mt-1">
@@ -213,7 +222,7 @@
             @endif
         </native:column>
 
-        <native:button variant="primary" :disabled="$busy" @tap="publish">{{ $busy ? 'Publishing…' : (count($posts) > 0 ? 'Post thread' : 'Post') }}</native:button>
+        <native:button variant="primary" :disabled="$busy || ! $this->canPublish()" @tap="publish">{{ $busy ? 'Publishing…' : (count($posts) > 0 ? 'Post thread' : 'Post') }}</native:button>
 
         <native:column class="w-full h-10" />
         @endif
