@@ -6,6 +6,7 @@
     $total = max(1, $totalVotes);
     $userVote = data_get($poll, 'user_vote_option_id');
     $expired = (bool) data_get($poll, 'expired', false);
+    $timeRemaining = data_get($poll, 'time_remaining');
 @endphp
 
 <native:column class="w-full gap-2">
@@ -30,9 +31,9 @@
         @if ($expired)
             <native:text class="text-sm text-theme-on-surface-variant">·</native:text>
             <native:text class="text-sm text-theme-destructive">Poll expired</native:text>
-        @elseif (is_string(data_get($poll, 'time_remaining')) && data_get($poll, 'time_remaining') !== '')
+        @elseif (is_string($timeRemaining) && $timeRemaining !== '')
             <native:text class="text-sm text-theme-on-surface-variant">·</native:text>
-            <native:text class="text-sm text-theme-on-surface-variant">Ends {{ data_get($poll, 'time_remaining') }}</native:text>
+            <native:text class="text-sm text-theme-on-surface-variant">Ends {{ $timeRemaining }}</native:text>
         @endif
     </native:row>
 </native:column>

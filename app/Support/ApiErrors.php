@@ -30,4 +30,42 @@ final class ApiErrors
 
         return $fallback;
     }
+
+    /**
+     * Split a Laravel errors bag into per-field messages (shown under
+     * each input) plus a banner summary: the first message from fields
+     * without their own input, else the first message overall.
+     *
+     * @param  array<string, mixed>  $errors
+     * @param  array<string, string>  $fields  server key => fieldErrors key
+     * @return array{fieldErrors: array<string, string>, message: string}
+     */
+    public static function split(array $errors, array $fields, ?string $fallback = null): array
+    {
+        /** @var array<string, string> $fieldErrors */
+        $fieldErrors = [];
+        $first = null;
+        $unmappedFirst = null;
+
+        foreach ($errors as $key => $messages) {
+            $message = is_array($messages) ? ($messages[0] ?? null) : $messages;
+
+            if (! is_string($message) || $message === '') {
+                continue;
+            }
+
+            $first ??= $message;
+
+            if (isset($fields[$key])) {
+                $fieldErrors[$fields[$key]] = $message;
+            } else {
+                $unmappedFirst ??= $message;
+            }
+        }
+
+        return [
+            'fieldErrors' => $fieldErrors,
+            'message' => $unmappedFirst ?? $first ?? $fallback ?? 'Something went wrong. Please try again.',
+        ];
+    }
 }

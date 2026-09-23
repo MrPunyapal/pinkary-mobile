@@ -7,7 +7,6 @@ namespace App\NativeComponents;
 use App\NativeComponents\Concerns\TogglesPostReactions;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
-use App\Services\TokenStorage;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
 
@@ -41,11 +40,9 @@ final class Bookmarks extends NativeComponent
 
     public function mount(): void
     {
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -54,11 +51,9 @@ final class Bookmarks extends NativeComponent
 
     public function retry(): void
     {
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -153,11 +148,9 @@ final class Bookmarks extends NativeComponent
             return;
         }
 
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -175,10 +168,7 @@ final class Bookmarks extends NativeComponent
             return;
         }
 
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($this->handleUnauthorized($response)) {
             return;
         }
 
@@ -215,10 +205,7 @@ final class Bookmarks extends NativeComponent
             return;
         }
 
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($this->handleUnauthorized($response)) {
             return;
         }
 
@@ -236,12 +223,5 @@ final class Bookmarks extends NativeComponent
         $this->hasMore = $response->json('links.next') !== null;
         $this->loadMoreError = '';
         $this->loading = false;
-    }
-
-    private function token(): ?string
-    {
-        $token = app(TokenStorage::class)->get();
-
-        return is_string($token) && $token !== '' ? $token : null;
     }
 }

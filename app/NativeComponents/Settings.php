@@ -29,11 +29,9 @@ final class Settings extends NativeComponent
 
     public function mount(): void
     {
-        $token = app(TokenStorage::class)->get();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -42,11 +40,9 @@ final class Settings extends NativeComponent
 
     public function retry(): void
     {
-        $token = app(TokenStorage::class)->get();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 

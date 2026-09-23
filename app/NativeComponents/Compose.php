@@ -6,7 +6,6 @@ namespace App\NativeComponents;
 
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
-use App\Services\TokenStorage;
 use App\Support\ApiErrors;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
@@ -110,11 +109,9 @@ final class Compose extends NativeComponent
     {
         $this->askUsername = (string) $this->param('username', '');
 
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -257,11 +254,9 @@ final class Compose extends NativeComponent
 
     public function updatedChannelQuery(): void
     {
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -410,11 +405,9 @@ final class Compose extends NativeComponent
             return;
         }
 
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -453,12 +446,14 @@ final class Compose extends NativeComponent
                 return;
             }
 
-            $threadPosts[] = $trimmed;
-            $threadPolls[] = $this->validatedPostPoll($index);
+            $poll = $this->validatedPostPoll($index);
 
-            if ($threadPolls[array_key_last($threadPolls)] === false) {
+            if ($poll === false) {
                 return;
             }
+
+            $threadPosts[] = $trimmed;
+            $threadPolls[] = $poll;
         }
 
         $pollOptions = [];
@@ -513,10 +508,7 @@ final class Compose extends NativeComponent
             return;
         }
 
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($this->handleUnauthorized($response)) {
             return;
         }
 
@@ -549,11 +541,9 @@ final class Compose extends NativeComponent
             return;
         }
 
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -585,10 +575,7 @@ final class Compose extends NativeComponent
             return;
         }
 
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($this->handleUnauthorized($response)) {
             return;
         }
 
@@ -680,12 +667,5 @@ final class Compose extends NativeComponent
         /** @var list<array<string, mixed>> $channels */
         $channels = $response->json('data', []);
         $this->channelResults = $channels;
-    }
-
-    private function token(): ?string
-    {
-        $token = app(TokenStorage::class)->get();
-
-        return is_string($token) && $token !== '' ? $token : null;
     }
 }

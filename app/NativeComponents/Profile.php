@@ -7,7 +7,6 @@ namespace App\NativeComponents;
 use App\NativeComponents\Concerns\TogglesPostReactions;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
-use App\Services\TokenStorage;
 use App\Support\CurrentUser;
 use Illuminate\View\View;
 use Native\Mobile\Browser;
@@ -66,11 +65,9 @@ final class Profile extends NativeComponent
     {
         $this->username = (string) $this->param('username', '');
 
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -79,11 +76,9 @@ final class Profile extends NativeComponent
 
     public function retry(): void
     {
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -95,11 +90,9 @@ final class Profile extends NativeComponent
      */
     public function retryQuestions(): void
     {
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -238,11 +231,9 @@ final class Profile extends NativeComponent
             return;
         }
 
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -266,10 +257,7 @@ final class Profile extends NativeComponent
             return;
         }
 
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($this->handleUnauthorized($response)) {
             return;
         }
 
@@ -296,11 +284,9 @@ final class Profile extends NativeComponent
             return;
         }
 
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -325,10 +311,7 @@ final class Profile extends NativeComponent
             return;
         }
 
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($this->handleUnauthorized($response)) {
             return;
         }
 
@@ -352,11 +335,9 @@ final class Profile extends NativeComponent
      */
     public function openUserLink(int $id): void
     {
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -372,7 +353,8 @@ final class Profile extends NativeComponent
             return;
         }
 
-        app(PinkaryApi::class)->attempt(fn () => app(PinkaryApi::class)->clickLink($token, $id));
+        $api = app(PinkaryApi::class);
+        $api->attempt(fn () => $api->clickLink($token, $id));
 
         if (! preg_match('#^https?://#i', $url)) {
             $this->errorMessage = 'This link could not be opened.';
@@ -431,10 +413,7 @@ final class Profile extends NativeComponent
             return;
         }
 
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($this->handleUnauthorized($response)) {
             return;
         }
 
@@ -503,10 +482,7 @@ final class Profile extends NativeComponent
             return;
         }
 
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($this->handleUnauthorized($response)) {
             return;
         }
 
@@ -522,12 +498,5 @@ final class Profile extends NativeComponent
         $this->questions = $questions;
         $this->hasMoreQuestions = $response->json('links.next') !== null;
         $this->questionsLoading = false;
-    }
-
-    private function token(): ?string
-    {
-        $token = app(TokenStorage::class)->get();
-
-        return is_string($token) && $token !== '' ? $token : null;
     }
 }

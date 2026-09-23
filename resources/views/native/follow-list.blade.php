@@ -16,9 +16,9 @@
                 <native:text class="text-sm text-theme-on-surface-variant">Loading this list…</native:text>
             </native:column>
         @elseif ($errorMessage !== '')
-            <native:column class="w-full mx-4 my-5 p-4 gap-3 rounded-md bg-theme-destructive/15 border border-theme-destructive">
+            <native:column class="mx-4 my-5 p-4 gap-3 rounded-md bg-theme-destructive/15 border border-theme-destructive">
                 <native:text class="text-sm text-theme-destructive">{{ $errorMessage }}</native:text>
-                <native:pressable class="self-start py-1" @tap="retry">
+                <native:pressable class="self-start py-1" @tap="retry" a11y-label="Try again">
                     <native:text class="text-sm font-semibold text-theme-destructive">Try again</native:text>
                 </native:pressable>
             </native:column>
@@ -38,12 +38,12 @@
                             <x-avatar :user="$user" company-radius="md" :link="false" />
                             <native:column class="flex-1 gap-0.5 min-w-0">
                                 <native:row class="items-center gap-1.5">
-                                    <native:text class="text-sm font-medium text-theme-on-surface">{{ data_get($user, 'name') }}</native:text>
+                                    <native:text class="text-sm font-medium text-theme-on-surface" max-lines="1">{{ data_get($user, 'name') }}</native:text>
                                     @if (data_get($user, 'verification.profile') || data_get($user, 'verification.company') || data_get($user, 'verified') || data_get($user, 'company_verified'))
                                         <native:icon :ios="\App\Icons\Ios::CheckmarkSealFill" :android="\App\Icons\Android::Verified" :size="14" color="#EC4899" />
                                     @endif
                                 </native:row>
-                                <native:text class="text-sm text-theme-on-surface-variant">{{ '@'.$rowUsername }}</native:text>
+                                <native:text class="text-sm text-theme-on-surface-variant" max-lines="1">{{ '@'.$rowUsername }}</native:text>
                             </native:column>
                         </native:row>
                     </native:pressable>

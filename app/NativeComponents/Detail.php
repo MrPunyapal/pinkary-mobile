@@ -7,7 +7,6 @@ namespace App\NativeComponents;
 use App\NativeComponents\Concerns\TogglesPostReactions;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
-use App\Services\TokenStorage;
 use App\Support\ApiErrors;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
@@ -67,11 +66,9 @@ final class Detail extends NativeComponent
     {
         $this->id = (string) $this->param('id', '');
 
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -86,11 +83,9 @@ final class Detail extends NativeComponent
 
     public function retry(): void
     {
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -187,11 +182,9 @@ final class Detail extends NativeComponent
             return;
         }
 
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -262,11 +255,9 @@ final class Detail extends NativeComponent
             return;
         }
 
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -304,10 +295,7 @@ final class Detail extends NativeComponent
             return;
         }
 
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($this->handleUnauthorized($response)) {
             return;
         }
 
@@ -337,11 +325,9 @@ final class Detail extends NativeComponent
             return;
         }
 
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -359,10 +345,7 @@ final class Detail extends NativeComponent
             return;
         }
 
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($this->handleUnauthorized($response)) {
             return;
         }
 
@@ -422,10 +405,7 @@ final class Detail extends NativeComponent
             return;
         }
 
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($this->handleUnauthorized($response)) {
             return;
         }
 
@@ -532,10 +512,7 @@ final class Detail extends NativeComponent
             return;
         }
 
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($this->handleUnauthorized($response)) {
             return;
         }
 
@@ -572,10 +549,7 @@ final class Detail extends NativeComponent
             return;
         }
 
-        if ($comments->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($this->handleUnauthorized($comments)) {
             return;
         }
 
@@ -586,12 +560,5 @@ final class Detail extends NativeComponent
         $this->commentPage = 1;
         $this->hasMoreComments = $comments->json('links.next') !== null;
         $this->loading = false;
-    }
-
-    private function token(): ?string
-    {
-        $token = app(TokenStorage::class)->get();
-
-        return is_string($token) && $token !== '' ? $token : null;
     }
 }

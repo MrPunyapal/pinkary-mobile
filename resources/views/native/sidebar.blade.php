@@ -9,16 +9,16 @@
     the Jump app); a plain column is enough for four short rows. --}}
 <native:column class="w-full gap-0 bg-theme-surface">
     <native:pressable class="w-full px-5 py-6 bg-theme-surface border-b border-theme-outline-variant" @tap="openOwnProfile" a11y-label="Open your profile">
-            <native:row class="w-full items-center gap-3">
-                <x-avatar :user="['name' => $name, 'username' => $username, 'avatar' => $avatar]" :link="false" />
-                <native:column class="flex-1 gap-0.5 min-w-0">
-                    <native:text class="text-base font-semibold text-theme-on-surface">{{ $name !== '' ? $name : 'Pinkary' }}</native:text>
-                    @if ($username !== '')
-                        <native:text class="text-sm text-theme-on-surface-variant">{{ '@'.$username }}</native:text>
-                    @endif
-                </native:column>
-            </native:row>
-        </native:pressable>
+        <native:row class="w-full items-center gap-3">
+            <x-avatar :user="['name' => $name, 'username' => $username, 'avatar' => $avatar]" :link="false" />
+            <native:column class="flex-1 gap-0.5 min-w-0">
+                <native:text class="text-base font-semibold text-theme-on-surface">{{ $name !== '' ? $name : 'Pinkary' }}</native:text>
+                @if ($username !== '')
+                    <native:text class="text-sm text-theme-on-surface-variant">{{ '@'.$username }}</native:text>
+                @endif
+            </native:column>
+        </native:row>
+    </native:pressable>
 
         <native:pressable class="w-full px-5 py-3.5" @tap="openSettings" a11y-label="Settings">
             <native:row class="w-full items-center gap-3">

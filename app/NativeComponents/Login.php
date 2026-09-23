@@ -6,6 +6,7 @@ namespace App\NativeComponents;
 
 use App\Services\PinkaryApi;
 use App\Services\TokenStorage;
+use App\Support\ApiErrors;
 use App\Support\CurrentUser;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
@@ -110,25 +111,8 @@ final class Login extends NativeComponent
      */
     private function applyFieldErrors(array $errors, array $fields, ?string $fallback = null): void
     {
-        $first = null;
-        $unmappedFirst = null;
-
-        foreach ($errors as $key => $messages) {
-            $message = is_array($messages) ? ($messages[0] ?? null) : $messages;
-
-            if (! is_string($message) || $message === '') {
-                continue;
-            }
-
-            $first ??= $message;
-
-            if (isset($fields[$key])) {
-                $this->fieldErrors[$fields[$key]] = $message;
-            } else {
-                $unmappedFirst ??= $message;
-            }
-        }
-
-        $this->errorMessage = $unmappedFirst ?? $first ?? $fallback ?? 'Something went wrong. Please try again.';
+        $split = ApiErrors::split($errors, $fields, $fallback);
+        $this->fieldErrors = $split['fieldErrors'];
+        $this->errorMessage = $split['message'];
     }
 }

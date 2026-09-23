@@ -28,9 +28,9 @@
                 <native:text class="text-sm text-theme-on-surface-variant">Loading notifications…</native:text>
             </native:column>
         @elseif ($errorMessage !== '')
-            <native:column class="w-full mx-4 my-5 p-4 gap-3 rounded-md bg-theme-destructive/15 border border-theme-destructive">
+            <native:column class="mx-4 my-5 p-4 gap-3 rounded-md bg-theme-destructive/15 border border-theme-destructive">
                 <native:text class="text-sm text-theme-destructive">{{ $errorMessage }}</native:text>
-                <native:pressable class="self-start py-1" @tap="retry">
+                <native:pressable class="self-start py-1" @tap="retry" a11y-label="Try again">
                     <native:text class="text-sm font-semibold text-theme-destructive">Try again</native:text>
                 </native:pressable>
             </native:column>
@@ -54,12 +54,12 @@
                         <native:column class="flex-1 gap-0 min-w-0 py-0.5">
                             <native:row class="w-full items-center gap-x-1.5">
                                 <native:row class="flex-1 items-center gap-x-1.5 min-w-0">
-                                    <native:text class="text-sm font-medium text-theme-on-surface truncate">{{ is_array($actor) ? data_get($actor, 'name') : 'Anonymous' }}</native:text>
+                                    <native:text class="text-sm font-medium text-theme-on-surface" max-lines="1">{{ is_array($actor) ? data_get($actor, 'name') : 'Anonymous' }}</native:text>
                                     @if (is_array($actor) && (data_get($actor, 'verified') || data_get($actor, 'company_verified')))
                                         <native:icon :ios="\App\Icons\Ios::CheckmarkSealFill" :android="\App\Icons\Android::Verified" :size="14" color="#EC4899" />
                                     @endif
                                     @if (is_array($actor) && data_get($actor, 'username'))
-                                        <native:text class="text-xs text-theme-on-surface-variant truncate">{{ '@'.data_get($actor, 'username') }}</native:text>
+                                        <native:text class="text-xs text-theme-on-surface-variant" max-lines="1">{{ '@'.data_get($actor, 'username') }}</native:text>
                                     @endif
                                 </native:row>
                                 @php $timestamp = $shortTime(data_get($item, 'created_at')); @endphp

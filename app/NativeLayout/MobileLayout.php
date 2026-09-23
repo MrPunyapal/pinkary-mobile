@@ -34,6 +34,12 @@ final class MobileLayout extends NativeLayout
     use HasFloatingOverlay;
     use HasLayoutDrawer;
 
+    private const string ACTIVE_COLOR = '#EC4899';
+
+    private const int BADGE_CAP = 20;
+
+    private const int FAB_OFFSET = 88;
+
     // No chrome titles anywhere: the old Jump app left-aligns them into
     // the drawer hamburger (single-line chrome), so identity lives in
     // content — the centered brand (Home), the in-content top bar
@@ -48,18 +54,7 @@ final class MobileLayout extends NativeLayout
         // menu-aware title) — chrome would duplicate it.
         // Bookmarks and Notifications carry an in-content page heading,
         // and the auth cards carry their own titles — same duplication.
-        if ($screen instanceof Detail
-            || $screen instanceof Compose
-            || $screen instanceof FollowList
-            || $screen instanceof EditProfile
-            || $screen instanceof Bookmarks
-            || $screen instanceof Notifications
-            || $screen instanceof Search
-            || $screen instanceof Settings
-            || $screen instanceof Login
-            || $screen instanceof Register
-            || $screen instanceof Profile
-            || $screen instanceof Home) {
+        if ($this->hasInContentHeader($screen)) {
             return null;
         }
 
@@ -77,16 +72,16 @@ final class MobileLayout extends NativeLayout
         // Web parity: the bell carries the pending count, capped like
         // the web's nav count (`> 20 ? '20+'`). Refreshed on feed entry
         // and notification visits; cleared on logout.
-        $unread = UnreadCount::get();
+        $badge = $this->unreadBadge();
 
-        if (is_int($unread) && $unread > 0) {
-            $notifications->badge($unread > 20 ? '20+' : (string) $unread);
+        if ($badge !== null) {
+            $notifications->badge($badge);
         }
 
         // Web parity (../pinkary/resources/views/layouts/navigation.blade.php):
         // Bottom bar has Home, Profile, Bookmarks, Notifications, and Menu (bars icon).
         return TabBar::make()
-            ->activeColor('#EC4899')
+            ->activeColor(self::ACTIVE_COLOR)
             ->labelVisibility('unlabeled')
             ->add(Tab::link('Feed', '/feed', ios: Ios::HouseFill, android: Android::Home))
             ->add(Tab::link('Profile', '/profile', ios: Ios::PersonFill, android: Android::Person))
@@ -114,6 +109,39 @@ final class MobileLayout extends NativeLayout
             return null;
         }
 
-        return FloatingOverlay::make(view('native.compose-fab'))->offset(88);
+        return FloatingOverlay::make(view('native.compose-fab'))->offset(self::FAB_OFFSET);
+    }
+
+    /**
+     * Screens rendering their own in-content header need no chrome bar.
+     */
+    private function hasInContentHeader(NativeComponent $screen): bool
+    {
+        return $screen instanceof Detail
+            || $screen instanceof Compose
+            || $screen instanceof FollowList
+            || $screen instanceof EditProfile
+            || $screen instanceof Bookmarks
+            || $screen instanceof Notifications
+            || $screen instanceof Search
+            || $screen instanceof Settings
+            || $screen instanceof Login
+            || $screen instanceof Register
+            || $screen instanceof Profile
+            || $screen instanceof Home;
+    }
+
+    /**
+     * Pending notification count formatted for the bell badge, capped at 20+.
+     */
+    private function unreadBadge(): ?string
+    {
+        $unread = UnreadCount::get();
+
+        if (! is_int($unread) || $unread <= 0) {
+            return null;
+        }
+
+        return $unread > self::BADGE_CAP ? self::BADGE_CAP.'+' : (string) $unread;
     }
 }

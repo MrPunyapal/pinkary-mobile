@@ -6,7 +6,6 @@ namespace App\NativeComponents;
 
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
-use App\Services\TokenStorage;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
 
@@ -43,9 +42,7 @@ final class Search extends NativeComponent
 
     public function mount(): void
     {
-        if ($this->token() === null) {
-            $this->replace($this->route('mobile.login'));
-        }
+        $this->requireToken();
     }
 
     public function updatedQuery(): void
@@ -84,11 +81,9 @@ final class Search extends NativeComponent
 
     public function search(): void
     {
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -116,10 +111,7 @@ final class Search extends NativeComponent
             return;
         }
 
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($this->handleUnauthorized($response)) {
             return;
         }
 
@@ -163,13 +155,6 @@ final class Search extends NativeComponent
 
         $this->query = '#'.$name;
         $this->search();
-    }
-
-    private function token(): ?string
-    {
-        $token = app(TokenStorage::class)->get();
-
-        return is_string($token) && $token !== '' ? $token : null;
     }
 
     /**

@@ -19,11 +19,12 @@
 @if (count($threadPosts) === 0)
     <x-post :post="$post" :expanded="$isExpanded(data_get($post, 'id'))" />
 @else
-    {{-- Flat web-style thread: chained posts are plain rows whose avatar
-        lanes draw a flex-1 rail to the row's bottom edge (responsive,
-        no estimated height, no extra space after the post). Segments
-        stack with no gaps or boxes; the container owns the single
-        full-bleed divider, like the web. --}}
+    {{-- Flat web-style thread: chained posts are bare rows whose avatar
+        lanes draw the rail as a fixed-height rect (estimated h-[Npx],
+        h-3 stub on top for segments after the first) — responsive
+        enough without flex-1/absolute, which collapse on old Jump.
+        Segments stack with no gaps or boxes; the container owns the
+        single full-bleed divider, like the web. --}}
     <native:column class="w-full gap-0 bg-theme-background border-b border-theme-outline-variant">
         @foreach ($threadPosts as $index => $ancestor)
             <x-post

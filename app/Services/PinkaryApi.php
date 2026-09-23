@@ -11,6 +11,12 @@ use Illuminate\Support\Facades\Http;
 
 final class PinkaryApi
 {
+    private const string PREFIX = '/api/v1';
+
+    private const int CONNECT_TIMEOUT = 5;
+
+    private const int TIMEOUT = 15;
+
     /**
      * Run an API call, returning null when the device cannot reach the
      * API (timeout, DNS) instead of throwing past the screen's error
@@ -32,7 +38,7 @@ final class PinkaryApi
      */
     public function login(string $email, string $password): Response
     {
-        return $this->request()->post('/api/v1/auth/login', [
+        return $this->request()->post(self::PREFIX.'/auth/login', [
             'email' => $email,
             'password' => $password,
         ]);
@@ -45,7 +51,7 @@ final class PinkaryApi
      */
     public function register(array $data): Response
     {
-        return $this->request()->post('/api/v1/auth/register', $data);
+        return $this->request()->post(self::PREFIX.'/auth/register', $data);
     }
 
     /**
@@ -53,7 +59,7 @@ final class PinkaryApi
      */
     public function profile(string $token): Response
     {
-        return $this->request()->withToken($token)->get('/api/v1/profile');
+        return $this->request()->withToken($token)->get(self::PREFIX.'/profile');
     }
 
     /**
@@ -62,13 +68,7 @@ final class PinkaryApi
      */
     public function feed(?string $token, string $tab = 'recent', int $page = 1): Response
     {
-        $request = $this->request();
-
-        if ($token !== null) {
-            $request = $request->withToken($token);
-        }
-
-        return $request->get('/api/v1/feed', [
+        return $this->authed($token)->get(self::PREFIX.'/feed', [
             'tab' => $tab,
             'page' => $page,
         ]);
@@ -81,27 +81,20 @@ final class PinkaryApi
      * @param  list<string>  $pollOptions
      * @param  array<int, array{options: list<string>, duration: int}|null>  $threadPolls
      */
-    public function createThread(string $token, string $content, array $threadPosts = [], ?int $channelId = null, ?string $channelName = null, array $pollOptions = [], int $pollDuration = 1, array $threadPolls = []): Response
-    {
-        // Follow-up polls travel index-aligned with their post: null
-        // entries mean "no poll", exactly like the web composer sends.
-        $normalizedThreadPolls = array_map(
-            fn (mixed $poll): mixed => $poll === null ? null : [
-                'options' => $poll['options'],
-                'duration' => $poll['duration'],
-            ],
-            array_values($threadPolls)
+    public function createThread(
+        string $token,
+        string $content,
+        array $threadPosts = [],
+        ?int $channelId = null,
+        ?string $channelName = null,
+        array $pollOptions = [],
+        int $pollDuration = 1,
+        array $threadPolls = []
+    ): Response {
+        return $this->request()->withToken($token)->post(
+            self::PREFIX.'/questions',
+            $this->threadPayload($content, $threadPosts, $channelId, $channelName, $pollOptions, $pollDuration, $threadPolls)
         );
-
-        return $this->request()->withToken($token)->post('/api/v1/questions', array_filter([
-            'content' => $content,
-            'thread_posts' => $threadPosts,
-            'channel_id' => $channelId,
-            'channel_name' => $channelName,
-            'poll_options' => $pollOptions,
-            'poll_duration' => $pollOptions === [] ? null : $pollDuration,
-            'thread_polls' => $normalizedThreadPolls,
-        ], fn (mixed $value): bool => $value !== null && $value !== []));
     }
 
     /**
@@ -109,7 +102,7 @@ final class PinkaryApi
      */
     public function like(string $token, string $id): Response
     {
-        return $this->request()->withToken($token)->post("/api/v1/questions/{$id}/like");
+        return $this->request()->withToken($token)->post(self::PREFIX."/questions/{$id}/like");
     }
 
     /**
@@ -117,7 +110,7 @@ final class PinkaryApi
      */
     public function unlike(string $token, string $id): Response
     {
-        return $this->request()->withToken($token)->delete("/api/v1/questions/{$id}/like");
+        return $this->request()->withToken($token)->delete(self::PREFIX."/questions/{$id}/like");
     }
 
     /**
@@ -125,7 +118,7 @@ final class PinkaryApi
      */
     public function bookmark(string $token, string $id): Response
     {
-        return $this->request()->withToken($token)->post("/api/v1/questions/{$id}/bookmark");
+        return $this->request()->withToken($token)->post(self::PREFIX."/questions/{$id}/bookmark");
     }
 
     /**
@@ -133,7 +126,7 @@ final class PinkaryApi
      */
     public function unbookmark(string $token, string $id): Response
     {
-        return $this->request()->withToken($token)->delete("/api/v1/questions/{$id}/bookmark");
+        return $this->request()->withToken($token)->delete(self::PREFIX."/questions/{$id}/bookmark");
     }
 
     /**
@@ -141,7 +134,7 @@ final class PinkaryApi
      */
     public function show(string $token, string $id): Response
     {
-        return $this->request()->withToken($token)->get("/api/v1/questions/{$id}");
+        return $this->request()->withToken($token)->get(self::PREFIX."/questions/{$id}");
     }
 
     /**
@@ -149,7 +142,7 @@ final class PinkaryApi
      */
     public function comments(string $token, string $id, int $page = 1): Response
     {
-        return $this->request()->withToken($token)->get("/api/v1/questions/{$id}/comments", [
+        return $this->request()->withToken($token)->get(self::PREFIX."/questions/{$id}/comments", [
             'page' => $page,
         ]);
     }
@@ -159,7 +152,7 @@ final class PinkaryApi
      */
     public function comment(string $token, string $id, string $content): Response
     {
-        return $this->request()->withToken($token)->post("/api/v1/questions/{$id}/comments", [
+        return $this->request()->withToken($token)->post(self::PREFIX."/questions/{$id}/comments", [
             'content' => $content,
         ]);
     }
@@ -170,7 +163,7 @@ final class PinkaryApi
      */
     public function votePoll(string $token, string $id, int $optionId): Response
     {
-        return $this->request()->withToken($token)->post("/api/v1/questions/{$id}/poll/vote", [
+        return $this->request()->withToken($token)->post(self::PREFIX."/questions/{$id}/poll/vote", [
             'option_id' => $optionId,
         ]);
     }
@@ -180,7 +173,7 @@ final class PinkaryApi
      */
     public function bookmarks(string $token, int $page = 1): Response
     {
-        return $this->request()->withToken($token)->get('/api/v1/bookmarks', [
+        return $this->request()->withToken($token)->get(self::PREFIX.'/bookmarks', [
             'page' => $page,
         ]);
     }
@@ -190,7 +183,7 @@ final class PinkaryApi
      */
     public function channels(string $token, string $query = ''): Response
     {
-        return $this->request()->withToken($token)->get('/api/v1/channels', [
+        return $this->request()->withToken($token)->get(self::PREFIX.'/channels', [
             'q' => $query,
         ]);
     }
@@ -200,7 +193,7 @@ final class PinkaryApi
      */
     public function search(string $token, string $query): Response
     {
-        return $this->request()->withToken($token)->get('/api/v1/search', [
+        return $this->request()->withToken($token)->get(self::PREFIX.'/search', [
             'q' => $query,
         ]);
     }
@@ -210,7 +203,7 @@ final class PinkaryApi
      */
     public function notifications(string $token, int $page = 1, ?int $perPage = null): Response
     {
-        return $this->request()->withToken($token)->get('/api/v1/notifications', array_filter([
+        return $this->request()->withToken($token)->get(self::PREFIX.'/notifications', array_filter([
             'page' => $page,
             'per_page' => $perPage,
         ]));
@@ -221,7 +214,7 @@ final class PinkaryApi
      */
     public function markNotificationsRead(string $token, ?string $id = null): Response
     {
-        return $this->request()->withToken($token)->post('/api/v1/notifications/read', array_filter([
+        return $this->request()->withToken($token)->post(self::PREFIX.'/notifications/read', array_filter([
             'id' => $id,
         ]));
     }
@@ -231,7 +224,7 @@ final class PinkaryApi
      */
     public function user(string $token, string $username): Response
     {
-        return $this->request()->withToken($token)->get("/api/v1/users/{$username}");
+        return $this->request()->withToken($token)->get(self::PREFIX."/users/{$username}");
     }
 
     /**
@@ -239,7 +232,7 @@ final class PinkaryApi
      */
     public function follow(string $token, string $username): Response
     {
-        return $this->request()->withToken($token)->post("/api/v1/users/{$username}/follow");
+        return $this->request()->withToken($token)->post(self::PREFIX."/users/{$username}/follow");
     }
 
     /**
@@ -247,7 +240,7 @@ final class PinkaryApi
      */
     public function unfollow(string $token, string $username): Response
     {
-        return $this->request()->withToken($token)->delete("/api/v1/users/{$username}/follow");
+        return $this->request()->withToken($token)->delete(self::PREFIX."/users/{$username}/follow");
     }
 
     /**
@@ -255,7 +248,7 @@ final class PinkaryApi
      */
     public function clickLink(string $token, int $linkId): Response
     {
-        return $this->request()->withToken($token)->post("/api/v1/links/{$linkId}/click");
+        return $this->request()->withToken($token)->post(self::PREFIX."/links/{$linkId}/click");
     }
 
     /**
@@ -263,7 +256,7 @@ final class PinkaryApi
      */
     public function userQuestions(string $token, string $username, int $page = 1): Response
     {
-        return $this->request()->withToken($token)->get("/api/v1/users/{$username}/questions", [
+        return $this->request()->withToken($token)->get(self::PREFIX."/users/{$username}/questions", [
             'page' => $page,
         ]);
     }
@@ -273,7 +266,7 @@ final class PinkaryApi
      */
     public function askQuestion(string $token, string $toUsername, string $content, bool $anonymously = false): Response
     {
-        return $this->request()->withToken($token)->post('/api/v1/questions', [
+        return $this->request()->withToken($token)->post(self::PREFIX.'/questions', [
             'content' => $content,
             'to_username' => $toUsername,
             'anonymously' => $anonymously,
@@ -288,7 +281,7 @@ final class PinkaryApi
      */
     public function updateProfile(string $token, array $attributes): Response
     {
-        return $this->request()->withToken($token)->patch('/api/v1/profile', $attributes);
+        return $this->request()->withToken($token)->patch(self::PREFIX.'/profile', $attributes);
     }
 
     /**
@@ -296,7 +289,7 @@ final class PinkaryApi
      */
     public function createLink(string $token, string $description, string $url): Response
     {
-        return $this->request()->withToken($token)->post('/api/v1/links', [
+        return $this->request()->withToken($token)->post(self::PREFIX.'/links', [
             'description' => $description,
             'url' => $url,
         ]);
@@ -307,7 +300,7 @@ final class PinkaryApi
      */
     public function updateLink(string $token, int $linkId, string $description, string $url): Response
     {
-        return $this->request()->withToken($token)->put("/api/v1/links/{$linkId}", [
+        return $this->request()->withToken($token)->put(self::PREFIX."/links/{$linkId}", [
             'description' => $description,
             'url' => $url,
         ]);
@@ -318,22 +311,25 @@ final class PinkaryApi
      */
     public function deleteLink(string $token, int $linkId): Response
     {
-        return $this->request()->withToken($token)->delete("/api/v1/links/{$linkId}");
+        return $this->request()->withToken($token)->delete(self::PREFIX."/links/{$linkId}");
     }
 
     /**
-     * List a user's followers / following with followed_by_me flags.
+     * List a user's followers with followed_by_me flags.
      */
     public function followers(string $token, string $username, int $page = 1): Response
     {
-        return $this->request()->withToken($token)->get("/api/v1/users/{$username}/followers", [
+        return $this->request()->withToken($token)->get(self::PREFIX."/users/{$username}/followers", [
             'page' => $page,
         ]);
     }
 
+    /**
+     * List the users a user follows with followed_by_me flags.
+     */
     public function following(string $token, string $username, int $page = 1): Response
     {
-        return $this->request()->withToken($token)->get("/api/v1/users/{$username}/following", [
+        return $this->request()->withToken($token)->get(self::PREFIX."/users/{$username}/following", [
             'page' => $page,
         ]);
     }
@@ -343,12 +339,12 @@ final class PinkaryApi
      */
     public function pinQuestion(string $token, string $id): Response
     {
-        return $this->request()->withToken($token)->post("/api/v1/questions/{$id}/pin");
+        return $this->request()->withToken($token)->post(self::PREFIX."/questions/{$id}/pin");
     }
 
     public function unpinQuestion(string $token, string $id): Response
     {
-        return $this->request()->withToken($token)->delete("/api/v1/questions/{$id}/pin");
+        return $this->request()->withToken($token)->delete(self::PREFIX."/questions/{$id}/pin");
     }
 
     /**
@@ -356,7 +352,7 @@ final class PinkaryApi
      */
     public function updateAnswer(string $token, string $id, string $answer): Response
     {
-        return $this->request()->withToken($token)->put("/api/v1/questions/{$id}/answer", [
+        return $this->request()->withToken($token)->put(self::PREFIX."/questions/{$id}/answer", [
             'answer' => $answer,
         ]);
     }
@@ -366,12 +362,12 @@ final class PinkaryApi
      */
     public function deleteQuestion(string $token, string $id): Response
     {
-        return $this->request()->withToken($token)->delete("/api/v1/questions/{$id}");
+        return $this->request()->withToken($token)->delete(self::PREFIX."/questions/{$id}");
     }
 
     public function ignoreQuestion(string $token, string $id): Response
     {
-        return $this->request()->withToken($token)->post("/api/v1/questions/{$id}/ignore");
+        return $this->request()->withToken($token)->post(self::PREFIX."/questions/{$id}/ignore");
     }
 
     /**
@@ -379,7 +375,7 @@ final class PinkaryApi
      */
     public function likers(string $token, string $id, int $page = 1): Response
     {
-        return $this->request()->withToken($token)->get("/api/v1/questions/{$id}/likes", [
+        return $this->request()->withToken($token)->get(self::PREFIX."/questions/{$id}/likes", [
             'page' => $page,
         ]);
     }
@@ -389,7 +385,7 @@ final class PinkaryApi
      */
     public function deleteNotification(string $token, string $id): Response
     {
-        return $this->request()->withToken($token)->delete("/api/v1/notifications/{$id}");
+        return $this->request()->withToken($token)->delete(self::PREFIX."/notifications/{$id}");
     }
 
     /**
@@ -397,7 +393,7 @@ final class PinkaryApi
      */
     public function logout(string $token): Response
     {
-        return $this->request()->withToken($token)->post('/api/v1/auth/logout');
+        return $this->request()->withToken($token)->post(self::PREFIX.'/auth/logout');
     }
 
     private function request(): PendingRequest
@@ -405,7 +401,67 @@ final class PinkaryApi
         return Http::baseUrl(rtrim((string) config('services.pinkary.url'), '/'))
             ->acceptJson()
             ->asJson()
-            ->connectTimeout(5)
-            ->timeout(15);
+            ->connectTimeout(self::CONNECT_TIMEOUT)
+            ->timeout(self::TIMEOUT);
+    }
+
+    /**
+     * Request builder with an optional bearer token (guest-safe endpoints).
+     */
+    private function authed(?string $token): PendingRequest
+    {
+        $request = $this->request();
+
+        if ($token !== null) {
+            $request = $request->withToken($token);
+        }
+
+        return $request;
+    }
+
+    /**
+     * Thread payload, dropping null/empty entries the API does not expect.
+     *
+     * @param  list<string>  $threadPosts
+     * @param  list<string>  $pollOptions
+     * @param  array<int, array{options: list<string>, duration: int}|null>  $threadPolls
+     * @return array<string, mixed>
+     */
+    private function threadPayload(
+        string $content,
+        array $threadPosts,
+        ?int $channelId,
+        ?string $channelName,
+        array $pollOptions,
+        int $pollDuration,
+        array $threadPolls
+    ): array {
+        return array_filter([
+            'content' => $content,
+            'thread_posts' => $threadPosts,
+            'channel_id' => $channelId,
+            'channel_name' => $channelName,
+            'poll_options' => $pollOptions,
+            'poll_duration' => $pollOptions === [] ? null : $pollDuration,
+            'thread_polls' => $this->normalizeThreadPolls($threadPolls),
+        ], fn (mixed $value): bool => $value !== null && $value !== []);
+    }
+
+    /**
+     * Normalize follow-up polls index-aligned with their post: null
+     * entries mean "no poll", exactly like the web composer sends.
+     *
+     * @param  array<int, array{options: list<string>, duration: int}|null>  $threadPolls
+     * @return array<int, array{options: list<string>, duration: int}|null>
+     */
+    private function normalizeThreadPolls(array $threadPolls): array
+    {
+        return array_map(
+            fn (mixed $poll): mixed => $poll === null ? null : [
+                'options' => $poll['options'],
+                'duration' => $poll['duration'],
+            ],
+            array_values($threadPolls)
+        );
     }
 }

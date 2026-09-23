@@ -49,7 +49,7 @@
         @elseif ($errorMessage !== '')
             <native:column class="w-full p-4 gap-3 rounded-md bg-theme-destructive/15 border border-theme-destructive">
                 <native:text class="text-sm text-theme-destructive">{{ $errorMessage }}</native:text>
-                <native:pressable class="self-start py-1" @tap="retry">
+                <native:pressable class="self-start py-1" @tap="retry" a11y-label="Try again">
                     <native:text class="text-sm font-semibold text-theme-destructive">Try again</native:text>
                 </native:pressable>
             </native:column>
@@ -75,24 +75,29 @@
                 @endif
 
                 <native:row class="items-center justify-center gap-2 mt-4 flex-wrap">
-                    <native:pressable @tap="openFollowers" a11y-label="Open followers">
-                        <native:row class="items-center px-3 py-1 rounded-full bg-theme-surface-variant border border-theme-outline-variant">
-                            <native:text class="text-sm text-theme-on-surface-variant">{{ $abbreviate($followers) }} {{ $followers === 1 ? 'Follower' : 'Followers' }}</native:text>
-                        </native:row>
-                    </native:pressable>
-                    <native:pressable @tap="openFollowing" a11y-label="Open following">
-                        <native:row class="items-center px-3 py-1 rounded-full bg-theme-surface-variant border border-theme-outline-variant">
-                            <native:text class="text-sm text-theme-on-surface-variant">{{ $abbreviate($following) }} Following</native:text>
-                        </native:row>
-                    </native:pressable>
-                    @if ($posts > 0)
-                        <native:row class="items-center px-3 py-1 rounded-full bg-theme-surface-variant border border-theme-outline-variant">
-                            <native:text class="text-sm text-theme-on-surface-variant">{{ $abbreviate($posts) }} {{ $posts === 1 ? 'Post' : 'Posts' }}</native:text>
-                        </native:row>
-                    @endif
-                    <native:row class="items-center px-3 py-1 rounded-full bg-theme-surface-variant border border-theme-outline-variant">
-                        <native:text class="text-sm text-theme-on-surface-variant">{{ $abbreviate($views) }} {{ $views === 1 ? 'View' : 'Views' }}</native:text>
-                    </native:row>
+                    @php
+                        $statPills = [
+                            ['label' => $abbreviate($followers).' '.($followers === 1 ? 'Follower' : 'Followers'), 'tap' => 'openFollowers', 'a11y' => 'Open followers'],
+                            ['label' => $abbreviate($following).' Following', 'tap' => 'openFollowing', 'a11y' => 'Open following'],
+                        ];
+                        if ($posts > 0) {
+                            $statPills[] = ['label' => $abbreviate($posts).' '.($posts === 1 ? 'Post' : 'Posts'), 'tap' => null, 'a11y' => null];
+                        }
+                        $statPills[] = ['label' => $abbreviate($views).' '.($views === 1 ? 'View' : 'Views'), 'tap' => null, 'a11y' => null];
+                    @endphp
+                    @foreach ($statPills as $pill)
+                        @if ($pill['tap'] !== null)
+                            <native:pressable @tap="{{ $pill['tap'] }}" a11y-label="{{ $pill['a11y'] }}">
+                                <native:row class="items-center px-3 py-1 rounded-full bg-theme-surface-variant border border-theme-outline-variant">
+                                    <native:text class="text-sm text-theme-on-surface-variant">{{ $pill['label'] }}</native:text>
+                                </native:row>
+                            </native:pressable>
+                        @else
+                            <native:row class="items-center px-3 py-1 rounded-full bg-theme-surface-variant border border-theme-outline-variant">
+                                <native:text class="text-sm text-theme-on-surface-variant">{{ $pill['label'] }}</native:text>
+                            </native:row>
+                        @endif
+                    @endforeach
                 </native:row>
 
                 @if (count($links) > 0)
@@ -188,7 +193,7 @@
                 @elseif ($questionsError !== '')
                     <native:column class="w-full p-4 gap-3">
                         <native:text class="text-sm text-theme-destructive">{{ $questionsError }}</native:text>
-                        <native:pressable class="self-start py-1" @tap="retryQuestions">
+                        <native:pressable class="self-start py-1" @tap="retryQuestions" a11y-label="Try again">
                             <native:text class="text-sm font-semibold text-theme-destructive">Try again</native:text>
                         </native:pressable>
                     </native:column>

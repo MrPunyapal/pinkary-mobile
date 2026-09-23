@@ -7,7 +7,6 @@ namespace App\NativeComponents;
 use App\NativeComponents\Concerns\TogglesPostReactions;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
-use App\Services\TokenStorage;
 use App\Support\CurrentUser;
 use App\Support\UnreadCount;
 use Illuminate\View\View;
@@ -228,10 +227,7 @@ final class Home extends NativeComponent
             return;
         }
 
-        if ($response->unauthorized() && $token !== null) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($token !== null && $this->handleUnauthorized($response)) {
             return;
         }
 
@@ -284,10 +280,7 @@ final class Home extends NativeComponent
             return;
         }
 
-        if ($response->unauthorized() && $token !== null) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($token !== null && $this->handleUnauthorized($response)) {
             return;
         }
 
@@ -305,13 +298,6 @@ final class Home extends NativeComponent
         $this->hasMore = $response->json('links.next') !== null;
         $this->loadMoreError = '';
         $this->loading = false;
-    }
-
-    private function token(): ?string
-    {
-        $token = app(TokenStorage::class)->get();
-
-        return is_string($token) && $token !== '' ? $token : null;
     }
 
     /**

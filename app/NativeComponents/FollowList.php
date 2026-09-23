@@ -6,7 +6,6 @@ namespace App\NativeComponents;
 
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
-use App\Services\TokenStorage;
 use Illuminate\Http\Client\Response;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
@@ -71,11 +70,9 @@ final class FollowList extends NativeComponent
             $this->mode = is_string($uri) && str_ends_with($uri, '/following') ? 'following' : 'followers';
         }
 
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -91,11 +88,9 @@ final class FollowList extends NativeComponent
 
     public function retry(): void
     {
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -120,11 +115,9 @@ final class FollowList extends NativeComponent
             return;
         }
 
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -157,10 +150,7 @@ final class FollowList extends NativeComponent
             return;
         }
 
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($this->handleUnauthorized($response)) {
             return;
         }
 
@@ -177,11 +167,9 @@ final class FollowList extends NativeComponent
             return;
         }
 
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -199,10 +187,7 @@ final class FollowList extends NativeComponent
             return;
         }
 
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($this->handleUnauthorized($response)) {
             return;
         }
 
@@ -239,10 +224,7 @@ final class FollowList extends NativeComponent
             return;
         }
 
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($this->handleUnauthorized($response)) {
             return;
         }
 
@@ -267,12 +249,5 @@ final class FollowList extends NativeComponent
         return $this->mode === 'following'
             ? $api->following($token, $this->username, $page)
             : $api->followers($token, $this->username, $page);
-    }
-
-    private function token(): ?string
-    {
-        $token = app(TokenStorage::class)->get();
-
-        return is_string($token) && $token !== '' ? $token : null;
     }
 }

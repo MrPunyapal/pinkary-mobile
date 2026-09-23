@@ -3,7 +3,7 @@
     <native:column class="w-full gap-0">
         {{-- App header: Centered Pinkary brand with search action --}}
         <native:column class="w-full bg-theme-surface border-b border-theme-outline-variant justify-center">
-            <native:row class="w-full items-center justify-between px-4 py-3 min-h-14">
+            <native:row class="w-full items-center justify-between px-4 py-4 min-h-14">
                 {{-- Left spacer keeps brand centered --}}
                 <native:column class="w-9 h-9 shrink-0" />
 
@@ -25,7 +25,7 @@
         @elseif ($errorMessage !== '')
             <native:column class="mx-4 my-5 p-4 gap-3 rounded-md bg-theme-destructive/15 border border-theme-destructive">
                 <native:text class="text-sm text-theme-destructive">{{ $errorMessage }}</native:text>
-                <native:pressable class="self-start py-1" @tap="retry">
+                <native:pressable class="self-start py-1" @tap="retry" a11y-label="Try again">
                     <native:text class="text-sm font-semibold text-theme-destructive">Try again</native:text>
                 </native:pressable>
             </native:column>

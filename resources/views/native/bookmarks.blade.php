@@ -8,9 +8,9 @@
                 <native:text class="text-sm text-theme-on-surface-variant">Loading your bookmarks…</native:text>
             </native:column>
         @elseif ($errorMessage !== '')
-            <native:column class="w-full mx-4 my-5 p-4 gap-3 rounded-md bg-theme-destructive/15 border border-theme-destructive">
+            <native:column class="mx-4 my-5 p-4 gap-3 rounded-md bg-theme-destructive/15 border border-theme-destructive">
                 <native:text class="text-sm text-theme-destructive">{{ $errorMessage }}</native:text>
-                <native:pressable class="self-start py-1" @tap="retry">
+                <native:pressable class="self-start py-1" @tap="retry" a11y-label="Try again">
                     <native:text class="text-sm font-semibold text-theme-destructive">Try again</native:text>
                 </native:pressable>
             </native:column>

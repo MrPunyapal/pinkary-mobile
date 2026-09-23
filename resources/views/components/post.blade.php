@@ -1,4 +1,4 @@
-@props(['post', 'rail' => false, 'railTop' => false, 'moreLink' => null, 'flushTop' => false, 'bare' => false, 'expanded' => false])
+@props(['post', 'rail' => false, 'railTop' => false, 'moreLink' => null, 'flushTop' => false, 'bare' => false, 'expanded' => false, 'comment' => false])
 
 @php
     $anonymous = (bool) data_get($post, 'anonymously', false);
@@ -50,34 +50,44 @@
         ? $answerText
         : mb_substr($answerText, 0, $answerLimit).'…';
     $hasMoreLink = $moreLink !== null && $moreLink !== '';
-    $contentBottomPad = $hasMoreLink ? 'pb-0.5' : ($bare ? 'pb-2' : 'pb-3');
-    $bottomPadDp = $hasMoreLink ? 2 : ($bare ? 8 : 12);
+    $contentBottomPad = $hasMoreLink ? 'pb-0.5' : ($bare ? 'pb-1' : 'pb-3');
+    $bottomPadDp = $hasMoreLink ? 2 : ($bare ? 4 : 12);
 
-    // Thread rail: responsive avatar lane connector. The rail runs directly
-    // from the avatar down to the bottom of the post (with an overlap into the
-    // next segment) so it visibly links avatars without collapsing to 0dp.
+    // Comments never carry an asked question: the asker box is skipped
+    // and the comment renders as a plain avatar-lane row authored by
+    // `from` with the content as its text — no action row, like the web.
+    $laneAuthor = $comment ? data_get($post, 'from', []) : data_get($post, 'to', []);
+    $laneText = $comment ? $questionText : $answerShown;
+    $showLane = $comment ? $laneText !== '' : $hasAnswer;
+
+    // Thread rail: responsive avatar lane connector sized to the post's
+    // own content height — no extra overlap baked into the height (that
+    // painted as blank space between threads). The -mb-1.5 reaches 6px
+    // into the next segment's pad instead: negative margins collapse,
+    // so the line connects without pushing the row taller.
     $textLines = max(1, (int) ceil(mb_strlen($answerShown) / 36));
     $estimatedContentHeight = 68 + ($textLines * 24) + $bottomPadDp
         + (count($images) * 198)
         + (is_array($preview) && ($preview['url'] ?? '') !== '' ? 184 : 0)
         + (is_array($poll) && $poll !== [] ? 120 : 0)
         + ($answerLong ? 28 : 0);
-    // Rail starts at avatar bottom (48dp from post top). Reaches full post bottom + 6dp overlap.
-    $railHeight = max(44, $estimatedContentHeight - 40 + 6);
+    // Rail starts at avatar bottom (40dp avatar). Height matches content.
+    $railHeight = max(40, $estimatedContentHeight - 40);
 
-    $topPad = $flushTop ? 'pt-2' : ($sharedUpdate ? 'pt-3' : 'pt-2');
+    $topPad = $sharedUpdate && ! $flushTop ? 'pt-3' : 'pt-2';
 @endphp
 
 {{-- Flat web-style post: full-width question box (asks only), then an
-    avatar-lane row. Chained posts draw the web's rail as an absolute
-    line inside the stretched lane (w-0.5, top 20px over avatar half,
-    bottom 12px beyond the row into the next pad) so it extends outside
-    the post box to the next avatar without adding blank space after the
-    post. The flex-1 path collapsed on device, estimated stacks added
-    height after the post — absolute avoids both. Web truth: 108. --}}
+    avatar-lane row. Chained posts draw the web's rail as a fixed-height
+    native:rect (w-0.5, estimated h-[Npx]) below the avatar plus an h-3
+    stub above it when rail-top is set, so the line visibly links
+    avatars. Estimated heights (not flex-1/absolute: both collapse on
+    the old Jump renderer) and border-l-2 never parses. Web truth: 108. --}}
 <native:column class="{{ $bare ? 'w-full' : 'w-full bg-theme-background border-b border-theme-outline-variant' }}">
-    @unless ($sharedUpdate)
-        <native:column class="w-full px-4 pt-3">
+    @unless ($sharedUpdate || $comment)
+        {{-- Chained thread segments stack tight (bare): smaller top pad
+            so the gap between two questions stays compact. --}}
+        <native:column class="w-full px-4 {{ $bare ? 'pt-2' : 'pt-3' }}">
             <native:column class="w-full gap-2 px-3 py-2.5 rounded-md bg-theme-surface-variant border border-theme-outline-variant">
                 <native:row class="w-full items-start justify-between gap-3">
                     <native:column class="flex-1 min-w-0">
@@ -108,32 +118,35 @@
         </native:column>
     @endunless
 
-    @if ($hasAnswer)
+    @if ($showLane)
         <native:row class="w-full items-stretch gap-3 px-4">
             <native:column class="w-10 items-center shrink-0 {{ $railTop ? 'pt-0' : $topPad }}">
                 @if ($railTop)
                     <native:rect class="w-0.5 h-3 bg-theme-outline shrink-0 -mt-1" />
                 @endif
-                <x-avatar :user="data_get($post, 'to', [])" />
+                <x-avatar :user="$laneAuthor" />
                 @if ($rail)
-                    <native:rect class="w-0.5 h-[{{ $railHeight }}px] bg-theme-outline shrink-0" />
+                    <native:rect class="w-0.5 h-[{{ $railHeight }}px] bg-theme-outline shrink-0 -mb-1.5" />
                 @endif
             </native:column>
                 <native:column class="flex-1 gap-1.5 min-w-0 {{ $topPad }} {{ $contentBottomPad }}">
                     <native:row class="w-full items-center justify-between gap-2">
-                        <native:pressable class="flex-1 min-w-0" @tap="openProfile('{{ data_get($post, 'to.username', '') }}')" a11y-label="Open {{ '@'.data_get($post, 'to.username', '') }}’s profile">
+                        <native:pressable class="flex-1 min-w-0" @tap="openProfile('{{ data_get($laneAuthor, 'username', '') }}')" a11y-label="Open {{ '@'.data_get($laneAuthor, 'username', '') }}’s profile">
                             {{-- Web parity (questions/show): the name never wraps
                                 and the handle truncates with … — the channel pill
                                 and timestamp on the right always stay visible. --}}
                             <native:row class="items-center gap-1.5">
-                                <native:text class="text-sm font-medium text-theme-on-surface shrink-0" max-lines="1">{{ data_get($post, 'to.name') }}</native:text>
-                                @if (data_get($post, 'to.verified') || data_get($post, 'to.company_verified'))
+                                <native:text class="text-sm font-medium text-theme-on-surface shrink-0" max-lines="1">{{ data_get($laneAuthor, 'name') }}</native:text>
+                                @if (data_get($laneAuthor, 'verified') || data_get($laneAuthor, 'company_verified'))
                                     <native:icon :ios="\App\Icons\Ios::CheckmarkSealFill" :android="\App\Icons\Android::Verified" :size="14" color="#EC4899" />
                                 @endif
-                                <native:text class="text-sm text-theme-on-surface-variant flex-1" max-lines="1">{{ '@'.data_get($post, 'to.username') }}</native:text>
+                                <native:text class="text-sm text-theme-on-surface-variant flex-1" max-lines="1">{{ '@'.data_get($laneAuthor, 'username') }}</native:text>
                             </native:row>
                         </native:pressable>
                         <native:row class="items-center gap-1.5 shrink-0">
+                            @if ($comment)
+                                <x-post-action type="translate" :post-id="$postId" field="content" />
+                            @endif
                             @if (is_array($channel) && ($channel['name'] ?? '') !== '')
                                 <native:row class="items-center gap-1 px-1.5 py-0.5 rounded-md bg-theme-surface-variant border border-theme-outline-variant">
                                     <native:icon :ios="\App\Icons\Ios::Tag" :android="\App\Icons\AndroidOutlined::Sell" :size="12" color="#EC4899" />
@@ -147,9 +160,10 @@
                     </native:row>
                 </native:row>
                 <native:pressable @tap="openDetail('{{ $postId }}')" a11y-label="Open post">
-                    <native:text class="text-base leading-relaxed text-theme-on-surface">{{ $answerShown }}</native:text>
+                    <native:text class="text-base leading-relaxed text-theme-on-surface">{{ $laneText }}</native:text>
                 </native:pressable>
 
+                @unless ($comment)
                 @if ($answerLong)
                     <x-show-more :post-id="$postId" :expanded="$expanded" />
                 @endif
@@ -202,6 +216,7 @@
                     <native:rect class="w-1 h-1 rounded-full bg-theme-outline shrink-0" />
                     <x-post-action type="menu" :post-id="$postId" />
                 </native:row>
+                @endunless
             </native:column>
         </native:row>
     @endif

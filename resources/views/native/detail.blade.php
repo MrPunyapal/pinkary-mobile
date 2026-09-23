@@ -9,7 +9,7 @@
         @elseif ($errorMessage !== '')
             <native:column class="mx-4 my-5 p-4 gap-3 rounded-md bg-theme-destructive/15 border border-theme-destructive">
                 <native:text class="text-sm text-theme-destructive">{{ $errorMessage }}</native:text>
-                <native:pressable class="self-start py-1" @tap="retry">
+                <native:pressable class="self-start py-1" @tap="retry" a11y-label="Try again">
                     <native:text class="text-sm font-semibold text-theme-destructive">Try again</native:text>
                 </native:pressable>
             </native:column>
@@ -43,12 +43,12 @@
 
             @if (count($comments) > 0 || $commentsFailed)
                 @forelse ($comments as $comment)
-                    <x-post :post="$comment" :expanded="in_array((string) data_get($comment, 'id'), array_map('strval', $expanded), true)" />
+                    <x-post :post="$comment" :comment="true" :expanded="in_array((string) data_get($comment, 'id'), array_map('strval', $expanded), true)" />
                 @empty
                     @if ($commentsFailed)
                         <native:column class="w-full items-center gap-2 px-5 py-10">
                             <native:text class="text-sm text-center text-theme-destructive">Comments could not be loaded.</native:text>
-                            <native:pressable class="py-1" @tap="retry">
+                            <native:pressable class="py-1" @tap="retry" a11y-label="Try again">
                                 <native:text class="text-sm font-semibold text-theme-destructive">Try again</native:text>
                             </native:pressable>
                         </native:column>

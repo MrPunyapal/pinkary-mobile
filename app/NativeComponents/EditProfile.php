@@ -6,7 +6,6 @@ namespace App\NativeComponents;
 
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
-use App\Services\TokenStorage;
 use App\Support\ApiErrors;
 use App\Support\CurrentUser;
 use Illuminate\Support\Facades\Validator;
@@ -75,11 +74,9 @@ final class EditProfile extends NativeComponent
 
     public function mount(): void
     {
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -88,11 +85,9 @@ final class EditProfile extends NativeComponent
 
     public function retry(): void
     {
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -109,11 +104,9 @@ final class EditProfile extends NativeComponent
             return;
         }
 
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -164,10 +157,7 @@ final class EditProfile extends NativeComponent
             return;
         }
 
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($this->handleUnauthorized($response)) {
             return;
         }
 
@@ -202,11 +192,9 @@ final class EditProfile extends NativeComponent
             return;
         }
 
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -246,10 +234,7 @@ final class EditProfile extends NativeComponent
             return;
         }
 
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($this->handleUnauthorized($response)) {
             return;
         }
 
@@ -307,11 +292,9 @@ final class EditProfile extends NativeComponent
             return;
         }
 
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -349,10 +332,7 @@ final class EditProfile extends NativeComponent
             return;
         }
 
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($this->handleUnauthorized($response)) {
             return;
         }
 
@@ -389,11 +369,9 @@ final class EditProfile extends NativeComponent
             return;
         }
 
-        $token = $this->token();
+        $token = $this->requireToken();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
-
             return;
         }
 
@@ -430,10 +408,7 @@ final class EditProfile extends NativeComponent
             return;
         }
 
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($this->handleUnauthorized($response)) {
             return;
         }
 
@@ -465,10 +440,7 @@ final class EditProfile extends NativeComponent
             return;
         }
 
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($this->handleUnauthorized($response)) {
             return;
         }
 
@@ -552,32 +524,8 @@ final class EditProfile extends NativeComponent
      */
     private function applyFieldErrors(array $errors, array $fields, ?string $fallback = null): void
     {
-        $first = null;
-        $unmappedFirst = null;
-
-        foreach ($errors as $key => $messages) {
-            $message = is_array($messages) ? ($messages[0] ?? null) : $messages;
-
-            if (! is_string($message) || $message === '') {
-                continue;
-            }
-
-            $first ??= $message;
-
-            if (isset($fields[$key])) {
-                $this->fieldErrors[$fields[$key]] = $message;
-            } else {
-                $unmappedFirst ??= $message;
-            }
-        }
-
-        $this->errorMessage = $unmappedFirst ?? $first ?? $fallback ?? 'Something went wrong. Please try again.';
-    }
-
-    private function token(): ?string
-    {
-        $token = app(TokenStorage::class)->get();
-
-        return is_string($token) && $token !== '' ? $token : null;
+        $split = ApiErrors::split($errors, $fields, $fallback);
+        $this->fieldErrors = $split['fieldErrors'];
+        $this->errorMessage = $split['message'];
     }
 }
