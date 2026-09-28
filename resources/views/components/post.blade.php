@@ -294,14 +294,25 @@
                                 </native:column>
                             </native:column>
                         @else
-                            {{-- An embed with no image: the web paints the
-                                provider's own HTML (QuestionResource only
-                                reports the card's <img>), which native cannot
-                                render. A title-only strip keeps the link
-                                reachable — an empty card would be a dead
-                                control. --}}
-                            <native:column class="w-full gap-0 px-3 py-2 rounded-lg bg-theme-bubble">
-                                <native:text class="text-xs font-semibold text-theme-on-surface" max-lines="1">{{ $preview['title'] ?? $preview['url'] }}</native:text>
+                            {{-- An EMBED preview (YouTube, Vimeo — the web's
+                                `html` branch paints the provider's own
+                                iframe, livewire/questions/show.blade.php:7-10).
+                                Native cannot render an iframe, and the API
+                                only reports a card's <img>/<h3>, so an embed
+                                arrives with image: null and its title
+                                falling back to the raw URL.
+
+                                So this is a "watch it over there" card: the
+                                host, a play glyph that says what it is, and
+                                the URL — all tappable to open the browser.
+                                A bare title-only strip read as a broken
+                                preview. --}}
+                            <native:column class="w-full items-center gap-2 px-3 py-4 rounded-lg bg-theme-bubble border border-theme-outline-variant/50">
+                                <native:row class="w-full items-center gap-2">
+                                    <native:icon :ios="\App\Icons\Ios::PlayCircle" :android="\App\Icons\AndroidOutlined::PlayCircle" :size="18" color="#EC4899" />
+                                    <native:text class="flex-1 text-xs font-semibold text-theme-on-surface" max-lines="1">{{ $preview['host'] ?? $preview['url'] }}</native:text>
+                                </native:row>
+                                <native:text class="w-full text-xs text-theme-on-surface-variant" max-lines="1">{{ $preview['url'] }}</native:text>
                             </native:column>
                         @endif
                     </native:pressable>

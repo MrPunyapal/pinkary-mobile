@@ -176,11 +176,6 @@ final class Notifications extends NativeComponent
         $this->hasMore = false;
     }
 
-    public function goFeed(): void
-    {
-        $this->navigate($this->route('mobile.feed'));
-    }
-
     public function loadMore(): void
     {
         if ($this->loadingMore || ! $this->hasMore) {

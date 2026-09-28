@@ -87,11 +87,6 @@ final class Bookmarks extends NativeComponent
         $this->navigate($this->route('mobile.user', ['username' => $username]));
     }
 
-    public function goFeed(): void
-    {
-        $this->navigate($this->route('mobile.feed'));
-    }
-
     public function translatePost(string $id, string $field = 'answer'): void
     {
         $post = $this->readPostPayload($this->posts, $id);

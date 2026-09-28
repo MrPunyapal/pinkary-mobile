@@ -98,6 +98,33 @@ it('records link visits when opening them', function (): void {
         && str_ends_with($request->url(), '/api/v1/links/7/click'));
 });
 
+it('records link visits for guests too', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::clear();
+
+    // otherProfile() ships without links, so inline one that has some.
+    $guest = array_merge(otherProfile(), ['links' => [
+        ['id' => 7, 'description' => 'Website', 'url' => 'https://example.com?ref=pinkary', 'click_count' => 3],
+    ]]);
+
+    Http::fake([
+        // questions first: Http::fake matches in registration order, and
+        // the bare username glob would otherwise swallow it.
+        'https://pinkary.test/api/v1/users/pinkaryuser/questions*' => Http::response(['data' => []]),
+        'https://pinkary.test/api/v1/users/pinkaryuser*' => Http::response(['data' => $guest]),
+        'https://pinkary.test/api/v1/links/7/click' => Http::response(['data' => ['clicked' => true]]),
+    ]);
+
+    Native::test(Profile::class, ['username' => 'pinkaryuser'])
+        ->call('openUserLink', 7);
+
+    // The endpoint reads the user id optionally and the web counts
+    // anonymous clicks, so a guest tap must still be reported. (The API
+    // still ignores the link's own owner and repeat IP clicks.)
+    Http::assertSent(fn ($request) => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/api/v1/links/7/click'));
+});
+
 it('opens author profiles from the feed', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);

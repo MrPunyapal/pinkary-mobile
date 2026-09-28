@@ -307,9 +307,16 @@ final class PinkaryApi
     /**
      * Record a profile link visit.
      */
-    public function clickLink(string $token, int $linkId): Response
+    /**
+     * Record a click on a profile link.
+     *
+     * Guests count too: the endpoint reads the user id optionally
+     * (`LinkClickController` passes `$request->user()?->id`) and the web
+     * records anonymous clicks, so the token is optional here.
+     */
+    public function clickLink(?string $token, int $linkId): Response
     {
-        return $this->request()->withToken($token)->post(self::PREFIX."/links/{$linkId}/click");
+        return $this->authed($token)->post(self::PREFIX."/links/{$linkId}/click");
     }
 
     /**

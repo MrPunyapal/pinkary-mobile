@@ -334,8 +334,8 @@ final class Profile extends NativeComponent
     /**
      * Open a profile link, recording the visit like the web does.
      * Looks the URL up from the loaded profile so markup never
-     * carries (HTML-escapable) URLs. Guests open the link too — the
-     * click record is a signed-in-only write and is simply skipped.
+     * carries (HTML-escapable) URLs. Guests open the link too, and
+     * their taps are recorded as well.
      */
     public function openUserLink(int $id): void
     {
@@ -357,12 +357,12 @@ final class Profile extends NativeComponent
             return;
         }
 
-        $token = $this->token();
-
-        if ($token !== null) {
-            $api = app(PinkaryApi::class);
-            $api->attempt(fn () => $api->clickLink($token, $id));
-        }
+        // Always record the click, signed in or not: the API accepts an
+        // anonymous click and the web counts those. The counter still
+        // ignores the link's own owner and repeat clicks from the same
+        // IP within a day (Actions/Links/UpdateLinkClicks).
+        $api = app(PinkaryApi::class);
+        $api->attempt(fn () => $api->clickLink($this->token(), $id));
 
         app(Browser::class)->inApp($url);
     }

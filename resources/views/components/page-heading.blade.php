@@ -33,7 +33,11 @@
                 the drawer-free brand bar. --}}
             <native:text class="flex-1 {{ $titleSize }} font-bold text-center text-theme-primary" max-lines="1">{{ $title }}</native:text>
         @elseif ($hasSlot)
-            <native:text class="{{ $titleSize }} font-semibold text-theme-on-surface" max-lines="1">{{ $title }}</native:text>
+            {{-- flex-1 min-w-0 is what keeps a trailing action on screen:
+                without a shrinkable title the row measures both children at
+                their natural width and "Notifications" + "Ignore all" runs
+                past the right edge. --}}
+            <native:text class="flex-1 min-w-0 {{ $titleSize }} font-semibold text-theme-on-surface" max-lines="1">{{ $title }}</native:text>
         @else
             <native:text class="flex-1 {{ $titleSize }} font-semibold text-center text-theme-on-surface" max-lines="1">{{ $title }}</native:text>
         @endif

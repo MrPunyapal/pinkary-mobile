@@ -2,7 +2,6 @@
 
 use App\NativeComponents\Bookmarks;
 use App\NativeComponents\Home;
-use App\NativeComponents\Notifications;
 use App\Support\AccountStore;
 use Illuminate\Support\Facades\Http;
 use Illuminate\View\ComponentSlot;
@@ -304,31 +303,6 @@ it('renders the empty state without a card surface, border or fill', function ()
         ->not->toHaveKey('border_width')
         ->not->toHaveKey('border_radius')
         ->and($layout['align_items'])->toBe(1);
-});
-
-it('still renders the empty state slot for its existing consumers', function (): void {
-    // native/bookmarks.blade.php and native/notifications.blade.php pass a
-    // "Back to Feed" pressable through the slot. The slot is exercised
-    // through those real screens, because a slot's content is a pre-compiled
-    // string and so never passes back through the element collector.
-    config(['services.pinkary.url' => 'https://pinkary.test']);
-    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
-    Http::fake([
-        'https://pinkary.test/api/v1/bookmarks*' => Http::response(['data' => []]),
-        'https://pinkary.test/api/v1/notifications*' => Http::response([
-            'data' => [],
-            'meta' => ['unread_count' => 0],
-        ]),
-    ]);
-
-    Native::test(Bookmarks::class)
-        ->assertSee('No bookmarks yet.')
-        ->assertSee('Posts you save for later will show up here.')
-        ->assertSee('Back to Feed');
-
-    Native::test(Notifications::class)
-        ->assertSee('No pending notifications.')
-        ->assertSee('Back to Feed');
 });
 
 it('shows the empty state on the real feed screens with its title and subtitle', function (): void {

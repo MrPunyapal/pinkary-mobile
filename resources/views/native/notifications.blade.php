@@ -40,11 +40,7 @@
                 </native:pressable>
             </native:column>
         @elseif (count($items) === 0)
-            <x-empty-state title="No pending notifications." subtitle="New replies, mentions, followers, and questions will show up here.">
-                <native:pressable class="px-4 py-2 rounded-full bg-theme-primary" @tap="goFeed" a11y-label="Back to Feed">
-                    <native:text class="text-sm font-semibold text-white">Back to Feed</native:text>
-                </native:pressable>
-            </x-empty-state>
+            <x-empty-state title="No pending notifications." subtitle="New replies, mentions, followers, and questions will show up here." />
         @else
             @foreach ($items as $item)
                 <native:pressable @tap="open('{{ data_get($item, 'id') }}')" a11y-label="Open notification">

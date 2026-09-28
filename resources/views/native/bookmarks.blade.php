@@ -16,11 +16,7 @@
                 </native:pressable>
             </native:column>
         @elseif (count($posts) === 0)
-            <x-empty-state title="No bookmarks yet." subtitle="Posts you save for later will show up here.">
-                <native:pressable class="px-4 py-2 rounded-full bg-theme-primary" @tap="goFeed" a11y-label="Back to Feed">
-                    <native:text class="text-sm font-semibold text-white">Back to Feed</native:text>
-                </native:pressable>
-            </x-empty-state>
+            <x-empty-state title="No bookmarks yet." subtitle="Posts you save for later will show up here." />
         @else
             @foreach ($posts as $post)
                 <x-thread-post :post="$post" :expanded-ids="$expanded" />

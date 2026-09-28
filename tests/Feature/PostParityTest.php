@@ -35,6 +35,23 @@ function parityPost(string $answer, array $overrides = []): array
     ], $overrides);
 }
 
+it('shows mentions and hashtags as plain text, since native text cannot tap them', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+
+    // Exactly what the API ships: sharable_answer is parsed HTML with
+    // <a> markup around the mention and hashtag.
+    $answer = 'Shipping <a href="/@ada">@ada</a> and <a href="/hashtag/laravel">#laravel</a> today.';
+
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [parityPost($answer)]]),
+    ]);
+
+    Native::test(Home::class)
+        ->assertSee('Shipping @ada and #laravel today.')
+        ->assertDontSee('<a href');
+});
+
 /** The first node in document order matching $match. */
 function parityFind(array $node, callable $match): ?array
 {
@@ -468,6 +485,42 @@ it('draws the link preview title as a bottom overlay with no card border', funct
         ->and($card['children'][0]['type'] ?? null)->toBe('image')
         ->and($card['children'][1]['type'] ?? null)->toBe('column')
         ->and(parityCount($card, fn (array $n): bool => ($n['props']['text'] ?? null) === 'example.test'))->toBe(0);
+});
+
+it('renders an embed preview as a tappable watch-over-there card', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+
+    // A YouTube/Vimeo link takes the web's `html` branch: the stored card
+    // holds a provider iframe, so QuestionResource finds no <img> and no
+    // <h3> and falls the title back to the URL. The app cannot render an
+    // iframe, so it must still offer the link honestly.
+    parityFakeFeed([parityPost('Watch this.', [
+        'preview' => [
+            'url' => 'https://www.youtube.com/watch?v=abc123',
+            'host' => 'www.youtube.com',
+            'title' => 'https://www.youtube.com/watch?v=abc123',
+            'image' => null,
+        ],
+    ])]);
+
+    $tree = Native::test(Home::class)->assertSee('Watch this.')->tree();
+
+    $pressable = parityByA11y($tree, 'Open link: www.youtube.com');
+
+    expect($pressable)->not->toBeNull()
+        ->and($pressable['on_press'] ?? null)->not->toBeNull();
+
+    $card = $pressable['children'][0];
+
+    // Host first, then the URL, so the card never renders as a bare
+    // unlabelled box. A play glyph marks it as a video.
+    expect($card['type'] ?? null)->toBe('column')
+        ->and(parityByText($card, 'www.youtube.com'))->not->toBeNull()
+        ->and(parityByText($card, 'https://www.youtube.com/watch?v=abc123'))->not->toBeNull()
+        // No image node: there is no thumbnail to load.
+        ->and(parityCount($card, fn (array $n): bool => ($n['type'] ?? '') === 'image'))->toBe(0)
+        ->and(parityCount($card, fn (array $n): bool => ($n['type'] ?? '') === 'icon'))->toBe(1);
 });
 
 it('drops the border from answer images and rounds them like the web', function (): void {

@@ -434,20 +434,23 @@ it('clears the list on ignore all like the web delete', function (): void {
         ->assertSee('No pending notifications.');
 });
 
-it('returns to the feed from the bookmarks empty state', function (): void {
+it('keeps the bookmarks empty state text-only like the web', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/bookmarks*' => Http::response(['data' => []]),
     ]);
 
+    // The web's empty state is copy only
+    // (pinkary/resources/views/livewire/bookmarks/index.blade.php:11-18) —
+    // no "Back to Feed" pill, which was a mobile-only invention. The Feed
+    // tab is the way back.
     Native::test(Bookmarks::class)
-        ->assertSee('Back to Feed')
-        ->call('goFeed')
-        ->assertNavigatedTo('/feed');
+        ->assertSee('No bookmarks yet.')
+        ->assertDontSee('Back to Feed');
 });
 
-it('returns to the feed from the notifications empty state', function (): void {
+it('keeps the notifications empty state text-only like the web', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
@@ -458,10 +461,10 @@ it('returns to the feed from the notifications empty state', function (): void {
         ]),
     ]);
 
+    // pinkary/resources/views/livewire/notifications/index.blade.php:57-68
     Native::test(Notifications::class)
-        ->assertSee('Back to Feed')
-        ->call('goFeed')
-        ->assertNavigatedTo('/feed');
+        ->assertSee('No pending notifications.')
+        ->assertDontSee('Back to Feed');
 });
 
 it('clears the search and recalls recent searches locally', function (): void {
