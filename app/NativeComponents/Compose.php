@@ -501,12 +501,28 @@ final class Compose extends NativeComponent
     }
 
     /**
+     * Whether this build can open a picker at all.
+     *
+     * Camera.PickMedia is supplied by the camera-picker plugin, and
+     * nativephp_can() is the framework's own answer to whether a bridge
+     * function exists on the running build. Gating on it means a build
+     * compiled without the plugin simply has no photo button, rather than one
+     * that taps and does nothing.
+     */
+    public function supportsImagePicker(): bool
+    {
+        return nativephp_can('Camera.PickMedia');
+    }
+
+    /**
      * The web disables its photo button while an upload is running or once the
      * limit is reached (create.blade.php:96).
      */
     public function canAddImage(): bool
     {
-        return ! $this->uploadingImages && count($this->images) < $this->maxImages();
+        return $this->supportsImagePicker()
+            && ! $this->uploadingImages
+            && count($this->images) < $this->maxImages();
     }
 
     /**

@@ -61,6 +61,34 @@ it('offers a photo button wired to the picker', function (): void {
         ->assertSee('Upload an image');
 });
 
+it('taps through to the Camera.PickMedia bridge function', function (): void {
+    fakeImageUpload([]);
+
+    $bridge = Native::fakeBridge()
+        ->respondTo('Camera.PickMedia', ['status' => 'success']);
+
+    // Tapped by its label, the way a user reaches it, rather than by
+    // calling the method directly.
+    Native::test(Compose::class)
+        ->tap('Upload an image');
+
+    // The payload is PendingMediaPicker's, not ours: nativephp_can and the
+    // mediaType/multiple/maxItems the framework reads.
+    $bridge->assertCalled('Camera.PickMedia', fn (array $params): bool => $params['mediaType'] === 'image'
+        && $params['multiple'] === true
+        && $params['maxItems'] === 3);
+});
+
+it('hides the button on a build whose bridge cannot pick', function (): void {
+    fakeImageUpload([]);
+
+    // What a build without the camera-picker plugin looks like.
+    Native::fakeBridge()->withoutCapability('Camera.PickMedia');
+
+    Native::test(Compose::class)
+        ->assertDontSee('Upload an image');
+});
+
 it('inserts image markdown into the post', function (): void {
     fakeImageUpload([[
         'url' => 'https://pinkary.test/storage/1/a.png',

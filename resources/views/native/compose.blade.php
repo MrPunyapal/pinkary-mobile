@@ -90,17 +90,23 @@
 
                 {{-- The web's secondary controls sit under the field: a photo
                     button, a poll toggle and the counter pushed right
-                    (create.blade.php:85-119). --}}
+                    (create.blade.php:85-119).
+
+                    The photo button is gated on the bridge function existing:
+                    a build without the camera-picker plugin shows no button at
+                    all rather than one that taps and does nothing. --}}
                 <native:column class="w-full">
                     <x-image-preview :images="$images" class="mt-2 flex flex-wrap gap-2" />
                     <native:row class="w-full items-center gap-1 pl-3.5 mt-1">
-                        <native:pressable
-                            class="w-7 h-7 items-center justify-center {{ $this->canAddImage() ? '' : 'opacity-40' }}"
-                            @tap="pickImages"
-                            a11y-label="Upload an image"
-                        >
-                            <native:icon :ios="\App\Icons\Ios::Photo" :android="\App\Icons\AndroidOutlined::Image" :size="16" color="#64748B" dark-color="#94A3B8" />
-                        </native:pressable>
+                        @if ($this->supportsImagePicker())
+                            <native:pressable
+                                class="w-7 h-7 items-center justify-center {{ $this->canAddImage() ? '' : 'opacity-40' }}"
+                                @tap="pickImages"
+                                a11y-label="Upload an image"
+                            >
+                                <native:icon :ios="\App\Icons\Ios::Photo" :android="\App\Icons\AndroidOutlined::Image" :size="16" color="#64748B" dark-color="#94A3B8" />
+                            </native:pressable>
+                        @endif
                         <native:pressable class="w-7 h-7 items-center justify-center" @tap="togglePoll" a11y-label="Create a poll">
                             <native:icon :ios="\App\Icons\Ios::ChartBar" :android="\App\Icons\AndroidOutlined::InsertChart" :size="16" :color="$isPoll ? '#EC4899' : '#64748B'" dark-color="#94A3B8" />
                         </native:pressable>
