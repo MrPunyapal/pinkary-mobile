@@ -3,7 +3,7 @@
     "version": "1.0.0",
     "description": "Camera.PickMedia for NativePHP: opens the system photo picker and delivers Gallery\\MediaSelected with readable file paths.",
     "namespace": "PinkaryCameraPicker",
-    "platforms": ["android"],
+    "platforms": ["android", "ios"],
     "android": {
         "min_version": 33
     },
@@ -15,6 +15,7 @@
             "name": "Camera.PickMedia",
             "android": "com.pinkary.camerapicker.CameraPickerFunctions.PickMedia",
             "android_params": ["activity"],
+            "ios": "CameraPickerPickMedia",
             "description": "Open the system photo picker and report the chosen media through the gallery event."
         }
     ]
