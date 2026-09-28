@@ -70,11 +70,7 @@ final class FollowList extends NativeComponent
             $this->mode = is_string($uri) && str_ends_with($uri, '/following') ? 'following' : 'followers';
         }
 
-        $token = $this->requireToken();
-
-        if ($token === null) {
-            return;
-        }
+        $token = $this->token();
 
         if ($this->username === '') {
             $this->loading = false;
@@ -88,13 +84,7 @@ final class FollowList extends NativeComponent
 
     public function retry(): void
     {
-        $token = $this->requireToken();
-
-        if ($token === null) {
-            return;
-        }
-
-        $this->load($token);
+        $this->load($this->token());
     }
 
     public function openProfile(string $username): void
@@ -167,11 +157,7 @@ final class FollowList extends NativeComponent
             return;
         }
 
-        $token = $this->requireToken();
-
-        if ($token === null) {
-            return;
-        }
+        $token = $this->token();
 
         $this->loadingMore = true;
         $this->loadMoreError = '';
@@ -187,7 +173,7 @@ final class FollowList extends NativeComponent
             return;
         }
 
-        if ($this->handleUnauthorized($response)) {
+        if ($token !== null && $this->handleUnauthorized($response)) {
             return;
         }
 
@@ -209,7 +195,7 @@ final class FollowList extends NativeComponent
         return view('native.follow-list');
     }
 
-    private function load(string $token): void
+    private function load(?string $token): void
     {
         $this->loading = true;
         $this->errorMessage = '';
@@ -224,7 +210,7 @@ final class FollowList extends NativeComponent
             return;
         }
 
-        if ($this->handleUnauthorized($response)) {
+        if ($token !== null && $this->handleUnauthorized($response)) {
             return;
         }
 
@@ -244,7 +230,7 @@ final class FollowList extends NativeComponent
         $this->loading = false;
     }
 
-    private function fetchPage(PinkaryApi $api, string $token, int $page): Response
+    private function fetchPage(PinkaryApi $api, ?string $token, int $page): Response
     {
         return $this->mode === 'following'
             ? $api->following($token, $this->username, $page)

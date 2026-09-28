@@ -37,8 +37,15 @@ function commentRow(string $id, string $content): array
     ];
 }
 
-it('redirects guests to login', function (): void {
+it('opens a post for guests and sends writes to login', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::clear();
+    Http::fake(detailFakes(comments: [commentRow('c1', 'A public comment.')]));
+
     Native::test(Detail::class, ['id' => 'q1'])
+        ->assertSee('A thoughtful mobile experience.')
+        ->assertSee('A public comment.')
+        ->press("toggleLike('q1')")
         ->assertReplacedWith('/login');
 });
 
@@ -575,10 +582,24 @@ function menuFakes(array $post, array $extra = []): array
     ], $extra);
 }
 
+/**
+ * Pinning labels a received question, so the chip rides the asker box
+ * — a shared update carries no asked question and shows no chip.
+ *
+ * @return array<string, mixed>
+ */
+function pinQuestionOverrides(): array
+{
+    return [
+        'content' => 'What are you building?',
+        'from' => ['name' => 'Grace Hopper', 'username' => 'grace'],
+    ];
+}
+
 it('pins the post and shows the pinned chip', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
-    Http::fake(menuFakes(menuPost(), [
+    Http::fake(menuFakes(menuPost(overrides: pinQuestionOverrides()), [
         'https://pinkary.test/api/v1/questions/q1/pin' => Http::response(['data' => ['pinned' => true]]),
     ]));
 
@@ -598,7 +619,7 @@ it('pins the post and shows the pinned chip', function (): void {
 it('unpins the post and drops the pinned chip', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
-    Http::fake(menuFakes(menuPost(overrides: ['pinned' => true]), [
+    Http::fake(menuFakes(menuPost(overrides: array_merge(pinQuestionOverrides(), ['pinned' => true])), [
         'https://pinkary.test/api/v1/questions/q1/pin' => Http::response(['data' => ['pinned' => false]]),
     ]));
 

@@ -18,6 +18,64 @@ final class PinkaryApi
     private const int TIMEOUT = 15;
 
     /**
+     * Legacy shared-update marker. Older API servers sent this literal
+     * string as a shared update's `content`; normalizeQuestion() folds
+     * it into the `is_update` flag so no screen can render it.
+     */
+    private const string UPDATE_MARKER = '__UPDATE__';
+
+    /**
+     * Normalize one question payload from the API.
+     *
+     * A shared update (a post where you answered your own question)
+     * used to arrive with the literal `__UPDATE__` marker as its
+     * `content`; the API now sends `is_update: true` with a null
+     * content. Both shapes collapse to the same normalized payload
+     * here, so the blade components only ever read `is_update`.
+     *
+     * @param  array<string, mixed>  $post
+     * @return array<string, mixed>
+     */
+    public function normalizeQuestion(array $post): array
+    {
+        if (($post['content'] ?? null) === self::UPDATE_MARKER) {
+            $post['is_update'] = true;
+            $post['content'] = null;
+        }
+
+        // Chained posts carry their rendered ancestors, which are
+        // question payloads of their own — normalize them too.
+        if (is_array($post['thread']['posts'] ?? null)) {
+            $post['thread']['posts'] = $this->normalizeQuestions($post['thread']['posts']);
+        }
+
+        return $post;
+    }
+
+    /**
+     * Normalize a list of question payloads, dropping anything that
+     * is not a payload so screens never render a half-decoded row.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function normalizeQuestions(mixed $posts): array
+    {
+        if (! is_array($posts)) {
+            return [];
+        }
+
+        $normalized = [];
+
+        foreach ($posts as $post) {
+            if (is_array($post)) {
+                $normalized[] = $this->normalizeQuestion($post);
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
      * Run an API call, returning null when the device cannot reach the
      * API (timeout, DNS) instead of throwing past the screen's error
      * state. Callers map null to their existing error copy.
@@ -131,18 +189,19 @@ final class PinkaryApi
 
     /**
      * Load a single question with the author's profile and metrics.
+     * Guests read it like the web's public question page.
      */
-    public function show(string $token, string $id): Response
+    public function show(?string $token, string $id): Response
     {
-        return $this->request()->withToken($token)->get(self::PREFIX."/questions/{$id}");
+        return $this->authed($token)->get(self::PREFIX."/questions/{$id}");
     }
 
     /**
      * List a question's direct comments, one page at a time.
      */
-    public function comments(string $token, string $id, int $page = 1): Response
+    public function comments(?string $token, string $id, int $page = 1): Response
     {
-        return $this->request()->withToken($token)->get(self::PREFIX."/questions/{$id}/comments", [
+        return $this->authed($token)->get(self::PREFIX."/questions/{$id}/comments", [
             'page' => $page,
         ]);
     }
@@ -189,11 +248,12 @@ final class PinkaryApi
     }
 
     /**
-     * Search verified users and hashtags by prefix.
+     * Search verified users and hashtags by prefix. Guests search
+     * without a token, like the web's public user directory.
      */
-    public function search(string $token, string $query): Response
+    public function search(?string $token, string $query): Response
     {
-        return $this->request()->withToken($token)->get(self::PREFIX.'/search', [
+        return $this->authed($token)->get(self::PREFIX.'/search', [
             'q' => $query,
         ]);
     }
@@ -220,11 +280,12 @@ final class PinkaryApi
     }
 
     /**
-     * Show any user's public profile card.
+     * Show any user's public profile card. Guests read it like the
+     * web's public profile page.
      */
-    public function user(string $token, string $username): Response
+    public function user(?string $token, string $username): Response
     {
-        return $this->request()->withToken($token)->get(self::PREFIX."/users/{$username}");
+        return $this->authed($token)->get(self::PREFIX."/users/{$username}");
     }
 
     /**
@@ -254,9 +315,9 @@ final class PinkaryApi
     /**
      * List a user's answered questions, pinned first (profile posts).
      */
-    public function userQuestions(string $token, string $username, int $page = 1): Response
+    public function userQuestions(?string $token, string $username, int $page = 1): Response
     {
-        return $this->request()->withToken($token)->get(self::PREFIX."/users/{$username}/questions", [
+        return $this->authed($token)->get(self::PREFIX."/users/{$username}/questions", [
             'page' => $page,
         ]);
     }
@@ -317,9 +378,9 @@ final class PinkaryApi
     /**
      * List a user's followers with followed_by_me flags.
      */
-    public function followers(string $token, string $username, int $page = 1): Response
+    public function followers(?string $token, string $username, int $page = 1): Response
     {
-        return $this->request()->withToken($token)->get(self::PREFIX."/users/{$username}/followers", [
+        return $this->authed($token)->get(self::PREFIX."/users/{$username}/followers", [
             'page' => $page,
         ]);
     }
@@ -327,9 +388,9 @@ final class PinkaryApi
     /**
      * List the users a user follows with followed_by_me flags.
      */
-    public function following(string $token, string $username, int $page = 1): Response
+    public function following(?string $token, string $username, int $page = 1): Response
     {
-        return $this->request()->withToken($token)->get(self::PREFIX."/users/{$username}/following", [
+        return $this->authed($token)->get(self::PREFIX."/users/{$username}/following", [
             'page' => $page,
         ]);
     }

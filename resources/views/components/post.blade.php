@@ -2,9 +2,11 @@
 
 @php
     $anonymous = (bool) data_get($post, 'anonymously', false);
-    $sharedUpdate = data_get($post, 'content') === '__UPDATE__'
-        && data_get($post, 'from.id') !== null
-        && data_get($post, 'from.id') === data_get($post, 'to.id');
+    // A shared update (you answered your own question) carries
+    // `is_update` and no asked question. The API layer normalizes the
+    // legacy `__UPDATE__` marker into this flag, so no screen ever
+    // renders the sentinel as text.
+    $sharedUpdate = (bool) data_get($post, 'is_update', false);
 
     // The API returns parsed HTML (answers carry links, mentions, embeds).
     // Native text cannot render HTML, so display its plain text — the same
@@ -105,12 +107,12 @@
                             <x-post-author :author="data_get($post, 'from', [])" />
                         @endif
                     </native:column>
-                    @if ($questionText !== '' && $questionText !== '__UPDATE__')
+                    @if ($questionText !== '')
                         <x-post-action type="translate" :post-id="$postId" field="content" />
                     @endif
                 </native:row>
 
-                @if ($questionText !== '' && $questionText !== '__UPDATE__')
+                @if ($questionText !== '')
                     <native:text class="text-sm leading-relaxed text-theme-on-surface">{{ $questionText }}</native:text>
                 @endif
                 @if ($pinned)

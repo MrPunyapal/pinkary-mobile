@@ -1063,7 +1063,12 @@ it('pins a feed post and shows the pinned chip', function (): void {
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [
-            homeFeedPost('q1', 'Pinnable answer.'),
+            // Pinning labels a received question, so the chip rides the
+            // asker box — a shared update has no asked question at all.
+            homeFeedPost('q1', 'Pinnable answer.', [
+                'content' => 'What are you building?',
+                'from' => ['name' => 'Grace Hopper', 'username' => 'grace'],
+            ]),
         ]]),
         'https://pinkary.test/api/v1/questions/q1/pin' => Http::response(['data' => ['pinned' => true]]),
     ]);

@@ -66,36 +66,25 @@ final class Detail extends NativeComponent
     {
         $this->id = (string) $this->param('id', '');
 
-        $token = $this->requireToken();
-
-        if ($token === null) {
-            return;
-        }
-
         if ($this->id === '') {
             $this->replace($this->route('mobile.feed'));
 
             return;
         }
 
-        $this->load($token);
+        // Reading a post is public on the web, so guests load it too.
+        $this->load($this->token());
     }
 
     public function retry(): void
     {
-        $token = $this->requireToken();
-
-        if ($token === null) {
-            return;
-        }
-
         if ($this->id === '') {
             $this->replace($this->route('mobile.feed'));
 
             return;
         }
 
-        $this->load($token);
+        $this->load($this->token());
     }
 
     /**
@@ -312,7 +301,7 @@ final class Detail extends NativeComponent
         $created = $response->json('data', []);
 
         if ($created !== []) {
-            $this->comments = [...$this->comments, $created];
+            $this->comments = [...$this->comments, $api->normalizeQuestion($created)];
         }
 
         data_set($this->post, 'metrics.comments', (int) data_get($this->post, 'metrics.comments', 0) + 1);
@@ -325,11 +314,7 @@ final class Detail extends NativeComponent
             return;
         }
 
-        $token = $this->requireToken();
-
-        if ($token === null) {
-            return;
-        }
+        $token = $this->token();
 
         $this->loadingMoreComments = true;
         $this->loadMoreCommentsError = '';
@@ -345,7 +330,7 @@ final class Detail extends NativeComponent
             return;
         }
 
-        if ($this->handleUnauthorized($response)) {
+        if ($token !== null && $this->handleUnauthorized($response)) {
             return;
         }
 
@@ -356,7 +341,7 @@ final class Detail extends NativeComponent
         }
 
         /** @var list<array<string, mixed>> $next */
-        $next = $response->json('data', []);
+        $next = $api->normalizeQuestions($response->json('data', []));
 
         /** @var array<string, true> $seen */
         $seen = [];
@@ -497,7 +482,7 @@ final class Detail extends NativeComponent
         }
     }
 
-    private function load(string $token): void
+    private function load(?string $token): void
     {
         $this->loading = true;
         $this->errorMessage = '';
@@ -512,7 +497,7 @@ final class Detail extends NativeComponent
             return;
         }
 
-        if ($this->handleUnauthorized($response)) {
+        if ($token !== null && $this->handleUnauthorized($response)) {
             return;
         }
 
@@ -525,10 +510,10 @@ final class Detail extends NativeComponent
 
         /** @var array<string, mixed> $post */
         $post = $response->json('data', []);
-        $this->post = $post;
+        $this->post = $api->normalizeQuestion($post);
 
         /** @var list<array<string, mixed>> $thread */
-        $thread = $response->json('thread', []);
+        $thread = $api->normalizeQuestions($response->json('thread', []));
         $this->thread = $thread;
 
         // The thread renders through the shared thread-post component,
@@ -549,12 +534,12 @@ final class Detail extends NativeComponent
             return;
         }
 
-        if ($this->handleUnauthorized($comments)) {
+        if ($token !== null && $this->handleUnauthorized($comments)) {
             return;
         }
 
         /** @var list<array<string, mixed>> $rows */
-        $rows = $comments->successful() ? $comments->json('data', []) : [];
+        $rows = $comments->successful() ? $api->normalizeQuestions($comments->json('data', [])) : [];
         $this->comments = $rows;
         $this->commentsFailed = ! $comments->successful();
         $this->commentPage = 1;
