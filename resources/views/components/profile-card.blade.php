@@ -3,6 +3,8 @@
     'isMe' => false,
     'followed' => false,
     'followBusy' => false,
+    'showAvatar' => false,
+    'linkError' => '',
 ])
 
 {{-- Web profile card (links/index). --}}
@@ -55,14 +57,6 @@
     }
 
     $statPills[] = ['label' => $abbreviate($views).' '.($views === 1 ? 'View' : 'Views'), 'tap' => null, 'a11y' => null];
-
-    // native/profile.blade.php hands this card nothing but the profile
-    // array, and a Blade component cannot reach the screen's own public
-    // properties, so the screen mirrors its transient card state onto the
-    // array under `_`-prefixed keys (see Profile::render()). They are
-    // client-side only — UserResource never sends keys like these.
-    $showAvatar = (bool) data_get($profile, '_show_avatar', false);
-    $linkError = (string) data_get($profile, '_link_error', '');
 @endphp
 
 {{-- Web profile card (links/index): share and QR sit on the left of the

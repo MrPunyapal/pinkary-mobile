@@ -457,7 +457,7 @@ final class Profile extends NativeComponent
         data_set($this->profile, 'links.'.$key.'._busy', true);
 
         $api = app(PinkaryApi::class);
-        $response = $api->attempt(fn () => $api->updateLinkVisibility($token, (string) $id, $next));
+        $response = $api->attempt(fn () => $api->updateLinkVisibility($token, (int) $id, $next));
 
         data_set($this->profile, 'links.'.$key.'._busy', false);
 
@@ -490,18 +490,13 @@ final class Profile extends NativeComponent
 
     public function render(): View
     {
-        // native/profile.blade.php hands the card nothing but the profile
-        // array, and a Blade component cannot reach back to the screen —
-        // so the card's own transient state (the avatar sheet, the link
-        // error) is mirrored onto it under `_`-prefixed keys. Client-side
-        // only: UserResource never sends keys like these, and nothing here
-        // is ever posted back to the API.
-        if ($this->profile !== null) {
-            $this->profile['_show_avatar'] = $this->showAvatar;
-            $this->profile['_link_error'] = $this->linkError;
-        }
-
-        return view('native.profile');
+        // The card is a Blade component, so it cannot read this screen's
+        // public properties — its transient state (the avatar sheet, the
+        // link error) is passed down as real view data by the screen.
+        return view('native.profile', [
+            'showAvatar' => $this->showAvatar,
+            'linkError' => $this->linkError,
+        ]);
     }
 
     private function load(?string $token): void

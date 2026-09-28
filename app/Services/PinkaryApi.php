@@ -381,7 +381,7 @@ final class PinkaryApi
      * back to the stored description/url), so a PATCH with that one key
      * is the whole call (LinkController:32-41).
      */
-    public function updateLinkVisibility(string $token, string $linkId, bool $isVisible): Response
+    public function updateLinkVisibility(string $token, int $linkId, bool $isVisible): Response
     {
         return $this->request()->withToken($token)->patch(self::PREFIX."/links/{$linkId}", [
             'is_visible' => $isVisible,

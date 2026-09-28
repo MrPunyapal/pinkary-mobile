@@ -28,7 +28,7 @@
             </native:column>
         @else
             <native:column class="w-full px-4 pt-4">
-                <x-profile-card :profile="$profile" :is-me="$isMe" :followed="$followed" :follow-busy="$followBusy" />
+                <x-profile-card :profile="$profile" :is-me="$isMe" :followed="$followed" :follow-busy="$followBusy" :show-avatar="$showAvatar" :link-error="$linkError" />
             </native:column>
 
             {{-- Posts are full-bleed like the feed. The card above owns
