@@ -850,7 +850,9 @@ it('toggles likes on nested thread ancestors like the web', function (): void {
 it('clamps long answers with Show more and Show less like the web', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
-    $long = rtrim(str_repeat('Long answer sentence. ', 40));
+    // 60 repetitions is 1259 characters, past the 972-character clamp
+    // (27 lines x 36 chars = the web's 640px / 24px-per-line budget).
+    $long = rtrim(str_repeat('Long answer sentence. ', 60));
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q9',
