@@ -8,6 +8,7 @@ use App\NativeComponents\Concerns\TogglesPostReactions;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
 use App\Support\ApiErrors;
+use App\Support\DisplayText;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
 
@@ -233,9 +234,7 @@ final class Detail extends NativeComponent
      */
     public function canComment(): bool
     {
-        $answer = trim(html_entity_decode(strip_tags((string) data_get($this->post, 'answer', '')), ENT_QUOTES, 'UTF-8'));
-
-        return $answer !== '';
+        return DisplayText::plain(data_get($this->post, 'answer', '')) !== '';
     }
 
     public function postComment(): void

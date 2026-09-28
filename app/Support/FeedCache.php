@@ -56,8 +56,15 @@ final class FeedCache
 
     /**
      * @param  array{items: list<array<string, mixed>>, page: int, hasMore: bool, unreadCount?: int}  $payload
+     *
+     * The default TTL is deliberately short. Every screen that reads this
+     * cache also refetches on mount, so the cache only paints content
+     * before the network answers -- it is not a source of truth. A long
+     * TTL would let a cold start paint a list that is many minutes stale
+     * before the fresh response replaces it, which reads as "the feed is
+     * out of date" even though the refetch is in flight.
      */
-    public static function put(string $key, array $payload, int $seconds = 600): void
+    public static function put(string $key, array $payload, int $seconds = 90): void
     {
         Cache::put($key, $payload, $seconds);
     }

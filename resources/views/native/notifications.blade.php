@@ -1,15 +1,7 @@
 @php
-    $shortTime = function (?string $iso): string {
-        if ($iso === null || $iso === '') {
-            return '';
-        }
-
-        try {
-            return \Illuminate\Support\Carbon::parse($iso)->diffForHumans(short: true);
-        } catch (\Throwable) {
-            return '';
-        }
-    };
+    // Shared with the post renderer so both screens phrase timestamps
+    // exactly as the web feed does.
+    $shortTime = fn (?string $iso): string => \App\Support\DisplayText::relativeTime($iso);
 @endphp
 
 <native:list on-end-reached="loadMore" class="w-full h-full bg-theme-background">

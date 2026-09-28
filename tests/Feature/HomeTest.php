@@ -7,6 +7,7 @@ use App\Support\CurrentUser;
 use App\Support\FeedCache;
 use App\Support\UnreadCount;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\FakeBridge;
 use Native\Mobile\Testing\Native;
@@ -1235,6 +1236,30 @@ it('opens and closes the app menu bottom sheet like post 3 dots', function (): v
         ->assertSee('Log Out')
         ->call('closeAppMenu')
         ->assertSet('appMenuOpen', false);
+});
+
+it('keeps the feed cache TTL short enough that a cold start cannot paint stale data', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [
+            homeFeedPost('q1', 'Short TTL.'),
+        ], 'links' => ['next' => null]]),
+    ]);
+
+    // A spy records the call and still runs it, so the load behaves
+    // exactly as it would in production.
+    Cache::spy();
+
+    Native::test(Home::class)->assertSee('Short TTL.');
+
+    // The cache only paints before the network answers, so a long TTL
+    // would show a minutes-old list on every cold start. 600s was the
+    // bug: it looked like "the feed is out of date".
+    Cache::shouldHaveReceived('put')
+        ->with(Mockery::any(), Mockery::any(), Mockery::on(
+            fn (mixed $seconds): bool => is_int($seconds) && $seconds <= 90
+        ));
 });
 
 it('writes the feed payload to the cache after a successful load', function (): void {

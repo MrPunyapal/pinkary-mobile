@@ -10,27 +10,14 @@
 
     // The API returns parsed HTML (answers carry links, mentions, embeds).
     // Native text cannot render HTML, so display its plain text — the same
-    // words the web shows, without the markup.
-    $plainText = fn (mixed $html): string => trim(html_entity_decode(strip_tags((string) $html), ENT_QUOTES, 'UTF-8'));
-
-    // Same clock as the web feed: short diffForHumans with an Edited prefix.
-    $shortTime = function (?string $iso): string {
-        if ($iso === null || $iso === '') {
-            return '';
-        }
-
-        try {
-            return \Illuminate\Support\Carbon::parse($iso)->diffForHumans(short: true);
-        } catch (\Throwable) {
-            return '';
-        }
-    };
-
-    $questionText = $plainText(data_get($post, 'content'));
-    $answerText = $plainText(data_get($post, 'answer'));
+    // words the web shows, without the markup. Both flattening and the
+    // timestamp phrasing live in App\Support\DisplayText so the other
+    // screens cannot drift away from it.
+    $questionText = \App\Support\DisplayText::plain(data_get($post, 'content'));
+    $answerText = \App\Support\DisplayText::plain(data_get($post, 'answer'));
     $hasAnswer = $answerText !== '';
     $pinned = (bool) data_get($post, 'pinned', false);
-    $timestamp = $shortTime(data_get($post, 'updated_at'));
+    $timestamp = \App\Support\DisplayText::relativeTime(data_get($post, 'updated_at'));
     $edited = (bool) data_get($post, 'edited', false);
     $channel = data_get($post, 'channel');
     $preview = data_get($post, 'preview');
