@@ -62,6 +62,16 @@ final class Home extends NativeComponent
         return 'Feed';
     }
 
+    /**
+     * Whether a signed-in account is available. Web parity
+     * (livewire/questions/show.blade.php:359): the ••• owner menu renders
+     * only for a signed-in viewer who owns the post — guests never see it.
+     */
+    public function signedIn(): bool
+    {
+        return $this->token() !== null;
+    }
+
     public function openSearch(): void
     {
         $this->navigate($this->route('mobile.search'));
@@ -162,9 +172,23 @@ final class Home extends NativeComponent
         $this->translateHtml(data_get($post, $field));
     }
 
+    /**
+     * Vote in a post's poll. Web parity
+     * (livewire/questions/poll-voting.blade.php:13): guests cannot vote at
+     * all, so a guest tap redirects to login BEFORE any request is made —
+     * never a 401 round-trip.
+     */
     public function votePoll(string $id, int $optionId): void
     {
-        $this->voteOnPostPayload($this->posts, $id, $optionId, $this->token());
+        $token = $this->token();
+
+        if ($token === null) {
+            $this->replace($this->route('mobile.login'));
+
+            return;
+        }
+
+        $this->voteOnPostPayload($this->posts, $id, $optionId, $token);
     }
 
     /**

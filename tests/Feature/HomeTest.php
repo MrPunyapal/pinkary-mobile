@@ -277,10 +277,13 @@ it('abbreviates counts exactly like the web', function (): void {
         ]]]),
     ]);
 
-    // Web keeps the ".0" (toFixed(1)): 1.5K, 1.0K, 2.5M.
+    // Web parity: likes and bookmarks abbreviate through the JS helper at
+    // precision 1 (1.5K, 2.5M) while views go through Number::abbreviate()
+    // at precision 0 (1K, not 1.0K).
     Native::test(Home::class)
         ->assertSee('1.5K')
-        ->assertSee('1.0K')
+        ->assertSee('1K')
+        ->assertDontSee('1.0K')
         ->assertSee('2.5M');
 });
 
@@ -495,8 +498,10 @@ it('abbreviates large metric counts', function (): void {
         ]),
     ]);
 
+    // Comments abbreviate at precision 0 like the web's
+    // Number::abbreviate(2300000) === '2M'; likes keep precision 1.
     Native::test(Home::class)
-        ->assertSee('2.3M')
+        ->assertSee('2M')
         ->assertSee('1.5K')
         ->assertSee('999');
 });
