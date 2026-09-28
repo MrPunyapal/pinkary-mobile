@@ -61,6 +61,9 @@ return [
             'on-surface' => '#0F172A',
             'background' => '#F1F5F9',
             'on-background' => '#0F172A',
+            // on-body = body copy on the page background (slate-700 /
+            // slate-200 on web) — answers, question text, poll labels.
+            'on-body' => '#334155',
 
             // Surface variant = filled text fields, muted tonal surfaces.
             // on-surface-variant = muted label/hint text on those surfaces.
@@ -112,6 +115,7 @@ return [
             'on-surface' => '#F8FAFC',
             'background' => '#060C18',
             'on-background' => '#F8FAFC',
+            'on-body' => '#E2E8F0',
 
             'surface-variant' => '#151C2A',
             'on-surface-variant' => '#94A3B8',

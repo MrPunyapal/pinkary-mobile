@@ -7,7 +7,12 @@
 ])
 
 @php
-    $abbreviate = function (mixed $value): string {
+    // Web parity: `Number::abbreviate()` at precision 0 for the server-rendered
+    // comments/views metrics (1K, 12K, 1M) and the JS `abbreviate()` default
+    // of precision 1 for the live like/bookmark buttons (1.5K, 2.5M).
+    // The explicit '.', '' arguments matter — the defaults would inject a
+    // thousands separator into "1.5K" as "1.5,000K"-style output.
+    $abbreviate = function (mixed $value, int $precision = 1): string {
         $number = (int) $value;
 
         if ($number < 1000) {
@@ -21,14 +26,20 @@
             return (string) $number;
         }
 
-        return number_format($number / (10 ** ($tier * 3)), 1).$symbols[$tier];
+        return number_format($number / (10 ** ($tier * 3)), $precision, '.', '').$symbols[$tier];
     };
 
     $muted = '#64748B';
     $mutedDark = '#94A3B8';
     $pink = '#EC4899';
     $showCount = (int) $count > 0;
-    $countLabel = $showCount ? $abbreviate($count) : '';
+    // Comments and views abbreviate at precision 0; likes and bookmarks at 1.
+    $precision = in_array($type, ['comments', 'views'], true) ? 0 : 1;
+    $countLabel = $showCount ? $abbreviate($count, $precision) : '';
+    // Web parity: the action metrics render at text-[0.82rem] (13.12px), not
+    // text-xs. Arbitrary `text-[N]` takes a bare point value in this renderer
+    // (TailwindParser 'text' arbitrary branch), so this is 0.82rem × 16.
+    $metricSize = 'text-[13.1px]';
     // Web parity (questions/show): only the like keeps a pink count —
     // the bookmark toggles solid vs outline at the muted tone.
     $countClass = ($active && $type !== 'bookmark') ? 'text-theme-primary' : 'text-theme-on-surface-variant';
@@ -61,7 +72,7 @@
             <native:icon :ios="\App\Icons\Ios::ChartBar" :android="\App\Icons\Android::BarChart" :size="16" color="{{ $muted }}" dark-color="{{ $mutedDark }}" />
         @endif
         @if ($showCount)
-            <native:text class="text-xs text-theme-on-surface-variant">{{ $countLabel }}</native:text>
+            <native:text class="{{ $metricSize }} text-theme-on-surface-variant">{{ $countLabel }}</native:text>
         @endif
     </native:row>
 @else
@@ -88,17 +99,19 @@
                     @endif
                     @break
                 @case ('translate')
-                    <native:icon :ios="\App\Icons\Ios::CharacterBubble" :android="\App\Icons\AndroidOutlined::Translate" :size="16" color="{{ $muted }}" dark-color="{{ $mutedDark }}" />
+                    {{-- Web parity: x-heroicon-o-language — a globe, not a
+                        speech bubble. --}}
+                    <native:icon :ios="\App\Icons\Ios::Globe" :android="\App\Icons\AndroidOutlined::Language" :size="16" color="{{ $muted }}" dark-color="{{ $mutedDark }}" />
                     @break
                 @case ('share')
                     <native:icon :ios="\App\Icons\Ios::Paperplane" :android="\App\Icons\AndroidOutlined::Send" :size="16" color="{{ $muted }}" dark-color="{{ $mutedDark }}" />
                     @break
                 @case ('menu')
-                    <native:icon :ios="\App\Icons\Ios::Ellipsis" :android="\App\Icons\AndroidOutlined::MoreHoriz" :size="16" color="{{ $muted }}" dark-color="{{ $mutedDark }}" />
+                    <native:icon :ios="\App\Icons\Ios::Ellipsis" :android="\App\Icons\AndroidOutlined::MoreHoriz" :size="20" color="{{ $muted }}" dark-color="{{ $mutedDark }}" />
                     @break
             @endswitch
             @if ($showCount)
-                <native:text class="text-xs {{ $countClass }}">{{ $countLabel }}</native:text>
+                <native:text class="{{ $metricSize }} {{ $countClass }}">{{ $countLabel }}</native:text>
             @endif
         </native:row>
     </native:pressable>
