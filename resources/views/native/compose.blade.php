@@ -96,7 +96,7 @@
                     a build without the camera-picker plugin shows no button at
                     all rather than one that taps and does nothing. --}}
                 <native:column class="w-full">
-                    <x-image-preview :images="$images" class="mt-2 flex flex-wrap gap-2" />
+                    <x-image-preview :images="$this->images" class="mt-2 flex flex-wrap gap-2" />
                     <native:row class="w-full items-center gap-1 pl-3.5 mt-1">
                         @if ($this->supportsImagePicker())
                             <native:pressable
