@@ -1,13 +1,13 @@
 {{-- Feed is a native:list: pull-to-refresh + on-end-reached auto-load (web intersect parity). Footer is spinner/error/end-copy only. --}}
 <native:list on-refresh="refreshFeed" on-end-reached="loadMore" class="w-full h-full bg-theme-background">
     <native:column class="w-full gap-0">
-        {{-- App header: Centered Pinkary brand with search action --}}
+        {{-- App header: wordmark left, search action trailing (web parity:
+            ../pinkary/resources/views/layouts/app.blade.php:83-95 is a
+            left-identity / right-action row; the web wordmark ink is
+            #0F172A, not the brand pink). --}}
         <native:column class="w-full bg-theme-surface border-b border-theme-outline-variant justify-center">
-            <native:row class="w-full items-center justify-between px-4 py-4 min-h-14">
-                {{-- Left spacer keeps brand centered --}}
-                <native:column class="w-9 h-9 shrink-0" />
-
-                <native:text class="text-xl font-bold text-center text-theme-primary" max-lines="1">Pinkary</native:text>
+            <native:row class="w-full items-center gap-3 px-4 py-4 min-h-14">
+                <native:text class="flex-1 text-xl font-bold text-theme-on-surface" max-lines="1">Pinkary</native:text>
 
                 <native:pressable class="w-9 h-9 items-center justify-center rounded-full" @tap="openSearch" a11y-label="Search">
                     <native:icon :ios="\App\Icons\Ios::Magnifyingglass" :android="\App\Icons\Android::Search" :size="20" color="#64748B" dark-color="#94A3B8" />

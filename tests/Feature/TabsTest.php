@@ -12,6 +12,7 @@ use App\NativeComponents\Search;
 use App\NativeComponents\Settings;
 use App\NativeLayout\MobileLayout;
 use App\Support\AccountStore;
+use App\Support\CurrentUser;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\Native;
@@ -180,7 +181,7 @@ it('clears results when the query is emptied', function (): void {
     Native::test(Search::class)
         ->set('query', 'x')
         ->set('query', '')
-        ->assertSee('Search people by name');
+        ->assertSee('Discover new profiles to follow.');
 });
 
 it('uses in-content headings instead of a native top bar on tab screens', function (): void {
@@ -255,9 +256,18 @@ it('keeps chrome off content-titled screens and titleless elsewhere', function (
         ->and($layout->floatingOverlay(new Register))->toBeNull()
         ->and($layout->drawer(new Home))->toBeNull();
 
+    // Guests get no tab bar actions that need a token, and the web
+    // renders the compose FAB inside @auth — so the overlay is null
+    // until a user is hydrated.
     expect($layout->tabBar(new Search))->not->toBeNull()
         ->and($layout->drawer(new Search))->toBeNull()
-        ->and($layout->floatingOverlay(new Search))->not->toBeNull();
+        ->and($layout->floatingOverlay(new Search))->toBeNull();
+
+    CurrentUser::store(['name' => 'Ada Lovelace', 'username' => 'ada', 'avatar' => null]);
+
+    expect($layout->floatingOverlay(new Search))->not->toBeNull();
+
+    CurrentUser::clear();
 });
 
 function notificationRow(string $id, string $snippet): array
@@ -477,7 +487,7 @@ it('clears the search and recalls recent searches locally', function (): void {
 
     $test
         ->call('clearQuery')
-        ->assertSee('Search people by name')
+        ->assertSee('Discover new profiles to follow.')
         ->assertSee('Recent searches')
         ->press('selectRecent(0)')
         ->assertSee('Ada Lovelace');

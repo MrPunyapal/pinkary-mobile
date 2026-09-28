@@ -229,3 +229,5 @@
         </native:column>
     </native:column>
 </native:scroll-view>
+
+@include('native.app-menu-sheet')

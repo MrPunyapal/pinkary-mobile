@@ -889,6 +889,27 @@ it('opens post images fullscreen through the in-app browser link handler', funct
         ->assertSee('A post with an image.');
 });
 
+it('leaves the wordmark left with the search action trailing', function (): void {
+    // Web parity: ../pinkary/resources/views/layouts/app.blade.php:83-95 is
+    // a left-identity / right-action bar, and the web wordmark ink is
+    // #0F172A — not the brand pink. The old dead left slot is gone.
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => []]),
+    ]);
+
+    Native::test(Home::class)->press('openSearch')->assertNavigatedTo('/search');
+
+    $source = file_get_contents(resource_path('views/native/home.blade.php'));
+
+    expect($source)
+        ->toContain('flex-1 text-xl font-bold text-theme-on-surface')
+        ->not->toContain('text-theme-primary')
+        ->not->toContain('justify-between')
+        ->not->toContain('w-9 h-9 shrink-0" />');
+});
+
 it('pushes the share action trailing with a spacer instead of ml-auto', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
@@ -1199,12 +1220,12 @@ it('opens and closes the app menu bottom sheet like post 3 dots', function (): v
         ->assertDontSee('Settings')
         ->call('openAppMenu')
         ->assertSet('appMenuOpen', true)
-        ->assertSee('Ada Lovelace')
         ->assertSee('@ada')
+        ->assertSee('About')
         ->assertSee('Settings')
         ->assertSee('Source code')
-        ->assertSee('Log out')
-        ->assertSee('Cancel')
+        ->assertSee('Add an existing account')
+        ->assertSee('Log Out')
         ->call('closeAppMenu')
         ->assertSet('appMenuOpen', false);
 });
@@ -1324,6 +1345,9 @@ it('hides pin and delete when the viewer does not own the post', function (): vo
 it('shows the unread count on the notifications tab', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    // The bell only exists on the signed-in bar, so the current user
+    // must be hydrated for the tab bar to carry the badge.
+    CurrentUser::store(['name' => 'Ada Lovelace', 'username' => 'ada', 'avatar' => null]);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => []]),
         'https://pinkary.test/api/v1/notifications*' => Http::response([

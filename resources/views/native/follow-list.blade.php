@@ -69,3 +69,5 @@
         <native:column class="w-full h-20" />
     </native:column>
 </native:list>
+
+@include('native.app-menu-sheet')
