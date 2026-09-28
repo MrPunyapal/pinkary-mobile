@@ -24,8 +24,11 @@
         h-3 stub on top for segments after the first) — responsive
         enough without flex-1/absolute, which collapse on old Jump.
         Segments stack with no gaps or boxes; the container owns the
-        single full-bleed divider, like the web. --}}
-    <native:column class="w-full gap-0 bg-theme-background border-b border-theme-outline-variant">
+        single full-bleed divider, like the web.
+        Web parity (home/feed.blade.php:2): the thread carries the web
+        column's own white fill (bg-theme-surface, dark #07101F) and
+        draws the row hairline on it, not the slate page background. --}}
+    <native:column class="w-full gap-0 bg-theme-surface border-b border-theme-outline-variant">
         @foreach ($threadPosts as $index => $ancestor)
             <x-post
                 :post="$ancestor"
