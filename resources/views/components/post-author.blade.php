@@ -1,7 +1,10 @@
 @props(['author'])
 
 <native:row class="w-full items-center gap-3">
-    <x-avatar :user="$author" company-radius="md" />
+    {{-- The web's question-bubble avatar carries no ring
+        (pinkary/resources/views/components/avatar-with-name.blade.php:8-13),
+        just the slate fill. --}}
+    <x-avatar :user="$author" company-radius="md" :border="false" />
 
     <native:column class="flex-1 gap-0.5">
         <native:pressable @tap="openProfile('{{ data_get($author, 'username', '') }}')" a11y-label="Open {{ '@'.data_get($author, 'username', '') }}’s profile">

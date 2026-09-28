@@ -7,44 +7,6 @@ use Illuminate\Support\Facades\Http;
 use Native\Mobile\Facades\System;
 use Native\Mobile\Testing\Native;
 
-function ownProfile(): array
-{
-    return [
-        'id' => 1,
-        'name' => 'Pinkary User',
-        'username' => 'pinkaryuser',
-        'email' => 'pinkary@example.com',
-        'bio' => 'Building in public.',
-        'avatar' => null,
-        'verification' => ['profile' => true, 'company' => false],
-        'stats' => ['followers' => 1500, 'following' => 12, 'posts' => 34, 'views' => 999],
-        'followed_by_me' => false,
-        'is_me' => true,
-        'links' => [
-            ['id' => 7, 'description' => 'Website', 'url' => 'https://example.com?ref=pinkary'],
-        ],
-        'member_since' => ['human' => 'today'],
-    ];
-}
-
-function otherProfile(): array
-{
-    return [
-        'id' => 2,
-        'name' => 'Ada Lovelace',
-        'username' => 'ada',
-        'email' => null,
-        'bio' => 'First programmer.',
-        'avatar' => null,
-        'verification' => ['profile' => true, 'company' => false],
-        'stats' => ['followers' => 0, 'following' => 0, 'posts' => 3, 'views' => 10],
-        'followed_by_me' => false,
-        'is_me' => false,
-        'links' => [],
-        'member_since' => ['human' => '2 years ago'],
-    ];
-}
-
 it('renders the authenticated profile card like the web', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);

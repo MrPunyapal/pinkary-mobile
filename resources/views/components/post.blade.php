@@ -119,9 +119,14 @@
             px-2 py-2), which puts the answer avatar 8px from the column
             edge; the old px-4 floated it 16px in. --}}
         <native:column class="w-full px-2 {{ $bare ? 'pt-2' : 'pt-3' }}">
-            {{-- Hairline pale edge: 1px outline at half opacity reads as a
-                seam, not a box; the tint still lifts it off the feed. --}}
-            <native:column class="w-full gap-2 px-3 py-2.5 rounded-md bg-theme-surface-variant border border-theme-outline-variant/50">
+            {{-- The asked-question card is the web's `bg-slate-50/70` over
+                white (pinkary/resources/views/livewire/questions/show.blade.php:18),
+                which is exactly the `bubble` token (config/native-ui.php, commented
+                "asked-question card (slate-50 on web)"). It must stay LIGHTER than
+                the Translate/Pinned chips below, which are `bg-theme-surface-variant`
+                (slate-100) — the web has the same relationship, chip darker than card.
+                Using surface-variant for both made the chips disappear. --}}
+            <native:column class="w-full gap-2 px-3 py-2.5 rounded-md bg-theme-bubble border border-theme-outline-variant/50">
                 <native:row class="w-full items-start justify-between gap-3">
                     <native:column class="flex-1 min-w-0">
                         @if ($anonymous)
@@ -178,7 +183,7 @@
                         slate-700 / slate-200. leading-7 does not parse in
                         this renderer; leading-loose (2.0 x 14px) is exactly
                         the 28px the web asks for. --}}
-                    <native:text class="text-sm leading-loose text-theme-on-surface-variant">{{ $questionText }}</native:text>
+                    <native:text class="text-sm leading-loose text-theme-on-body">{{ $questionText }}</native:text>
                 @endif
             </native:column>
         </native:column>
@@ -242,7 +247,7 @@
                         carries no leading class at all — the browser default
                         ~1.2 governs — so leading-[1.2] is the closest this
                         renderer can get. --}}
-                    <native:text class="text-base leading-[1.2] text-theme-on-surface-variant">{{ $laneText }}</native:text>
+                    <native:text class="text-base leading-[1.2] text-theme-on-body">{{ $laneText }}</native:text>
                 </native:pressable>
 
                 @unless ($comment)

@@ -98,7 +98,7 @@ function parityPollPost(array $overrides = []): array
     ], $overrides);
 }
 
-function parityFakeFeed(array $post): void
+function parityFakeFeedPost(array $post): void
 {
     config(['services.pinkary.url' => 'https://pinkary.test']);
 
@@ -109,7 +109,7 @@ function parityFakeFeed(array $post): void
 
 it('offers a guest the web sign-in link and never a tappable option', function (): void {
     AccountStore::clear();
-    parityFakeFeed(parityPollPost());
+    parityFakeFeedPost(parityPollPost());
 
     $test = Native::test(Home::class)
         ->assertSee('Laravel')
@@ -124,7 +124,7 @@ it('offers a guest the web sign-in link and never a tappable option', function (
 
 it('keeps poll options tappable for a signed-in viewer without the sign-in link', function (): void {
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
-    parityFakeFeed(parityPollPost());
+    parityFakeFeedPost(parityPollPost());
 
     Native::test(Home::class)
         ->assertSee('Laravel')
@@ -134,7 +134,7 @@ it('keeps poll options tappable for a signed-in viewer without the sign-in link'
 
 it('sends a guest poll tap to login before any api call', function (): void {
     AccountStore::clear();
-    parityFakeFeed(parityPollPost());
+    parityFakeFeedPost(parityPollPost());
 
     Native::test(Home::class)
         ->call('votePoll', 'q1', 1)
@@ -146,7 +146,7 @@ it('sends a guest poll tap to login before any api call', function (): void {
 
 it('abbreviates comments and views at precision 0 and likes at precision 1', function (): void {
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
-    parityFakeFeed(parityPollPost([
+    parityFakeFeedPost(parityPollPost([
         'metrics' => ['likes' => 1500, 'comments' => 2300000, 'bookmarks' => 2500000],
         'views' => 1000,
     ]));

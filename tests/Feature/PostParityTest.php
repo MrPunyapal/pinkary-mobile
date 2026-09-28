@@ -401,13 +401,14 @@ it('renders body text in the web body tone with the web line heights', function 
 
     // questions/show.blade.php:65 — text-sm leading-7 over slate-700 /
     // slate-200. leading-7 is dropped by the parser, so leading-loose
-    // (2.0 x 14px) reproduces the 28px.
+    // (2.0 x 14px) reproduces the 28px. The tone is the `on-body` token
+    // (#334155 / #E2E8F0), which is the web's slate-700/slate-200.
     $question = parityByText($tree, 'What are you building?');
 
     expect($question['props']['font_size'])->toEqual(14.0)
         ->and($question['props']['line_height'])->toEqual(2.0)
-        ->and($question['props']['color'])->toBe('#475569')
-        ->and($question['props']['dark_color'])->toBe('#94A3B8');
+        ->and($question['props']['color'])->toBe('#334155')
+        ->and($question['props']['dark_color'])->toBe('#E2E8F0');
 
     // questions/show.blade.php:166-171 applies no leading class at all, so
     // the browser default ~1.2 governs.
@@ -415,8 +416,8 @@ it('renders body text in the web body tone with the web line heights', function 
 
     expect($answer['props']['font_size'])->toEqual(16.0)
         ->and($answer['props']['line_height'])->toEqual(1.2)
-        ->and($answer['props']['color'])->toBe('#475569')
-        ->and($answer['props']['dark_color'])->toBe('#94A3B8');
+        ->and($answer['props']['color'])->toBe('#334155')
+        ->and($answer['props']['dark_color'])->toBe('#E2E8F0');
 });
 
 it('draws the link preview title as a bottom overlay with no card border', function (): void {
