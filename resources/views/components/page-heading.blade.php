@@ -1,11 +1,17 @@
 @props(['title', 'back' => false, 'brand' => false, 'size' => '2xl'])
 
-{{-- Centered heading (bookmarks pattern): title always centered and
-    vertically centered (py-4 + min-h-14 + items-center). Single source
-    for every top bar — copied verbatim to search-bar so headers can
-    never drift (no nested shell — old Jump clients drop nested slots).
-    `size` is one class token so a screen with a trailing action (the
-    notifications slot) keeps the same title scale as the plain bars. --}}
+{{-- Top bar for every screen with a heading. The bar box is the shared
+    `px-4 py-4 min-h-14` convention (home.blade.php:9 and search-bar.blade.php:7
+    use the same values — that is the web's 57px bar) so the bars cannot
+    drift apart.
+
+    `size` defaults to 2xl. The web's own section headings are
+    `text-[2rem]` (32px, resources/views/bookmarks/index.blade.php:4 and
+    livewire/notifications/index.blade.php:2-3), which is text-3xl here, but
+    only the short static titles with no back arrow and no trailing action
+    take it: a back arrow plus a 30px title crowds the bar, and the
+    notifications screen has to keep room for "Ignore all". Everything with
+    a back arrow stays centered at 2xl. --}}
 @php
     $hasSlot = trim((string) $slot) !== '';
     $titleSize = 'text-'.$size;
@@ -14,7 +20,7 @@
     {{-- A trailing action (Ignore all) must sit inside the row. A
         flex-1 title plus a centering spacer pushes that action past
         the screen edge on Android, where text does not shrink. --}}
-    <native:row class="w-full items-center px-4 py-3 min-h-14 gap-3 {{ $hasSlot ? 'justify-between' : '' }}">
+    <native:row class="w-full items-center px-4 py-4 min-h-14 gap-3 {{ $hasSlot ? 'justify-between' : '' }}">
         @if ($back)
             <native:pressable class="w-10 h-10 items-center justify-center shrink-0 -ml-2" @tap="back" a11y-label="Go back">
                 <native:icon :ios="\App\Icons\Ios::ChevronLeft" :android="\App\Icons\AndroidOutlined::ArrowBack" :size="20" color="#64748B" dark-color="#94A3B8" />

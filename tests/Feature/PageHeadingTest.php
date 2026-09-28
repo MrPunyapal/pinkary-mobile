@@ -1,6 +1,7 @@
 <?php
 
 use App\NativeComponents\Bookmarks;
+use App\NativeComponents\FollowList;
 use App\NativeComponents\Notifications;
 use App\Support\AccountStore;
 use Illuminate\Support\Facades\Http;
@@ -34,6 +35,31 @@ function headingFontSize(array $node, string $title): ?int
 
 it('keeps the same title scale with and without a trailing action', function (): void {
     Http::fake([
+        'https://pinkary.test/api/v1/notifications*' => Http::response([
+            'data' => [],
+            'links' => ['next' => null],
+            'meta' => ['unread_count' => 0],
+        ]),
+        'https://pinkary.test/api/v1/users/*/followers*' => Http::response([
+            'data' => [],
+            'links' => ['next' => null],
+        ]),
+    ]);
+
+    // The invariant is that the two heading branches of the bar share ONE
+    // default scale: notifications renders the slot branch (Ignore all) and
+    // follow-list the plain one, and both read text-2xl. This is what stops
+    // a screen from quietly dropping to a smaller title the moment it grows
+    // a trailing action.
+    expect(headingFontSize(Native::test(Notifications::class)->tree(), 'Notifications'))->toBe(24);
+    expect(headingFontSize(
+        Native::test(FollowList::class, ['username' => 'ada'])->tree(),
+        '@ada followers',
+    ))->toBe(24);
+});
+
+it('scales short static titles to the web 32px, sparing bars with a trailing action', function (): void {
+    Http::fake([
         'https://pinkary.test/api/v1/bookmarks*' => Http::response(['data' => []]),
         'https://pinkary.test/api/v1/notifications*' => Http::response([
             'data' => [],
@@ -42,8 +68,10 @@ it('keeps the same title scale with and without a trailing action', function ():
         ]),
     ]);
 
-    // Bookmarks renders the plain bar, notifications the slot bar (the
-    // unread pill + Ignore all). Both must read text-2xl like the web.
-    expect(headingFontSize(Native::test(Bookmarks::class)->tree(), 'Bookmarks'))->toBe(24);
+    // The web's section headings are text-[2rem]
+    // (resources/views/bookmarks/index.blade.php:4), which is text-3xl
+    // here. Only a short static title with no back arrow and no trailing
+    // action takes it — notifications keeps 2xl so "Ignore all" still fits.
+    expect(headingFontSize(Native::test(Bookmarks::class)->tree(), 'Bookmarks'))->toBe(30);
     expect(headingFontSize(Native::test(Notifications::class)->tree(), 'Notifications'))->toBe(24);
 });

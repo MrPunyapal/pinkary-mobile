@@ -148,3 +148,8 @@
         </native:column>
     </native:column>
 </native:scroll-view>
+
+{{-- This screen keeps the Menu tab in the bottom bar, so the sheet has to
+    be reachable here too — EditProfile uses UsesAppMenu, so $appMenuOpen is
+    live and tapping Menu would otherwise do nothing. --}}
+@include('native.app-menu-sheet')

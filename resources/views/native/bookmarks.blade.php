@@ -1,6 +1,6 @@
 <native:list on-end-reached="loadMore" class="w-full h-full bg-theme-background">
     <native:column class="w-full gap-0">
-        <x-page-heading title="Bookmarks" />
+        <x-page-heading title="Bookmarks" size="3xl" />
 
         @if ($refreshing ?? false)
             <x-refresh-bar />

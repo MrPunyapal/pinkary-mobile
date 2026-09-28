@@ -547,7 +547,7 @@ it('lists followers with pagination', function (): void {
 
     Native::test(FollowList::class, ['username' => 'ada'])
         ->assertSee('Grace Hopper')
-        ->assertSee('@ada · Followers')
+        ->assertSee('@ada followers')
         ->call('loadMore')
         ->assertSee('Linus Torvalds');
 });
@@ -568,7 +568,7 @@ it('lists following in following mode and resolves the routes', function (): voi
 
     Native::test(FollowList::class, ['username' => 'ada', 'mode' => 'following'])
         ->assertSee('Grace Hopper')
-        ->assertSee('@ada · Following');
+        ->assertSee('@ada following');
 
     Http::assertSent(fn ($request) => str_contains((string) $request->url(), '/api/v1/users/ada/following'));
 
@@ -605,7 +605,9 @@ it('follows and unfollows inline from the list', function (): void {
     $test = Native::test(FollowList::class, ['username' => 'ada'])
         ->assertSee('Follow')
         ->call('toggleFollow', 'grace')
-        ->assertSee('Following');
+        // The web's follow-button label is Unfollow/Follow, not "Following"
+        // (pinkary/resources/views/components/follow-button.blade.php:16).
+        ->assertSee('Unfollow');
 
     expect($test->get('users')[0])->toMatchArray(['followed_by_me' => true]);
 
@@ -620,8 +622,10 @@ it('shows an empty follow list like the web', function (): void {
         'https://pinkary.test/api/v1/users/ada/followers*' => Http::response(['data' => []]),
     ]);
 
+    // The web's heading IS the empty sentence
+    // (pinkary/resources/views/livewire/followers/index.blade.php:4-12).
     Native::test(FollowList::class, ['username' => 'ada'])
-        ->assertSee('No followers yet.');
+        ->assertSee('@ada does not have any followers');
 });
 
 it('edits the profile and refreshes the cached card', function (): void {

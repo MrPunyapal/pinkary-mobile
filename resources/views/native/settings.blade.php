@@ -10,7 +10,7 @@
 
 <native:scroll-view class="w-full h-full bg-theme-background">
     <native:column class="w-full gap-0">
-        <x-page-heading title="Settings" />
+        <x-page-heading title="Settings" size="3xl" />
 
         @if ($refreshing ?? false)
             <x-refresh-bar />

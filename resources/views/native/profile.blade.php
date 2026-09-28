@@ -8,7 +8,7 @@
         @if ($username !== '')
             <x-page-heading :title="'@'.(data_get($profile, 'username', $username) ?: $username)" :back="true" />
         @else
-            <x-page-heading title="Profile" />
+            <x-page-heading title="Profile" size="3xl" />
         @endif
 
         @if ($refreshing ?? false)
