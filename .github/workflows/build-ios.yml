@@ -26,7 +26,7 @@ jobs:
 
       - name: Build NativePHP iOS application
         id: build
-        uses: mrpunyapal/nativephp-build-action@70d3b8eaf6b36c7f6564e69df9029b7e1c5346d0 # main
+        uses: mrpunyapal/nativephp-build-action@0b2f33cdff551010814ebc7f8fb3f93f2e44887d # v0.2.1
         with:
           platform: ios
           build-type: release
