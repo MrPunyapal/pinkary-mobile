@@ -54,6 +54,65 @@ beforeEach(function (): void {
     CurrentUser::clear();
 });
 
+it('uploads the image as multipart, not json', function (): void {
+    fakeImageUpload([]);
+
+    $file = pickedFile();
+
+    Native::test(Compose::class)
+        ->call('onMediaSelected', pickedEvent([$file->getPathname()]));
+
+    // The failure this pins: a multipart body still labelled
+    // `Content-Type: application/json` reaches PHP as no upload at all, and the
+    // server can only say "the images field is required".
+    Http::assertSent(function ($request) use ($file): bool {
+        if (! str_ends_with($request->url(), '/api/v1/images')) {
+            return false;
+        }
+
+        $contentType = $request->header('Content-Type')[0] ?? '';
+        $body = (string) $request->body();
+
+        expect($contentType)->toContain('multipart/form-data')
+            ->and($contentType)->toContain('boundary=')
+            ->and($body)->toContain('name="images[]"')
+            ->and($body)->toContain(basename($file->getPathname()));
+
+        return true;
+    });
+});
+
+it('says so plainly when the picked file cannot be read', function (): void {
+    fakeImageUpload([]);
+
+    $test = Native::test(Compose::class)
+        ->call('onMediaSelected', pickedEvent(['/data/user/0/com.pinkary/cache/native-media/gone.jpg']));
+
+    // Not an upload at all, so no request is made and the message names the
+    // real problem instead of a field the user never touched.
+    expect($test->get('errorMessage'))->toBe('That image could not be read from this device.');
+
+    Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/api/v1/images'));
+});
+
+it('blames the jump split rather than the device', function (): void {
+    fakeImageUpload([]);
+
+    // JumpCommand exports this into the artisan serve process, which is how
+    // the app can tell the file is on the phone while PHP is on this machine.
+    putenv('JUMP_BRIDGE_PORT=3002');
+
+    try {
+        $test = Native::test(Compose::class)
+            ->call('onMediaSelected', pickedEvent(['/data/user/0/com.pinkary/cache/native-media/gone.jpg']));
+
+        expect($test->get('errorMessage'))
+            ->toBe('Photos cannot be uploaded in the Jump app. The file is on your phone and the app server is on this machine, so it needs a real build.');
+    } finally {
+        putenv('JUMP_BRIDGE_PORT');
+    }
+});
+
 it('offers a photo button wired to the picker', function (): void {
     fakeImageUpload([]);
 

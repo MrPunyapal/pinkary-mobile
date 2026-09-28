@@ -341,14 +341,10 @@ final class PinkaryApi
      */
     public function uploadImages(string $token, array $paths): Response
     {
-        $request = $this->request()->withToken($token)->asMultipart();
+        $request = $this->multipartRequest()->withToken($token);
 
         foreach ($paths as $path) {
-            if (! is_file($path) || ! is_readable($path)) {
-                continue;
-            }
-
-            $handle = fopen($path, 'rb');
+            $handle = @fopen($path, 'rb');
 
             if ($handle === false) {
                 continue;
@@ -513,6 +509,25 @@ final class PinkaryApi
         return Http::baseUrl(rtrim((string) config('services.pinkary.url'), '/'))
             ->acceptJson()
             ->asJson()
+            ->connectTimeout(self::CONNECT_TIMEOUT)
+            ->timeout(self::TIMEOUT);
+    }
+
+    /**
+     * Request builder for a multipart body.
+     *
+     * Deliberately not request()->asMultipart(): asJson() has already stamped
+     * `Content-Type: application/json` by the time that runs, and asMultipart()
+     * only switches the body format -- it never rewrites the header. The
+     * result is a boundary-encoded body labelled application/json, which PHP
+     * declines to parse as a form upload, so the server sees no files at all
+     * and answers "the images field is required".
+     */
+    private function multipartRequest(): PendingRequest
+    {
+        return Http::baseUrl(rtrim((string) config('services.pinkary.url'), '/'))
+            ->acceptJson()
+            ->asMultipart()
             ->connectTimeout(self::CONNECT_TIMEOUT)
             ->timeout(self::TIMEOUT);
     }

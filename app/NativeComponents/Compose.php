@@ -547,6 +547,23 @@ final class Compose extends NativeComponent
     }
 
     /**
+     * Why a path the picker handed back could not be opened.
+     *
+     * Under native:jump the picked file is written to the phone's cache while
+     * PHP runs on the development machine via `php artisan serve`, so the
+     * device path is never openable here. JumpCommand exports JUMP_BRIDGE_PORT
+     * into that server's environment, which is the only signal the app gets.
+     */
+    private function unreadableImageMessage(): string
+    {
+        if (getenv('JUMP_BRIDGE_PORT') !== false) {
+            return 'Photos cannot be uploaded in the Jump app. The file is on your phone and the app server is on this machine, so it needs a real build.';
+        }
+
+        return 'That image could not be read from this device.';
+    }
+
+    /**
      * Upload what the picker returned and drop each image into the post.
      */
     public function onMediaSelected(MediaSelected $event): void
@@ -571,6 +588,18 @@ final class Compose extends NativeComponent
             return;
         }
 
+        // A path PHP cannot open is not an upload. Checked here rather than
+        // left to fopen() silently dropping it and posting an empty multipart
+        // body, which the server can only answer with "the images field is
+        // required" -- a complaint about a field the user never typed.
+        $readable = array_values(array_filter($paths, 'is_readable'));
+
+        if ($readable === []) {
+            $this->errorMessage = $this->unreadableImageMessage();
+
+            return;
+        }
+
         $token = $this->requireToken();
 
         if ($token === null) {
@@ -589,7 +618,7 @@ final class Compose extends NativeComponent
         $this->errorMessage = '';
 
         $api = app(PinkaryApi::class);
-        $response = $api->attempt(fn () => $api->uploadImages($token, array_slice($paths, 0, $room)));
+        $response = $api->attempt(fn () => $api->uploadImages($token, array_slice($readable, 0, $room)));
 
         $this->uploadingImages = false;
 
