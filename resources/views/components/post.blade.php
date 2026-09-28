@@ -63,9 +63,15 @@
 
     // Comments never carry an asked question: the asker box is skipped
     // and the comment renders as a plain avatar-lane row authored by
-    // `from` with the content as its text — no action row, like the web.
+    // `from` — no action row, like the web.
+    //
+    // A comment's text is its *answer*, not its content: the web's reply
+    // composer rewrites the payload to the __UPDATE__ sentinel and moves the
+    // words into the answer (pinkary/app/Livewire/Questions/Create.php:471-475),
+    // and the API now stores comments the same way. The content fallback is
+    // only for rows written before that.
     $laneAuthor = $comment ? data_get($post, 'from', []) : data_get($post, 'to', []);
-    $laneText = $comment ? $questionText : $answerShown;
+    $laneText = $comment ? ($answerText !== '' ? $answerText : $questionText) : $answerShown;
     $showLane = $comment ? $laneText !== '' : $hasAnswer;
 
     // Thread rail: responsive avatar lane connector sized to the post's

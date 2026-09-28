@@ -30,8 +30,14 @@ function commentRow(string $id, string $content): array
         'id' => $id,
         'from' => ['name' => 'Grace Hopper', 'username' => 'grace'],
         'to' => ['name' => 'Grace Hopper', 'username' => 'grace'],
-        'content' => $content,
-        'answer' => null,
+        // A comment is a shared update: the text is the answer and content
+        // is null, because the web's reply composer rewrites the payload to
+        // the __UPDATE__ sentinel before saving
+        // (pinkary/app/Livewire/Questions/Create.php:471-475). The API
+        // mirrors that, so a client must read answer, not content.
+        'content' => null,
+        'answer' => $content,
+        'is_update' => true,
         'metrics' => ['likes' => 0, 'comments' => 0],
         'views' => 0,
     ];
