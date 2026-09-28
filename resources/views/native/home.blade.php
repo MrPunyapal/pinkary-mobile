@@ -1,5 +1,5 @@
 {{-- Feed is a native:list: pull-to-refresh + on-end-reached auto-load (web intersect parity). Footer is spinner/error/end-copy only. --}}
-<native:list on-refresh="refreshFeed" on-end-reached="loadMore" class="w-full h-full bg-theme-background">
+<native:list on-refresh="refreshFeed" on-end-reached="loadMore" class="w-full h-full bg-theme-surface">
     <native:column class="w-full gap-0">
         {{-- App header: wordmark left, search action trailing (web parity:
             ../pinkary/resources/views/layouts/app.blade.php:83-95 is a
@@ -32,6 +32,14 @@
             </native:column>
         @elseif (count($posts) === 0)
             @php
+                // Guests get a sign-in card on Following, not "your feed is
+                // empty": pinkary/resources/views/home/following.blade.php:20-38.
+                // AccountStore is the auth source of truth; the web's card is
+                // dashed-bordered, but border-dashed does not parse in this
+                // renderer, so the fill carries the card instead of a solid
+                // border the web never draws.
+                $guestFollowing = $tab === 'following' && \App\Support\AccountStore::activeId() === null;
+
                 $emptyTitle = match ($tab) {
                     'following' => 'Your following feed is empty.',
                     'trending' => 'There are no trending questions right now.',
@@ -43,7 +51,23 @@
                     default => 'Try switching to another feed view or come back once new posts are published.',
                 };
             @endphp
-            <x-empty-state :title="$emptyTitle" :subtitle="$emptySubtitle" />
+
+            @if ($guestFollowing)
+                <native:column class="w-full gap-3 mx-4 my-6 p-6 rounded-md bg-theme-surface-variant items-center">
+                    <native:text class="w-full text-xl font-semibold text-theme-on-surface text-center" max-lines="2">Sign in for a personalized feed</native:text>
+                    <native:text class="w-full text-sm leading-relaxed text-theme-on-surface-variant text-center">Log in or sign up to access personalized content. Following is already supported. You just need an account to see posts from the people you follow.</native:text>
+                    <native:row class="w-full items-center justify-center gap-3 pt-2">
+                        <native:pressable class="px-4 py-2 rounded-md bg-theme-primary" @tap="openLogin" a11y-label="Log in">
+                            <native:text class="text-sm font-semibold text-white">Log In</native:text>
+                        </native:pressable>
+                        <native:pressable class="px-4 py-2 rounded-md bg-theme-primary" @tap="openRegister" a11y-label="Register">
+                            <native:text class="text-sm font-semibold text-white">Register</native:text>
+                        </native:pressable>
+                    </native:row>
+                </native:column>
+            @else
+                <x-empty-state :title="$emptyTitle" :subtitle="$emptySubtitle" />
+            @endif
         @else
             @foreach ($posts as $post)
                 <x-thread-post :post="$post" :expanded-ids="$expanded" />

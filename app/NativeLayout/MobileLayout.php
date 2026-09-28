@@ -10,7 +10,7 @@ use App\NativeComponents\Compose;
 use App\NativeComponents\Login;
 use App\NativeComponents\Notifications;
 use App\NativeComponents\Register;
-use App\Support\CurrentUser;
+use App\Support\AccountStore;
 use App\Support\UnreadCount;
 use Native\Mobile\Edge\Layouts\Builders\Tab;
 use Native\Mobile\Edge\Layouts\Builders\TabBar;
@@ -54,7 +54,11 @@ final class MobileLayout extends NativeLayout
         // Feed / Log in / Register / Menu. Profile, Bookmarks and
         // Notifications all require a token, so offering them to guests
         // would be three dead controls that bounce to login.
-        if (CurrentUser::get() === null) {
+        //
+        // AccountStore, not CurrentUser: the profile snapshot is filled in
+        // asynchronously after a cold start, so a signed-in user would see
+        // the guest bar flash until it lands.
+        if (AccountStore::activeId() === null) {
             return $bar
                 ->add(Tab::link('Feed', '/feed', ios: Ios::HouseFill, android: Android::Home))
                 ->add(Tab::link('Log in', '/login', ios: Ios::ArrowRightSquare, android: Android::Login))
@@ -107,7 +111,7 @@ final class MobileLayout extends NativeLayout
             return null;
         }
 
-        if (CurrentUser::get() === null) {
+        if (AccountStore::activeId() === null) {
             return null;
         }
 

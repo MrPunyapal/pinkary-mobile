@@ -224,7 +224,8 @@ it('searches for guests without an Authorization header', function (): void {
     asGuest();
 
     Native::test(Search::class)
-        ->assertSee('Search people by name')
+        // The web's discovery blurb (pinkary/resources/views/livewire/home/users.blade.php:8-10).
+        ->assertSee('Discover new profiles to follow')
         ->set('query', 'ada')
         ->assertSee('Ada Lovelace')
         ->assertSee('#laravel');
