@@ -12,6 +12,8 @@ use App\Support\CurrentUser;
 use App\Support\DraftStore;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
+use Native\Mobile\Events\Gallery\MediaSelected;
+use Native\Mobile\Facades\Camera;
 
 final class Compose extends NativeComponent
 {
@@ -104,6 +106,25 @@ final class Compose extends NativeComponent
     public string $askUsername = '';
 
     public bool $anonymous = false;
+
+    /**
+     * Images already uploaded for this post, in the order they were added.
+     *
+     * Uploaded as they are picked rather than at publish, matching the web
+     * (image-upload.js dispatches on image.uploaded). Storing the returned
+     * `url` and `name` is what lets removeImage() take the markdown back out
+     * again — the server keeps no record of which post an image was staged
+     * for, so the pairing only exists here.
+     *
+     * @var list<array{url: string, path: string, name: string}>
+     */
+    public array $images = [];
+
+    /**
+     * True while picked files are being sent, which disables the button the
+     * way the web's `uploading` flag does.
+     */
+    public bool $uploadingImages = false;
 
     public function navTitle(): string
     {
@@ -471,6 +492,199 @@ final class Compose extends NativeComponent
         $this->persistDraft();
     }
 
+    /**
+     * Images allowed in one post, matching the web composer's uploadLimit.
+     */
+    public function maxImages(): int
+    {
+        return 3;
+    }
+
+    /**
+     * The web disables its photo button while an upload is running or once the
+     * limit is reached (create.blade.php:96).
+     */
+    public function canAddImage(): bool
+    {
+        return ! $this->uploadingImages && count($this->images) < $this->maxImages();
+    }
+
+    /**
+     * Open the system photo picker.
+     *
+     * The result arrives later, as its own request, so the handler is
+     * registered here and the framework calls it back against whichever
+     * component is live when the choice comes back. A cancel is not an error:
+     * the web says nothing either, so this says nothing.
+     */
+    public function pickImages(): void
+    {
+        if ($this->busy || ! $this->canAddImage()) {
+            return;
+        }
+
+        Camera::pickImages('image', true, $this->maxImages() - count($this->images))
+            ->mediaSelected(function (MediaSelected $event): void {
+                $this->onMediaSelected($event);
+            })
+            ->start();
+    }
+
+    /**
+     * Upload what the picker returned and drop each image into the post.
+     */
+    public function onMediaSelected(MediaSelected $event): void
+    {
+        if ($event->cancelled) {
+            return;
+        }
+
+        $paths = [];
+
+        foreach ($event->files as $file) {
+            $path = is_array($file) ? ($file['path'] ?? null) : null;
+
+            if (is_string($path) && $path !== '') {
+                $paths[] = $path;
+            }
+        }
+
+        if ($paths === []) {
+            $this->errorMessage = $event->error ?? 'That image could not be added.';
+
+            return;
+        }
+
+        $token = $this->requireToken();
+
+        if ($token === null) {
+            return;
+        }
+
+        // The cap is enforced again here: the picker is told how many are
+        // left, but the user can add a second batch before this one lands.
+        $room = $this->maxImages() - count($this->images);
+
+        if ($room <= 0) {
+            return;
+        }
+
+        $this->uploadingImages = true;
+        $this->errorMessage = '';
+
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->uploadImages($token, array_slice($paths, 0, $room)));
+
+        $this->uploadingImages = false;
+
+        if ($response === null) {
+            $this->errorMessage = 'That image could not be uploaded. Please try again.';
+
+            return;
+        }
+
+        if ($this->handleUnauthorized($response)) {
+            return;
+        }
+
+        if (! $response->successful()) {
+            $this->errorMessage = ApiErrors::first($response, 'That image could not be uploaded.');
+
+            return;
+        }
+
+        /** @var list<array<string, mixed>> $uploaded */
+        $uploaded = $response->json('data', []);
+
+        foreach ($uploaded as $image) {
+            $url = (string) data_get($image, 'url', '');
+            $name = (string) data_get($image, 'original_name', '');
+
+            if ($url === '' || $name === '') {
+                continue;
+            }
+
+            $this->addImage($url, $name, (string) data_get($image, 'path', ''));
+        }
+
+        $this->touchDraft();
+    }
+
+    /**
+     * Stage one uploaded image and write its markdown into the post.
+     *
+     * Mirrors image-upload.js: a leading newline when the post already has
+     * text, no second copy of a snippet already present, and an error rather
+     * than a silent truncation when the snippet would push the post over the
+     * limit — the image stays in the list so it can be removed.
+     */
+    private function addImage(string $url, string $name, string $path = ''): void
+    {
+        $snippet = '!['.$name.']('.$url.')';
+
+        if (str_contains($this->content, $snippet)) {
+            return;
+        }
+
+        $candidate = ($this->content !== '' && ! str_ends_with($this->content, "\n"))
+            ? "\n".$snippet
+            : $snippet;
+
+        if (mb_strlen($this->content.$candidate) > $this->maxContentLength()) {
+            $this->errorMessage = 'Adding this image will exceed the maximum content length.';
+
+            return;
+        }
+
+        $this->images[] = ['url' => $url, 'path' => $path, 'name' => $name];
+
+        $this->content .= $candidate;
+    }
+
+    /**
+     * Take a staged image back out, removing its markdown from the post.
+     *
+     * The stored file itself is left alone: the API has no delete for an
+     * unposted image, and the web's equivalent only deletes once validation
+     * passes. An image removed here is simply never referenced.
+     */
+    public function removeImage(int $index): void
+    {
+        if ($this->busy || ! isset($this->images[$index])) {
+            return;
+        }
+
+        $image = $this->images[$index];
+
+        $snippet = '!['.$image['name'].']('.$image['url'].')';
+
+        // A trailing newline came in with the snippet, so it leaves with it.
+        $this->content = str_replace($snippet."\n", '', $this->content);
+        $this->content = str_replace($snippet, '', $this->content);
+
+        unset($this->images[$index]);
+        $this->images = array_values($this->images);
+
+        $this->touchDraft();
+    }
+
+    /**
+     * Put a staged image's markdown back into the post.
+     *
+     * The web offers this on the thumbnail (create.blade.php:70, bound to
+     * createMarkdownImage(index)) and it is what makes removeImage() safe to
+     * try: the file is still there, so the post is not ruined.
+     */
+    public function reinsertImage(int $index): void
+    {
+        if ($this->busy || ! isset($this->images[$index])) {
+            return;
+        }
+
+        $this->addImage($this->images[$index]['url'], $this->images[$index]['name'], $this->images[$index]['path']);
+        $this->touchDraft();
+    }
+
     public function publish(): void
     {
         if ($this->busy) {
@@ -609,6 +823,7 @@ final class Compose extends NativeComponent
         $this->content = '';
         $this->posts = [];
         $this->postPolls = [];
+        $this->images = [];
         $this->channelId = null;
         $this->channelName = '';
         $this->channelQuery = '';
@@ -818,6 +1033,7 @@ final class Compose extends NativeComponent
         $this->content = $draft['content'];
         $this->posts = $draft['posts'];
         $this->postPolls = $draft['postPolls'];
+        $this->images = $draft['images'] ?? [];
         $this->channelId = $draft['channelId'];
         $this->channelName = $draft['channelName'];
         $this->isPoll = $draft['isPoll'];
@@ -832,6 +1048,7 @@ final class Compose extends NativeComponent
             'content' => $this->content,
             'posts' => $this->posts,
             'postPolls' => $this->postPolls,
+            'images' => $this->images,
             'channelId' => $this->channelId,
             'channelName' => $this->channelName,
             'isPoll' => $this->isPoll,

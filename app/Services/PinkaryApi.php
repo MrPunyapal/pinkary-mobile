@@ -330,6 +330,37 @@ final class PinkaryApi
     }
 
     /**
+     * Upload a post's images, returning their public URLs and stored paths.
+     *
+     * The composer appends `![name](url)` to the post body from what this
+     * returns, so the markdown can be written before the post exists — which
+     * is what the web does too, uploading the moment a file is picked rather
+     * than at publish.
+     *
+     * @param  list<string>  $paths  Absolute paths on the device.
+     */
+    public function uploadImages(string $token, array $paths): Response
+    {
+        $request = $this->request()->withToken($token)->asMultipart();
+
+        foreach ($paths as $path) {
+            if (! is_file($path) || ! is_readable($path)) {
+                continue;
+            }
+
+            $handle = fopen($path, 'rb');
+
+            if ($handle === false) {
+                continue;
+            }
+
+            $request = $request->attach('images[]', $handle, basename($path));
+        }
+
+        return $request->post(self::PREFIX.'/images');
+    }
+
+    /**
      * Ask another user a question (255 chars, optionally anonymous).
      */
     public function askQuestion(string $token, string $toUsername, string $content, bool $anonymously = false): Response

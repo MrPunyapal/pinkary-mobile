@@ -24,6 +24,7 @@ final class DraftStore
      *     content: string,
      *     posts: list<string>,
      *     postPolls: list<array{isPoll: bool, options: list<string>, duration: int}>,
+     *     images: list<array{url: string, path: string, name: string}>,
      *     channelId: int|null,
      *     channelName: string,
      *     isPoll: bool,
@@ -73,6 +74,7 @@ final class DraftStore
      *     content: string,
      *     posts: list<string>,
      *     postPolls: list<array{isPoll: bool, options: list<string>, duration: int}>,
+     *     images: list<array{url: string, path: string, name: string}>,
      *     channelId: int|null,
      *     channelName: string,
      *     isPoll: bool,
@@ -116,6 +118,7 @@ final class DraftStore
      *     content: string,
      *     posts: list<string>,
      *     postPolls: list<array{isPoll: bool, options: list<string>, duration: int}>,
+     *     images: list<array{url: string, path: string, name: string}>,
      *     channelId: int|null,
      *     channelName: string,
      *     isPoll: bool,
@@ -156,6 +159,7 @@ final class DraftStore
             'content' => isset($draft['content']) && is_string($draft['content']) ? $draft['content'] : '',
             'posts' => $posts,
             'postPolls' => $postPolls,
+            'images' => self::imageList($draft['images'] ?? []),
             'channelId' => $channelId,
             'channelName' => isset($draft['channelName']) && is_string($draft['channelName']) ? $draft['channelName'] : '',
             'isPoll' => (bool) ($draft['isPoll'] ?? false),
@@ -163,6 +167,46 @@ final class DraftStore
             'pollDuration' => $pollDuration,
             'anonymous' => (bool) ($draft['anonymous'] ?? false),
         ];
+    }
+
+    /**
+     * Images already uploaded for the post, kept so a restored draft can still
+     * show a thumbnail and take the markdown back out again.
+     *
+     * @return list<array{url: string, path: string, name: string}>
+     */
+    private static function imageList(mixed $values): array
+    {
+        if (! is_array($values)) {
+            return [];
+        }
+
+        $images = [];
+
+        foreach (array_values($values) as $image) {
+            if (! is_array($image)) {
+                continue;
+            }
+
+            $url = $image['url'] ?? null;
+            $name = $image['name'] ?? null;
+
+            // Both are needed to rebuild the markdown, so an entry missing
+            // either is dropped rather than restored half-formed.
+            if (! is_string($url) || $url === '' || ! is_string($name) || $name === '') {
+                continue;
+            }
+
+            $path = $image['path'] ?? '';
+
+            $images[] = [
+                'url' => $url,
+                'path' => is_string($path) ? $path : '',
+                'name' => $name,
+            ];
+        }
+
+        return $images;
     }
 
     /** @return list<string> */

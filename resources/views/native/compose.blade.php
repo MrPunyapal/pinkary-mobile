@@ -90,32 +90,30 @@
 
                 {{-- The web's secondary controls sit under the field: a photo
                     button, a poll toggle and the counter pushed right
-                    (create.blade.php:85-119).
-
-                    No photo button yet, and that is a backend gap rather than
-                    a platform one. The framework does ship a gallery picker
-                    (Native\Mobile\Facades\Camera::pickImages, delivering
-                    Events\Gallery\MediaSelected), so the button is buildable
-                    -- but the API has no endpoint to receive a post image.
-                    The web stores images through ImageProcessor and puts a
-                    markdown ![alt](url) in the post body, which
-                    ImageProviderParsable then renders; the only multipart
-                    surface the API has is the avatar on UpdateProfileRequest.
-                    Until that endpoint exists, a photo button would be a
-                    visible control that silently does nothing. --}}
-                <native:row class="w-full items-center gap-1 pl-3.5">
-                    <native:pressable class="w-7 h-7 items-center justify-center" @tap="togglePoll" a11y-label="Create a poll">
-                        <native:icon :ios="\App\Icons\Ios::ChartBar" :android="\App\Icons\AndroidOutlined::InsertChart" :size="16" :color="$isPoll ? '#EC4899' : '#64748B'" dark-color="#94A3B8" />
-                    </native:pressable>
-                    @php [$length, $over] = $counter($content); @endphp
-                    <native:column class="flex-1 items-end">
-                        @if ($over > 0)
-                            <native:text class="px-1.5 text-xs font-semibold text-theme-destructive rounded-full border-2 border-theme-destructive">{{ $over }}</native:text>
-                        @elseif ($length > 0)
-                            <native:text class="text-xs text-theme-on-surface-variant">{{ $length }} / {{ $limit }}</native:text>
-                        @endif
-                    </native:column>
-                </native:row>
+                    (create.blade.php:85-119). --}}
+                <native:column class="w-full">
+                    <x-image-preview :images="$images" class="mt-2 flex flex-wrap gap-2" />
+                    <native:row class="w-full items-center gap-1 pl-3.5 mt-1">
+                        <native:pressable
+                            class="w-7 h-7 items-center justify-center {{ $this->canAddImage() ? '' : 'opacity-40' }}"
+                            @tap="pickImages"
+                            a11y-label="Upload an image"
+                        >
+                            <native:icon :ios="\App\Icons\Ios::Photo" :android="\App\Icons\AndroidOutlined::Image" :size="16" color="#64748B" dark-color="#94A3B8" />
+                        </native:pressable>
+                        <native:pressable class="w-7 h-7 items-center justify-center" @tap="togglePoll" a11y-label="Create a poll">
+                            <native:icon :ios="\App\Icons\Ios::ChartBar" :android="\App\Icons\AndroidOutlined::InsertChart" :size="16" :color="$isPoll ? '#EC4899' : '#64748B'" dark-color="#94A3B8" />
+                        </native:pressable>
+                        @php [$length, $over] = $counter($content); @endphp
+                        <native:column class="flex-1 items-end">
+                            @if ($over > 0)
+                                <native:text class="px-1.5 text-xs font-semibold text-theme-destructive rounded-full border-2 border-theme-destructive">{{ $over }}</native:text>
+                            @elseif ($length > 0)
+                                <native:text class="text-xs text-theme-on-surface-variant">{{ $length }} / {{ $limit }}</native:text>
+                            @endif
+                        </native:column>
+                    </native:row>
+                </native:column>
 
                 @if ($over > 0)
                     <native:text class="text-xs text-theme-destructive pl-3.5">Over the {{ $limit }} character limit.</native:text>
