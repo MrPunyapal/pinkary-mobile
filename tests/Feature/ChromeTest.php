@@ -62,6 +62,10 @@ it('shows guests only working tabs', function (): void {
 
 it('keeps the signed-in tab bar unchanged', function (): void {
     // Web: ../pinkary/resources/views/layouts/navigation.blade.php:254-290
+    // TokenStorage::store() always writes the account, so a signed-in
+    // layout is seeded through AccountStore — the snapshot alone is a
+    // fixture that production never produces on its own.
+    AccountStore::add('ada', 'test-token', ['name' => 'Ada Lovelace', 'username' => 'ada']);
     CurrentUser::store(['name' => 'Ada Lovelace', 'username' => 'ada', 'avatar' => null]);
 
     expect(tabBarLabels(new MobileLayout, new Home))
@@ -84,6 +88,7 @@ it('hides the compose fab from guests', function (): void {
     // FAB (and its modal) in @auth.
     expect((new MobileLayout)->floatingOverlay(new Home))->toBeNull();
 
+    AccountStore::add('ada', 'test-token', ['name' => 'Ada Lovelace', 'username' => 'ada']);
     CurrentUser::store(['name' => 'Ada Lovelace', 'username' => 'ada', 'avatar' => null]);
 
     expect((new MobileLayout)->floatingOverlay(new Home))->not->toBeNull();
@@ -97,6 +102,7 @@ it('hides the compose fab while the app menu is open', function (): void {
         ->toContain('opacity-0')
         ->toContain('a11y-label="Post"');
 
+    AccountStore::add('ada', 'test-token', ['name' => 'Ada Lovelace', 'username' => 'ada']);
     CurrentUser::store(['name' => 'Ada Lovelace', 'username' => 'ada', 'avatar' => null]);
 
     $closed = new Home;

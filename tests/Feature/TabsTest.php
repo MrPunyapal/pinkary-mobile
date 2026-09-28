@@ -263,6 +263,10 @@ it('keeps chrome off content-titled screens and titleless elsewhere', function (
         ->and($layout->drawer(new Search))->toBeNull()
         ->and($layout->floatingOverlay(new Search))->toBeNull();
 
+    // TokenStorage::store() always writes the account, so a signed-in
+    // layout is seeded through AccountStore — the snapshot alone is a
+    // fixture that production never produces on its own.
+    AccountStore::add('ada', 'test-token', ['name' => 'Ada Lovelace', 'username' => 'ada']);
     CurrentUser::store(['name' => 'Ada Lovelace', 'username' => 'ada', 'avatar' => null]);
 
     expect($layout->floatingOverlay(new Search))->not->toBeNull();
