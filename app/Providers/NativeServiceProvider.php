@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Native\Mobile\UI\NativeUIServiceProvider;
+use Pinkary\NativePhp\CameraPicker\CameraPickerServiceProvider;
 
 class NativeServiceProvider extends ServiceProvider
 {
@@ -37,6 +38,11 @@ class NativeServiceProvider extends ServiceProvider
         return [
             NativeUIServiceProvider::class,
 
+            // Supplies the Camera.PickMedia bridge function that
+            // Native\Mobile\Camera::pickImages() calls. Core ships the PHP
+            // facade with nothing behind it, so without this the composer's
+            // photo button has no bridge function to reach.
+            CameraPickerServiceProvider::class,
         ];
     }
 }

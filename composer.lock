@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "584f17ba956a856a020ebbdc6e07b35f",
+    "content-hash": "7631fe4009f2078cc6ba806e4ba36ad2",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -3205,6 +3205,39 @@
                 }
             ],
             "time": "2026-08-24T00:54:40+00:00"
+        },
+        {
+            "name": "pinkary/nativephp-camera-picker",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "packages/nativephp-camera-picker",
+                "reference": "dfdcb9fb315316f90df46a055072b79e79bc076f"
+            },
+            "require": {
+                "php": "^8.2"
+            },
+            "type": "nativephp-plugin",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pinkary\\NativePhp\\CameraPicker\\CameraPickerServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Pinkary\\NativePhp\\CameraPicker\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Implements NativePHP's Camera.PickMedia bridge function for the Pinkary composer.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "psr/clock",
@@ -11095,7 +11128,8 @@
     "aliases": [],
     "minimum-stability": "dev",
     "stability-flags": {
-        "nativephp/web-ui": 15
+        "nativephp/web-ui": 15,
+        "pinkary/nativephp-camera-picker": 20
     },
     "prefer-stable": true,
     "prefer-lowest": false,
