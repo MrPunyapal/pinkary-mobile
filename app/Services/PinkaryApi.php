@@ -376,6 +376,19 @@ final class PinkaryApi
     }
 
     /**
+     * Show or hide a profile link — the web's eye toggle on your own link
+     * rows. The endpoint only takes `is_visible` (the controller falls
+     * back to the stored description/url), so a PATCH with that one key
+     * is the whole call (LinkController:32-41).
+     */
+    public function updateLinkVisibility(string $token, string $linkId, bool $isVisible): Response
+    {
+        return $this->request()->withToken($token)->patch(self::PREFIX."/links/{$linkId}", [
+            'is_visible' => $isVisible,
+        ]);
+    }
+
+    /**
      * List a user's followers with followed_by_me flags.
      */
     public function followers(?string $token, string $username, int $page = 1): Response
