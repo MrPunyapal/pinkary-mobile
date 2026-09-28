@@ -1,10 +1,15 @@
-@props(['title', 'back' => false, 'brand' => false])
+@props(['title', 'back' => false, 'brand' => false, 'size' => '2xl'])
 
 {{-- Centered heading (bookmarks pattern): title always centered and
     vertically centered (py-4 + min-h-14 + items-center). Single source
     for every top bar — copied verbatim to search-bar so headers can
-    never drift (no nested shell — old Jump clients drop nested slots). --}}
-@php $hasSlot = trim((string) $slot) !== ''; @endphp
+    never drift (no nested shell — old Jump clients drop nested slots).
+    `size` is one class token so a screen with a trailing action (the
+    notifications slot) keeps the same title scale as the plain bars. --}}
+@php
+    $hasSlot = trim((string) $slot) !== '';
+    $titleSize = 'text-'.$size;
+@endphp
 <native:column class="w-full bg-theme-surface border-b border-theme-outline-variant justify-center">
     {{-- A trailing action (Ignore all) must sit inside the row. A
         flex-1 title plus a centering spacer pushes that action past
@@ -17,14 +22,14 @@
         @endif
 
         @if ($brand)
-            {{-- Centered wordmark. A logo image was tried here but
-                public_path() is a server disk path the phone cannot load
-                (image slots need an http(s) URL); text always renders. --}}
-            <native:text class="flex-1 text-xl font-bold text-center text-theme-primary" max-lines="1">{{ $title }}</native:text>
+            {{-- Centered wordmark. The logo image is served over http
+                (see components/pinkary-logo); text is the fallback for
+                the drawer-free brand bar. --}}
+            <native:text class="flex-1 {{ $titleSize }} font-bold text-center text-theme-primary" max-lines="1">{{ $title }}</native:text>
         @elseif ($hasSlot)
-            <native:text class="text-xl font-semibold text-theme-on-surface" max-lines="1">{{ $title }}</native:text>
+            <native:text class="{{ $titleSize }} font-semibold text-theme-on-surface" max-lines="1">{{ $title }}</native:text>
         @else
-            <native:text class="flex-1 text-2xl font-semibold text-center text-theme-on-surface" max-lines="1">{{ $title }}</native:text>
+            <native:text class="flex-1 {{ $titleSize }} font-semibold text-center text-theme-on-surface" max-lines="1">{{ $title }}</native:text>
         @endif
 
         @if ($hasSlot)

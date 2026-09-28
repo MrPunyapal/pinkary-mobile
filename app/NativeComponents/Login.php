@@ -11,6 +11,7 @@ use App\Support\ApiErrors;
 use App\Support\CurrentUser;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
+use Native\Mobile\Browser;
 use Native\Mobile\Edge\NativeComponent;
 
 final class Login extends NativeComponent
@@ -37,9 +38,31 @@ final class Login extends NativeComponent
      */
     public bool $showPassword = false;
 
+    /**
+     * Add-another-account mode: the app menu sets the session flag before
+     * routing here, and the card switches to the web's signed-in-as copy.
+     * A stored account is required — the flag alone would leave a guest
+     * looking at an "Add Account" form with nobody signed in.
+     */
+    public bool $addingAccount = false;
+
+    /**
+     * Username of the account being kept signed in while another one is
+     * added. Read from AccountStore (never a token) for the card.
+     */
+    public string $activeAccountUsername = '';
+
+    public function mount(): void
+    {
+        $active = AccountStore::active();
+
+        $this->addingAccount = (bool) session('pinkary_add_account', false) && $active !== null;
+        $this->activeAccountUsername = (string) ($active['username'] ?? '');
+    }
+
     public function navTitle(): string
     {
-        return 'Log in';
+        return $this->addingAccount ? 'Add Account' : 'Log in';
     }
 
     public function authenticate(): void
@@ -109,9 +132,35 @@ final class Login extends NativeComponent
         $this->showPassword = ! $this->showPassword;
     }
 
+    /**
+     * Password reset lives on the site (Fortify's guest route), so the
+     * link hands the web page to the in-app browser like Source code does.
+     */
+    public function forgotPassword(): void
+    {
+        $this->openWebPage('/forgot-password');
+    }
+
     public function render(): View
     {
         return view('native.login');
+    }
+
+    /**
+     * Open a page of the Pinkary site in the in-app browser. The site is
+     * the only place these pages exist — this app has no such routes — so
+     * the URL is built from the API host and dropped when it is not
+     * configured (or not http), never handed over half-formed.
+     */
+    private function openWebPage(string $path): void
+    {
+        $url = rtrim((string) config('services.pinkary.url'), '/').$path;
+
+        if (! preg_match('#^https?://#i', $url)) {
+            return;
+        }
+
+        app(Browser::class)->inApp($url);
     }
 
     /**

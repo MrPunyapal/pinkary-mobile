@@ -11,6 +11,7 @@ use App\Support\ApiErrors;
 use App\Support\CurrentUser;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
+use Native\Mobile\Browser;
 use Native\Mobile\Edge\NativeComponent;
 
 final class Register extends NativeComponent
@@ -143,9 +144,40 @@ final class Register extends NativeComponent
         $this->showPassword = ! $this->showPassword;
     }
 
+    /**
+     * The consent sentence links to the site's legal pages, which this
+     * app does not host — hand them to the in-app browser like the app
+     * menu's Source code row does.
+     */
+    public function openTerms(): void
+    {
+        $this->openWebPage('/terms');
+    }
+
+    public function openPrivacy(): void
+    {
+        $this->openWebPage('/privacy');
+    }
+
     public function render(): View
     {
         return view('native.register');
+    }
+
+    /**
+     * Open a page of the Pinkary site in the in-app browser, dropped when
+     * the API host is missing or not http so nothing half-formed is ever
+     * handed to the browser.
+     */
+    private function openWebPage(string $path): void
+    {
+        $url = rtrim((string) config('services.pinkary.url'), '/').$path;
+
+        if (! preg_match('#^https?://#i', $url)) {
+            return;
+        }
+
+        app(Browser::class)->inApp($url);
     }
 
     /**
