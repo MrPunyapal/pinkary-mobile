@@ -23,6 +23,19 @@ trait UsesAppMenu
     public bool $appMenuOpen = false;
 
     /**
+     * Destructive action awaiting a second tap: 'logout',
+     * 'logout-all' or 'remove-account'. Null whenever the sheet shows its
+     * base list. The web guards every log-out with a confirmation modal
+     * (../pinkary/resources/views/layouts/app.blade.php:261-293).
+     */
+    public ?string $confirmAction = null;
+
+    /**
+     * Account the pending 'remove-account' confirmation targets.
+     */
+    public string $confirmAccountId = '';
+
+    /**
      * Read the API token from secure storage. Thin wrapper over
      * TokenStorage so screens share one null/empty normalization.
      */
@@ -100,6 +113,17 @@ trait UsesAppMenu
         app(Browser::class)->inApp('https://github.com/pinkary-project/pinkary.com');
     }
 
+    /**
+     * Web parity: the About page is a marketing page, so it opens in the
+     * in-app browser (same treatment as Source code) rather than inside
+     * the native chrome, which has no About screen of its own.
+     */
+    public function openAbout(): void
+    {
+        $this->appMenuOpen = false;
+        app(Browser::class)->inApp($this->aboutUrl());
+    }
+
     public function openLogin(): void
     {
         $this->appMenuOpen = false;
@@ -121,6 +145,68 @@ trait UsesAppMenu
         }
 
         $this->navigate($this->route('mobile.compose'));
+    }
+
+    /**
+     * Arm the web's "Log out of account?" confirmation instead of logging
+     * out on the first tap.
+     */
+    public function askLogout(): void
+    {
+        $this->confirmAction = 'logout';
+        $this->confirmAccountId = AccountStore::activeId() ?? '';
+    }
+
+    /**
+     * Arm the confirmation for "log out of all accounts".
+     */
+    public function askLogoutAll(): void
+    {
+        $this->confirmAction = 'logout-all';
+        $this->confirmAccountId = '';
+    }
+
+    /**
+     * Arm the web's confirm-remove-account modal for a stored account.
+     */
+    public function askRemoveAccount(string $id): void
+    {
+        if ($id === '') {
+            return;
+        }
+
+        $this->confirmAction = 'remove-account';
+        $this->confirmAccountId = $id;
+    }
+
+    /**
+     * Run the action the confirmation is waiting on. An unknown or
+     * cleared action is a no-op, so a stray tap can never log anyone out.
+     */
+    public function confirm(): void
+    {
+        $action = $this->confirmAction;
+        $accountId = $this->confirmAccountId;
+
+        $this->cancelConfirm();
+
+        match ($action) {
+            'logout' => $this->logout(),
+            'logout-all' => $this->logoutAll(),
+            'remove-account' => $this->removeAccount($accountId),
+            default => null,
+        };
+    }
+
+    /**
+     * Web parity: the confirmation's Cancel (and a tap outside the sheet)
+     * returns to the base list without touching any account.
+     */
+    public function cancelConfirm(): void
+    {
+        $this->confirmAction = null;
+        $this->confirmAccountId = '';
+        $this->appMenuOpen = false;
     }
 
     public function logout(): void
@@ -201,6 +287,15 @@ trait UsesAppMenu
         AccountStore::refreshProfile($id, $data);
         CurrentUser::store($data);
         $this->replace($this->route('mobile.feed'));
+    }
+
+    /**
+     * Web parity: the About page lives on pinkary.com, not in the
+     * native chrome, so the menu points at the hosted page.
+     */
+    private function aboutUrl(): string
+    {
+        return rtrim((string) config('services.pinkary.url'), '/').'/about';
     }
 
     /**
