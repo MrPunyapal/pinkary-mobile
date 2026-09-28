@@ -1,3 +1,13 @@
+@php
+    // Web parity (layouts/navigation:342): Settings on the web IS the
+    // profile editor, so the row leads there. The logout label follows the
+    // account rule — name the account when others are stored, plain
+    // "Log Out" otherwise.
+    $accountCount = \App\Support\AccountStore::count();
+    $username = (string) data_get($profile, 'username', '');
+    $logoutLabel = $accountCount > 1 && $username !== '' ? 'Log out of @'.$username : 'Log Out';
+@endphp
+
 <native:scroll-view class="w-full h-full bg-theme-background">
     <native:column class="w-full gap-0">
         <x-page-heading title="Settings" />
@@ -26,23 +36,22 @@
                     </native:column>
                 </native:row>
                 @if (data_get($profile, 'email'))
-                    <native:text class="text-sm text-theme-on-surface">{{ data_get($profile, 'email') }}</native:text>
-                @endif
-                @if (data_get($profile, 'member_since') || data_get($profile, 'member_since.human'))
-                    <native:text class="text-sm text-theme-on-surface-variant">Member since {{ data_get($profile, 'member_since.human', data_get($profile, 'member_since')) }}</native:text>
+                    <native:text class="text-sm text-theme-on-surface">Signed in as {{ data_get($profile, 'email') }}</native:text>
                 @endif
             </native:column>
+
+            <native:pressable class="w-full p-4 rounded-md bg-theme-surface border border-theme-outline-variant" @tap="editProfile" a11y-label="Edit profile">
+                <native:text class="text-sm font-medium text-theme-on-surface">Edit profile</native:text>
+            </native:pressable>
 
             <native:pressable class="w-full p-4 rounded-md bg-theme-surface border border-theme-outline-variant" @tap="openOwnProfile" a11y-label="View profile">
                 <native:text class="text-sm font-medium text-theme-on-surface">View profile</native:text>
             </native:pressable>
 
-            <native:pressable class="w-full p-4 rounded-md bg-theme-surface border border-theme-outline-variant" @tap="openSource" a11y-label="Source code">
-                <native:text class="text-sm font-medium text-theme-on-surface">Source code</native:text>
-            </native:pressable>
+            {{-- Source code stays in the app menu sheet only. --}}
 
-            <native:pressable class="w-full p-4 rounded-md bg-theme-surface border border-theme-destructive" @tap="logout" a11y-label="Log out">
-                <native:text class="text-sm font-semibold text-theme-destructive">Log out</native:text>
+            <native:pressable class="w-full p-4 rounded-md bg-theme-surface border border-theme-destructive" @tap="logout" a11y-label="{{ $logoutLabel }}">
+                <native:text class="text-sm font-semibold text-theme-destructive">{{ $logoutLabel }}</native:text>
             </native:pressable>
         @endif
 

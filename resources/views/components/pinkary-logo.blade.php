@@ -1,3 +1,15 @@
-@props(['dark' => false, 'height' => 48])
+@props(['dark' => null, 'height' => 48])
 
-<native:image src="{{ public_path('img/logo/pinkary-logo-'.($dark ? 'black' : 'white').'.png') }}" alt="Pinkary" class="h-{{ $height }} w-auto" />
+{{-- Wordmark parity with the web's components/pinkary-logo: the guest
+     screens show a white wordmark on the dark card and a slate one on
+     light. public_path() was a server disk path the phone cannot load, so
+     the wordmark is fetched over http from the site that serves it — the
+     same absolute-URL pattern the profile QR sheet uses. The site ships
+     one wordmark PNG (transparent, white), so light mode tints it to the
+     web's slate-950 fill instead of requesting a second asset. --}}
+@php
+    $isDark = $dark ?? isDark();
+    $wordmark = rtrim((string) config('services.pinkary.url'), '/').'/img/logo-text.png';
+@endphp
+
+<native:image src="{{ $wordmark }}" alt="Pinkary" class="h-{{ $height }} w-auto" :tintColor="$isDark ? '#FFFFFF' : '#0F172A'" />

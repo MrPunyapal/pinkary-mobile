@@ -11,11 +11,12 @@
         7 => 'w-7 h-7',
         8 => 'w-8 h-8',
         20 => 'w-20 h-20',
+        24 => 'w-24 h-24',
         default => 'w-10 h-10',
     };
     $initialSize = match ((int) $size) {
         7 => 'text-xs',
-        20 => 'text-2xl',
+        20, 24 => 'text-2xl',
         default => 'text-sm',
     };
     $company = (bool) data_get($user, 'company_verified')
@@ -28,7 +29,7 @@
     $avatar = data_get($user, 'avatar');
     $initial = strtoupper(substr($name !== '' ? $name : '?', 0, 1));
     $openProfile = $link && ! $anonymous && $username !== '';
-    $border = (int) $size === 20
+    $border = in_array((int) $size, [20, 24], true)
         ? 'border-4 border-white'
         : 'border border-theme-outline';
 @endphp

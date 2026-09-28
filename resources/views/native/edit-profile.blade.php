@@ -40,13 +40,37 @@
                 </native:column>
             </native:row>
 
+            {{-- Web parity (profile/partials/update-profile-information-form):
+                the heading and its sub-line, the same field order, the
+                three preference selects, and the Save button. --}}
             <native:column class="w-full gap-4 p-4 rounded-md bg-theme-surface border border-theme-outline-variant">
-                <native:text class="text-sm font-semibold uppercase tracking-widest text-theme-on-surface-variant">Profile</native:text>
+                <native:column class="w-full gap-1">
+                    <native:text class="text-lg font-medium text-theme-on-surface-variant">Profile Information</native:text>
+                    <native:text class="text-sm text-theme-on-surface-variant">Update your account’s profile information and email address.</native:text>
+                </native:column>
+
                 <native:outlined-text-input label="Name" native:model="name" :supporting="$fieldErrors['name'] ?? ''" :error="isset($fieldErrors['name'])" />
                 <native:outlined-text-input label="Username" native:model="username" :supporting="$fieldErrors['username'] ?? ''" :error="isset($fieldErrors['username'])" />
-                <native:outlined-text-input label="Bio" placeholder="Tell people about yourself" multiline native:model="bio" :supporting="$fieldErrors['bio'] ?? ''" :error="isset($fieldErrors['bio'])" />
                 <native:outlined-text-input label="Email" keyboard="email" native:model="email" :supporting="$fieldErrors['email'] ?? ''" :error="isset($fieldErrors['email'])" />
-                <native:button variant="primary" :disabled="$busy" @tap="save">{{ $busy ? 'Saving…' : 'Save profile' }}</native:button>
+                <native:outlined-text-input label="Bio" placeholder="Tell people about yourself" multiline native:model="bio" :supporting="$fieldErrors['bio'] ?? ''" :error="isset($fieldErrors['bio'])" />
+
+                <native:column class="w-full gap-1">
+                    <native:text class="text-sm font-medium text-theme-on-surface">Mail Preference Time</native:text>
+                    <native:select label="Mail Preference Time" :options="$mailPreferenceOptions" native:model="mailPreferenceTime" />
+                </native:column>
+
+                <native:column class="w-full gap-1">
+                    <native:text class="text-sm font-medium text-theme-on-surface">Default Feed</native:text>
+                    <native:select label="Default Feed" :options="$defaultFeedOptions" native:model="defaultFeed" />
+                </native:column>
+
+                <native:column class="w-full gap-1">
+                    <native:text class="text-sm font-medium text-theme-on-surface">How would you like to do questions by default?</native:text>
+                    <native:select label="How would you like to do questions by default?" :options="$questionVisibilityOptions" native:model="questionVisibility" />
+                </native:column>
+
+                {{-- Busy rides on :disabled so the label never reflows. --}}
+                <native:button variant="primary" :disabled="$busy" @tap="save">Save</native:button>
             </native:column>
 
             <native:column class="w-full gap-3 p-4 rounded-md bg-theme-surface border border-theme-outline-variant">
@@ -65,8 +89,11 @@
                             @if (($editingLinkId ?? null) === $linkId)
                                 <native:outlined-text-input label="Description" native:model="editDescription" />
                                 <native:outlined-text-input label="URL" keyboard="url" native:model="editUrl" />
+                                @if ($editUrlTouched)
+                                    <native:text class="text-sm text-theme-on-surface-variant">Editing the URL will reset the click counter to zero</native:text>
+                                @endif
                                 <native:row class="w-full items-center gap-2">
-                                    <native:pressable class="px-3 py-1.5 rounded-full bg-theme-primary" @tap="saveEdit({{ $linkId }})" a11y-label="Save link">
+                                    <native:pressable class="px-3 py-1.5 rounded-full bg-theme-primary {{ $linkBusy ? 'opacity-40' : '' }}" @tap="saveEdit({{ $linkId }})" a11y-label="Save link">
                                         <native:text class="text-xs font-medium text-white">Save</native:text>
                                     </native:pressable>
                                     <native:pressable class="px-3 py-1.5" @tap="cancelEdit" a11y-label="Cancel editing">
@@ -93,10 +120,22 @@
                     @endforeach
                 @endif
 
-                <native:column class="w-full gap-2 pt-2 border-t border-theme-outline-variant">
+                {{-- Link shape (web link-settings/edit): a profile setting on
+                    the API, so it keeps its own Save. Gradients stay web-only
+                    — native clients cannot render them. --}}
+                <native:column class="w-full gap-2 pt-3 border-t border-theme-outline-variant">
+                    <native:text class="text-base font-semibold text-theme-on-surface-variant">Link Shape</native:text>
+                    <native:text class="text-sm text-theme-on-surface-variant">In what shape do you want to present your links?</native:text>
+                    <native:select label="Link Shape" :options="$linkShapeOptions" native:model="linkShape" />
+                    <native:pressable class="self-start px-4 py-2 rounded-full bg-theme-primary {{ $linkBusy ? 'opacity-40' : '' }}" @tap="saveLinkShape" a11y-label="Save link shape">
+                        <native:text class="text-sm font-medium text-white">Save</native:text>
+                    </native:pressable>
+                </native:column>
+
+                <native:column class="w-full gap-2 pt-3 border-t border-theme-outline-variant">
                     <native:outlined-text-input label="Description" placeholder="My website" native:model="newDescription" />
                     <native:outlined-text-input label="URL" placeholder="https://example.com" keyboard="url" native:model="newUrl" />
-                    <native:button variant="secondary" :disabled="$linkBusy" @tap="addLink">{{ $linkBusy ? 'Adding…' : 'Add link' }}</native:button>
+                    <native:button variant="secondary" :disabled="$linkBusy" @tap="addLink">Create</native:button>
                 </native:column>
             </native:column>
 

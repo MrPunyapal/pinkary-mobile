@@ -63,7 +63,7 @@ it('renders the authenticated profile card like the web', function (): void {
         ->assertSee('Website')
         ->assertDontSee('pinkary@example.com')
         ->assertSee('Edit profile')
-        ->assertSee('Edit links');
+        ->assertSee('Add New Link');
 });
 
 it('shows the empty-links hint on your own card only', function (): void {
@@ -105,9 +105,10 @@ it('follows and unfollows from the card', function (): void {
             ->push(['data' => ['followed' => false, 'followers' => 0]]),
     ]);
 
+    // Web follow-button copy: Unfollow once you follow them.
     $test = Native::test(Profile::class, ['username' => 'ada'])
         ->press('toggleFollow')
-        ->assertSee('Following');
+        ->assertSee('Unfollow');
 
     expect($test->get('profile'))->toMatchArray([
         'followed_by_me' => true,
@@ -292,12 +293,12 @@ it('edits your own profile from the profile screen', function (): void {
 
     Native::test(Profile::class)
         ->assertSee('Edit profile')
-        ->assertSee('Edit links')
+        ->assertSee('Add New Link')
         ->call('editProfile')
         ->assertNavigatedTo('/profile/edit');
 });
 
-it('shows link click counts on the card', function (): void {
+it('shows link click counts on your own card only', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
@@ -312,3 +313,81 @@ it('shows link click counts on the card', function (): void {
     Native::test(Profile::class)
         ->assertSee('12 clicks');
 });
+
+it('hides link click counts on other people cards', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/users/ada' => Http::response(['data' => array_merge(otherProfile(), [
+            'links' => [
+                ['id' => 7, 'description' => 'Website', 'url' => 'https://example.com?ref=pinkary', 'click_count' => 12],
+            ],
+        ])]),
+        'https://pinkary.test/api/v1/users/ada/questions*' => Http::response(['data' => []]),
+    ]);
+
+    // Web parity (links/index:332-342): other people's pills carry the
+    // description only — clicks are the owner's business.
+    Native::test(Profile::class, ['username' => 'ada'])
+        ->assertSee('Website')
+        ->assertDontSee('12 clicks');
+});
+
+it('honours the stored link shape on the card pills', function (string $shape, int $radius): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::response(['data' => array_merge(ownProfile(), [
+            'link_shape' => $shape,
+            'links' => [
+                ['id' => 7, 'description' => 'Website', 'url' => 'https://example.com?ref=pinkary', 'click_count' => 12, 'link_shape' => $shape],
+            ],
+        ])]),
+        'https://pinkary.test/api/v1/users/pinkaryuser/questions*' => Http::response(['data' => []]),
+    ]);
+
+    $pill = nodeWithA11yLabel(Native::test(Profile::class)->tree(), 'Open Website');
+
+    expect($pill)->not->toBeNull()
+        ->and($pill['style']['border_radius'] ?? null)->toBe((float) $radius);
+})->with([
+    'square' => ['rounded-none', 0],
+    'round' => ['rounded-lg', 8],
+    'extra round' => ['rounded-full', 9999],
+]);
+
+it('offers the web add-link button and an empty bio shortcut', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::response(['data' => array_merge(ownProfile(), ['bio' => ''])]),
+        'https://pinkary.test/api/v1/users/pinkaryuser/questions*' => Http::response(['data' => []]),
+    ]);
+
+    Native::test(Profile::class)
+        ->assertSee('Add New Link')
+        ->assertSee('Tell people about yourself')
+        ->tap('Add New Link')
+        ->assertNavigatedTo('/profile/edit');
+});
+
+/**
+ * The first node carrying an a11y label, searched depth-first.
+ *
+ * @param  array<string, mixed>  $node
+ * @return array<string, mixed>|null
+ */
+function nodeWithA11yLabel(array $node, string $label): ?array
+{
+    if (($node['props']['a11y_label'] ?? null) === $label) {
+        return $node;
+    }
+
+    foreach ($node['children'] ?? [] as $child) {
+        if (is_array($child) && ($found = nodeWithA11yLabel($child, $label)) !== null) {
+            return $found;
+        }
+    }
+
+    return null;
+}

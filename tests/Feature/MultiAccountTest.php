@@ -65,9 +65,12 @@ it('adds a second account through login and revokes nothing new', function (): v
     ]);
 
     Native::test(Login::class)
+        ->assertSee('Add Account')
+        ->assertSee('Currently signed in as')
+        ->assertSee('@ada')
         ->input('email', 'grace@example.com')
         ->input('password', 'password')
-        ->tap('Log in')
+        ->tap('Add Account')
         ->assertReplacedWith('/feed');
 
     expect(AccountStore::count())->toBe(2)

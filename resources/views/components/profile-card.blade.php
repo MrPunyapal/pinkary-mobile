@@ -5,6 +5,7 @@
     'followBusy' => false,
 ])
 
+{{-- Web profile card (links/index). --}}
 @php
     $abbreviate = function (mixed $value): string {
         $number = (int) $value;
@@ -23,8 +24,11 @@
         return number_format($number / (10 ** ($tier * 3)), 1).$symbols[$tier];
     };
 
+    // The seal means "profile verified"; the company seal is the amber
+    // variant and only shows alongside it (links/index:143-147).
     $company = (bool) data_get($profile, 'verification.company', false);
     $verified = (bool) data_get($profile, 'verification.profile', false);
+    $sealColor = $company ? '#EAB308' : '#EC4899';
     $followers = (int) data_get($profile, 'stats.followers', 0);
     $following = (int) data_get($profile, 'stats.following', 0);
     $posts = (int) data_get($profile, 'stats.posts', 0);
@@ -75,8 +79,11 @@
                 <native:pressable class="px-3 py-2 rounded-full border border-theme-primary" @tap="askUser" a11y-label="Ask {{ '@'.$username }}">
                     <native:text class="text-sm font-medium text-theme-primary">Ask {{ '@'.$username }}</native:text>
                 </native:pressable>
+                {{-- Follow Back needs `isFollower` (does this user follow me),
+                    which UserResource does not ship — so the pill uses the
+                    two states the payload can prove (follow-button.js:29). --}}
                 <native:pressable class="px-4 py-2 rounded-full bg-theme-primary {{ $followBusy ? 'opacity-40' : '' }}" @tap="toggleFollow" a11y-label="{{ $followed ? 'Unfollow' : 'Follow' }}">
-                    <native:text class="text-sm font-medium text-white">{{ $followBusy ? '…' : ($followed ? 'Following' : 'Follow') }}</native:text>
+                    <native:text class="text-sm font-medium text-white">{{ $followBusy ? '…' : ($followed ? 'Unfollow' : 'Follow') }}</native:text>
                 </native:pressable>
             @endunless
             @if ($isMe)
@@ -88,12 +95,16 @@
     </native:row>
 
     <native:column class="w-full items-center gap-0">
+        {{-- The tap-to-zoom avatar (links/index:105-124) needs a
+            showAvatar/toggleAvatar pair on the screen component; until the
+            profile screen owns it, the avatar stays a plain image rather
+            than a pressable with nothing behind it. --}}
         <x-avatar :user="$profile" :size="20" company-radius="3xl" :link="false" />
 
         <native:row class="w-full items-center justify-center gap-1.5 mt-4">
             <native:text class="text-2xl font-semibold text-theme-on-surface">{{ data_get($profile, 'name') }}</native:text>
-            @if ($verified || $company)
-                <native:icon :ios="\App\Icons\Ios::CheckmarkSealFill" :android="\App\Icons\Android::Verified" :size="24" color="#EC4899" />
+            @if ($verified)
+                <native:icon :ios="\App\Icons\Ios::CheckmarkSealFill" :android="\App\Icons\Android::Verified" :size="24" :color="$sealColor" />
             @endif
         </native:row>
 
@@ -104,7 +115,9 @@
         @if (data_get($profile, 'bio'))
             <native:text class="text-sm text-center leading-relaxed text-theme-on-surface mt-3">{{ data_get($profile, 'bio') }}</native:text>
         @elseif ($isMe)
-            <native:text class="text-sm text-center text-theme-on-surface-variant mt-3">Tell people about yourself</native:text>
+            <native:pressable class="self-center mt-3 py-1" @tap="editProfile" a11y-label="Tell people about yourself">
+                <native:text class="text-sm text-center text-theme-primary">Tell people about yourself</native:text>
+            </native:pressable>
         @endif
 
         <native:row class="items-center justify-center gap-2 mt-4 flex-wrap">
@@ -127,15 +140,35 @@
     @if (count($links) > 0)
         <native:column class="w-full gap-2 mt-4 pt-4 border-t border-theme-outline-variant">
             @foreach ($links as $link)
-                {{-- Solid theme color: profile gradients do not render on
-                    native clients, so gradient and link_shape stay web-only. --}}
-                <native:pressable class="w-full items-center py-3 rounded-full bg-theme-primary" @tap="openUserLink({{ (int) data_get($link, 'id', 0) }})" a11y-label="Open {{ data_get($link, 'description', 'link') }}">
-                    <native:text class="text-sm font-bold text-white">{{ data_get($link, 'description', '') }}</native:text>
-                    @php $clicks = data_get($link, 'click_count'); @endphp
-                    @if (is_int($clicks) || (is_string($clicks) && $clicks !== ''))
-                        <native:text class="text-xs text-white/80">{{ $clicks }} {{ (int) $clicks === 1 ? 'click' : 'clicks' }}</native:text>
+                @php
+                    $linkId = (int) data_get($link, 'id', 0);
+                    // Link shape is a stored setting (link_shape on the
+                    // payload); gradients cannot render on native, so the
+                    // pill keeps the solid theme colour.
+                    $shape = (string) data_get($link, 'link_shape', data_get($profile, 'link_shape', 'rounded-lg'));
+                    $linkRadius = in_array($shape, ['rounded-none', 'rounded-lg', 'rounded-full'], true) ? $shape : 'rounded-lg';
+                    // Click counts are the owner's business (links/index:
+                    // 332-342 shows other people's pills description-only).
+                    $clicks = $isMe ? data_get($link, 'click_count') : null;
+                @endphp
+                <native:row class="w-full items-center gap-2">
+                    <native:pressable class="flex-1 min-w-0 items-center py-3 {{ $linkRadius }} bg-theme-primary" @tap="openUserLink({{ $linkId }})" a11y-label="Open {{ data_get($link, 'description', 'link') }}">
+                        <native:text class="text-sm font-bold text-white">{{ data_get($link, 'description', '') }}</native:text>
+                        @if (is_int($clicks) || (is_string($clicks) && $clicks !== ''))
+                            <native:text class="text-xs text-white/80">{{ $clicks }} {{ (int) $clicks === 1 ? 'click' : 'clicks' }}</native:text>
+                        @endif
+                    </native:pressable>
+                    @if ($isMe)
+                        {{-- Owner actions stay flat (old clients drop nested
+                            slots). The eye visibility toggle needs a
+                            toggleLinkVisibility($id) on the screen
+                            component, and drag-reorder needs a links/sort
+                            call, so neither is a control here yet. --}}
+                        <native:pressable class="w-9 h-9 items-center justify-center shrink-0" @tap="editProfile" a11y-label="Edit links">
+                            <native:icon :ios="\App\Icons\Ios::Pencil" :android="\App\Icons\AndroidOutlined::Edit" :size="18" color="#64748B" dark-color="#94A3B8" />
+                        </native:pressable>
                     @endif
-                </native:pressable>
+                </native:row>
             @endforeach
         </native:column>
     @elseif ($isMe)
@@ -146,8 +179,9 @@
     @endif
 
     @if ($isMe)
-        <native:pressable class="self-center py-1 mt-2" @tap="editProfile" a11y-label="Edit links">
-            <native:text class="text-sm font-medium text-theme-primary">Edit links</native:text>
+        <native:pressable class="w-full items-center justify-center gap-2 py-3 mt-4 rounded-md bg-theme-primary" @tap="editProfile" a11y-label="Add New Link">
+            <native:icon :ios="\App\Icons\Ios::Plus" :android="\App\Icons\AndroidOutlined::Add" :size="18" color="#FFFFFF" />
+            <native:text class="text-sm font-bold text-white">Add New Link</native:text>
         </native:pressable>
     @endif
 </native:column>
