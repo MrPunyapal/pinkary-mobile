@@ -30,3 +30,4 @@ Thumbs.db
 /storage/framework/edge-hot.json
 /storage/framework/edge-hot.pid
 /storage/framework/native_routes.json
+/storage/framework/.hot_restart
