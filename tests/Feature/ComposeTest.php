@@ -3,6 +3,7 @@
 use App\NativeComponents\Compose;
 use App\Support\AccountStore;
 use App\Support\CurrentUser;
+use App\Support\DraftStore;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\Native;
 use Native\Mobile\Testing\TestableComponent;
@@ -32,6 +33,24 @@ function treeHasPressableFor(array $node, string $text): bool
     }
 
     return false;
+}
+
+/**
+ * Every node in the tree matching $match, depth first.
+ *
+ * @return list<array<string, mixed>>
+ */
+function composeParityFindAll(array $node, callable $match): array
+{
+    $found = $match($node) ? [$node] : [];
+
+    foreach ($node['children'] ?? [] as $child) {
+        if (is_array($child)) {
+            $found = array_merge($found, composeParityFindAll($child, $match));
+        }
+    }
+
+    return $found;
 }
 
 function treeHasText(array $node, string $text): bool
@@ -407,12 +426,59 @@ it('renders ask mode for another user without thread UI', function (): void {
 
     Native::test(Compose::class, ['username' => 'ada'])
         ->assertSee('Ask @ada')
-        ->assertSee('Ask anonymously')
+        // The web's footer toggle reads "Anonymously"
+        // (livewire/questions/create.blade.php:428), not "Ask anonymously".
+        ->assertSee('Anonymously')
         ->assertSee('Ask')
         ->assertDontSee('Add another post')
         ->assertDontSee('Channel');
 
     Http::assertNotSent(fn ($request) => str_contains((string) $request->url(), '/api/v1/channels'));
+});
+
+it('stitches thread posts onto one avatar rail, like the web composer', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake();
+
+    // A draft left behind by another test would silently add posts and
+    // change the rail count asserted below.
+    DraftStore::clear(null);
+
+    $test = Native::test(Compose::class)
+        ->set('content', 'Opening post.')
+        ->set('posts', ['Opening post.', 'Second post.', 'Third post.']);
+
+    // The web's thread composer is identified by a hairline down the avatar
+    // column with every post hung off it
+    // (livewire/questions/create.blade.php:37-41, :203-212, :389-393). This
+    // is what makes a thread read as one unit; labelled rows do not. The
+    // hairline is w-px, which TailwindParser resolves to a 1pt-wide column.
+    //
+    // 1 below the opening post + 2 per follow-up + 1 on the add row = 8.
+    $rail = composeParityFindAll(
+        $test->tree(),
+        fn (array $node): bool => ($node['type'] ?? '') === 'column'
+            && (float) data_get($node, 'layout.width') === 1.0
+            && (float) data_get($node, 'layout.flex_grow') === 1.0
+    );
+
+    expect($rail)->toHaveCount(8);
+
+    // Thread fields are borderless on the web (create.blade.php:8): the
+    // opening post plus one per follow-up, with no floating labels.
+    $bare = composeParityFindAll(
+        $test->tree(),
+        fn (array $node): bool => ($node['type'] ?? '') === 'bare_text_input'
+    );
+
+    expect($bare)->toHaveCount(4);
+
+    // Poll options live under the field they belong to, not in a panel at
+    // the bottom of the screen, so nothing shows until one is added.
+    $test->assertSee('Say more...')
+        ->assertSee('Post thread')
+        ->assertDontSee('Add another option');
 });
 
 it('sends the question and opens the asked profile', function (): void {
