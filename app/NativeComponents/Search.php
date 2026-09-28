@@ -126,6 +126,74 @@ final class Search extends NativeComponent
         return view('native.search');
     }
 
+    /**
+     * Follow or unfollow a user result row in place, mirroring
+     * FollowList::toggleFollow: the row carries the in-flight lock (so a
+     * double tap cannot fire twice), your own row is skipped like the
+     * web's follow-button (components/follow-button.blade.php:7), and a
+     * 401 goes through the shared unauthorized path.
+     *
+     * The label follows the web (js/follow-button.js:29): 'Unfollow'
+     * once you follow them, 'Follow' otherwise. The web's third state,
+     * "Follow Back", needs `isFollower` — UserResource ships no such
+     * key, so it is not invented here.
+     */
+    public function toggleFollow(string $username): void
+    {
+        if ($username === '') {
+            return;
+        }
+
+        $index = null;
+        $following = false;
+
+        foreach ($this->users as $key => $user) {
+            if ((string) data_get($user, 'username', '') === $username) {
+                $index = $key;
+                $following = (bool) data_get($user, 'followed_by_me', false);
+
+                break;
+            }
+        }
+
+        if ($index === null) {
+            return;
+        }
+
+        if ((bool) data_get($this->users[$index], 'is_me', false) || (bool) data_get($this->users[$index], '_busy', false)) {
+            return;
+        }
+
+        $token = $this->requireToken();
+
+        if ($token === null) {
+            return;
+        }
+
+        $this->users[$index]['_busy'] = true;
+
+        $api = app(PinkaryApi::class);
+        $response = $following
+            ? $api->attempt(fn () => $api->unfollow($token, $username))
+            : $api->attempt(fn () => $api->follow($token, $username));
+
+        $this->users[$index]['_busy'] = false;
+
+        if ($response === null) {
+            return;
+        }
+
+        if ($this->handleUnauthorized($response)) {
+            return;
+        }
+
+        if (! $response->successful()) {
+            return;
+        }
+
+        $this->users[$index]['followed_by_me'] = (bool) $response->json('data.followed', ! $following);
+    }
+
     public function openProfile(string $username): void
     {
         if ($username === '') {

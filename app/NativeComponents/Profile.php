@@ -7,6 +7,7 @@ namespace App\NativeComponents;
 use App\NativeComponents\Concerns\TogglesPostReactions;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
+use App\Support\ApiErrors;
 use App\Support\CurrentUser;
 use Illuminate\View\View;
 use Native\Mobile\Browser;
@@ -30,6 +31,18 @@ final class Profile extends NativeComponent
     public bool $followBusy = false;
 
     public bool $showQr = false;
+
+    /**
+     * The tap-to-zoom avatar lightbox (links/index:105-124).
+     */
+    public bool $showAvatar = false;
+
+    /**
+     * Why the last owner link action failed, shown on the card itself —
+     * a card-level action must not blow away the whole screen the way
+     * $errorMessage (the load-failure banner) does.
+     */
+    public string $linkError = '';
 
     /** @var list<array<string, mixed>> */
     public array $questions = [];
@@ -255,9 +268,21 @@ final class Profile extends NativeComponent
     /**
      * Follow or unfollow the shown user, reconciling the card with the
      * server's follower count.
+     *
+     * The same name serves the card pill (no argument) and the follow
+     * button on a liker row inside this screen's post menu sheet (a
+     * username) — the shared TogglesPostReactions implementation is
+     * shadowed by this class, so the row case is routed explicitly
+     * instead of silently falling through to the card.
      */
-    public function toggleFollow(): void
+    public function toggleFollow(string $username = ''): void
     {
+        if ($username !== '') {
+            $this->toggleUserFollow($this->likers, $username);
+
+            return;
+        }
+
         if ($this->followBusy || $this->profile === null) {
             return;
         }
@@ -366,8 +391,116 @@ final class Profile extends NativeComponent
         $this->showQr = ! $this->showQr;
     }
 
+    /**
+     * Open the large-avatar sheet (links/index:105-124). Only a loaded
+     * card can show one, so an empty profile opens nothing.
+     */
+    public function showAvatar(): void
+    {
+        if ($this->profile === null) {
+            return;
+        }
+
+        $this->showAvatar = true;
+    }
+
+    /**
+     * Flip the large-avatar sheet — the tap target, the drag-down
+     * dismiss and the Close button all land here.
+     */
+    public function toggleAvatar(): void
+    {
+        $this->showAvatar = ! $this->showAvatar;
+    }
+
+    /**
+     * Show or hide one of your own links (the web's eye toggle,
+     * links/index:285-298). Flips the cached row optimistically, then
+     * reconciles with the server's LinkResource; a failure puts the row
+     * back and surfaces a message on the card.
+     */
+    public function toggleLinkVisibility(int|string $id): void
+    {
+        // The web only ever renders the eye on your own rows, and the
+        // endpoint is owner-gated (LinkPolicy) — refuse anything else so
+        // a stray tap cannot fire a write.
+        if ($this->profile === null || ! (bool) data_get($this->profile, 'is_me', false)) {
+            return;
+        }
+
+        $key = null;
+        $visible = false;
+
+        foreach ((array) data_get($this->profile, 'links', []) as $index => $link) {
+            if ((int) data_get($link, 'id', 0) === (int) $id) {
+                $key = $index;
+                $visible = (bool) data_get($link, 'is_visible', false);
+
+                break;
+            }
+        }
+
+        if ($key === null) {
+            return;
+        }
+
+        $token = $this->requireToken();
+
+        if ($token === null) {
+            return;
+        }
+
+        $next = ! $visible;
+
+        $this->linkError = '';
+        data_set($this->profile, 'links.'.$key.'.is_visible', $next);
+        data_set($this->profile, 'links.'.$key.'._busy', true);
+
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->updateLinkVisibility($token, (string) $id, $next));
+
+        data_set($this->profile, 'links.'.$key.'._busy', false);
+
+        if ($response === null) {
+            $this->restoreLinkVisibility($key, $visible);
+            $this->linkError = 'This link could not be updated. Please try again.';
+
+            return;
+        }
+
+        if ($this->handleUnauthorized($response)) {
+            return;
+        }
+
+        if (! $response->successful()) {
+            $this->restoreLinkVisibility($key, $visible);
+            $this->linkError = ApiErrors::first($response, 'This link could not be updated. Please try again.');
+
+            return;
+        }
+
+        $stored = $response->json('data.is_visible');
+
+        data_set(
+            $this->profile,
+            'links.'.$key.'.is_visible',
+            is_bool($stored) ? $stored : $next,
+        );
+    }
+
     public function render(): View
     {
+        // native/profile.blade.php hands the card nothing but the profile
+        // array, and a Blade component cannot reach back to the screen —
+        // so the card's own transient state (the avatar sheet, the link
+        // error) is mirrored onto it under `_`-prefixed keys. Client-side
+        // only: UserResource never sends keys like these, and nothing here
+        // is ever posted back to the API.
+        if ($this->profile !== null) {
+            $this->profile['_show_avatar'] = $this->showAvatar;
+            $this->profile['_link_error'] = $this->linkError;
+        }
+
         return view('native.profile');
     }
 
@@ -440,6 +573,15 @@ final class Profile extends NativeComponent
         $username = data_get($this->profile, 'username');
 
         return is_string($username) ? $username : '';
+    }
+
+    /**
+     * Put a link row's visibility back after a failed write, so the eye
+     * never lies about what the server holds.
+     */
+    private function restoreLinkVisibility(int $key, bool $visible): void
+    {
+        data_set($this->profile, 'links.'.$key.'.is_visible', $visible);
     }
 
     /**

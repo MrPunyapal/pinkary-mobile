@@ -55,6 +55,14 @@
     }
 
     $statPills[] = ['label' => $abbreviate($views).' '.($views === 1 ? 'View' : 'Views'), 'tap' => null, 'a11y' => null];
+
+    // native/profile.blade.php hands this card nothing but the profile
+    // array, and a Blade component cannot reach the screen's own public
+    // properties, so the screen mirrors its transient card state onto the
+    // array under `_`-prefixed keys (see Profile::render()). They are
+    // client-side only — UserResource never sends keys like these.
+    $showAvatar = (bool) data_get($profile, '_show_avatar', false);
+    $linkError = (string) data_get($profile, '_link_error', '');
 @endphp
 
 {{-- Web profile card (links/index): share and QR sit on the left of the
@@ -95,11 +103,13 @@
     </native:row>
 
     <native:column class="w-full items-center gap-0">
-        {{-- The tap-to-zoom avatar (links/index:105-124) needs a
-            showAvatar/toggleAvatar pair on the screen component; until the
-            profile screen owns it, the avatar stays a plain image rather
-            than a pressable with nothing behind it. --}}
-        <x-avatar :user="$profile" :size="20" company-radius="3xl" :link="false" />
+        {{-- Web parity (links/index:105-124): tapping the avatar opens a
+            full-screen lightbox. Native shows it as a bottom sheet, the
+            same shape the QR sheet uses (native/profile.blade.php:68-76).
+            Size 24 is the largest box the avatar component ships. --}}
+        <native:pressable @tap="showAvatar" a11y-label="Show {{ '@'.$username }}’s avatar">
+            <x-avatar :user="$profile" :size="20" company-radius="3xl" :link="false" />
+        </native:pressable>
 
         <native:row class="w-full items-center justify-center gap-1.5 mt-4">
             <native:text class="text-2xl font-semibold text-theme-on-surface">{{ data_get($profile, 'name') }}</native:text>
@@ -139,6 +149,9 @@
 
     @if (count($links) > 0)
         <native:column class="w-full gap-2 mt-4 pt-4 border-t border-theme-outline-variant">
+            @if ($isMe && $linkError !== '')
+                <native:text class="text-sm text-theme-destructive">{{ $linkError }}</native:text>
+            @endif
             @foreach ($links as $link)
                 @php
                     $linkId = (int) data_get($link, 'id', 0);
@@ -150,6 +163,11 @@
                     // Click counts are the owner's business (links/index:
                     // 332-342 shows other people's pills description-only).
                     $clicks = $isMe ? data_get($link, 'click_count') : null;
+                    // Web parity (links/index:285-298): the eye is the
+                    // owner's visibility toggle, and a hidden link reads
+                    // as the slashed eye.
+                    $linkVisible = (bool) data_get($link, 'is_visible', true);
+                    $linkBusy = (bool) data_get($link, '_busy', false);
                 @endphp
                 <native:row class="w-full items-center gap-2">
                     <native:pressable class="flex-1 min-w-0 items-center py-3 {{ $linkRadius }} bg-theme-primary" @tap="openUserLink({{ $linkId }})" a11y-label="Open {{ data_get($link, 'description', 'link') }}">
@@ -160,10 +178,17 @@
                     </native:pressable>
                     @if ($isMe)
                         {{-- Owner actions stay flat (old clients drop nested
-                            slots). The eye visibility toggle needs a
-                            toggleLinkVisibility($id) on the screen
-                            component, and drag-reorder needs a links/sort
-                            call, so neither is a control here yet. --}}
+                            slots). Drag-reorder has no native gesture to bind
+                            to — the renderer exposes no sortable list and no
+                            drag event, so links/sort has nothing to call and
+                            the web's drag handle is left off deliberately. --}}
+                        <native:pressable class="w-9 h-9 items-center justify-center shrink-0 {{ $linkBusy ? 'opacity-40' : '' }}" @tap="toggleLinkVisibility({{ $linkId }})" a11y-label="{{ $linkVisible ? 'Hide link' : 'Show link' }}">
+                            @if ($linkVisible)
+                                <native:icon :ios="\App\Icons\Ios::Eye" :android="\App\Icons\AndroidOutlined::Visibility" :size="18" color="#64748B" dark-color="#94A3B8" />
+                            @else
+                                <native:icon :ios="\App\Icons\Ios::EyeSlash" :android="\App\Icons\AndroidOutlined::VisibilityOff" :size="18" color="#64748B" dark-color="#94A3B8" />
+                            @endif
+                        </native:pressable>
                         <native:pressable class="w-9 h-9 items-center justify-center shrink-0" @tap="editProfile" a11y-label="Edit links">
                             <native:icon :ios="\App\Icons\Ios::Pencil" :android="\App\Icons\AndroidOutlined::Edit" :size="18" color="#64748B" dark-color="#94A3B8" />
                         </native:pressable>
@@ -183,5 +208,21 @@
             <native:icon :ios="\App\Icons\Ios::Plus" :android="\App\Icons\AndroidOutlined::Add" :size="18" color="#FFFFFF" />
             <native:text class="text-sm font-bold text-white">Add New Link</native:text>
         </native:pressable>
+    @endif
+
+    {{-- The web's lightbox is a full-screen overlay; the native idiom for
+        that is a bottom sheet, so the avatar zoom copies the QR sheet's
+        structure (native/profile.blade.php:68-76) — drag-down dismiss
+        and the Close button both land on toggleAvatar. --}}
+    @if ($showAvatar)
+        <native:bottom-sheet visible @dismiss="toggleAvatar">
+            <native:column class="w-full gap-3 px-5 py-4 bg-theme-surface">
+                <native:column class="w-full items-center gap-2 p-3 rounded-md border border-theme-outline-variant">
+                    <x-avatar :user="$profile" :size="24" company-radius="3xl" :link="false" />
+                    <native:text class="text-sm text-center text-theme-on-surface-variant">{{ '@'.$username }}</native:text>
+                </native:column>
+                <native:button variant="secondary" @tap="toggleAvatar">Close</native:button>
+            </native:column>
+        </native:bottom-sheet>
     @endif
 </native:column>
