@@ -65,24 +65,12 @@ final class Profile extends NativeComponent
     {
         $this->username = (string) $this->param('username', '');
 
-        $token = $this->requireToken();
-
-        if ($token === null) {
-            return;
-        }
-
-        $this->load($token);
+        $this->load($this->token());
     }
 
     public function retry(): void
     {
-        $token = $this->requireToken();
-
-        if ($token === null) {
-            return;
-        }
-
-        $this->load($token);
+        $this->load($this->token());
     }
 
     /**
@@ -90,13 +78,7 @@ final class Profile extends NativeComponent
      */
     public function retryQuestions(): void
     {
-        $token = $this->requireToken();
-
-        if ($token === null) {
-            return;
-        }
-
-        $this->loadQuestions($token, $this->questionsUsername());
+        $this->loadQuestions($this->token(), $this->questionsUsername());
     }
 
     /**
@@ -231,11 +213,7 @@ final class Profile extends NativeComponent
             return;
         }
 
-        $token = $this->requireToken();
-
-        if ($token === null) {
-            return;
-        }
+        $token = $this->token();
 
         $username = $this->questionsUsername();
 
@@ -257,7 +235,7 @@ final class Profile extends NativeComponent
             return;
         }
 
-        if ($this->handleUnauthorized($response)) {
+        if ($token !== null && $this->handleUnauthorized($response)) {
             return;
         }
 
@@ -268,7 +246,7 @@ final class Profile extends NativeComponent
         }
 
         /** @var list<array<string, mixed>> $next */
-        $next = $response->json('data', []);
+        $next = $api->normalizeQuestions($response->json('data', []));
         $this->questions = [...$this->questions, ...$next];
         $this->questionsPage++;
         $this->hasMoreQuestions = $response->json('links.next') !== null;
@@ -329,18 +307,13 @@ final class Profile extends NativeComponent
     }
 
     /**
-     * Record the visit like the web does, then open the link.
+     * Open a profile link, recording the visit like the web does.
      * Looks the URL up from the loaded profile so markup never
-     * carries (HTML-escapable) URLs.
+     * carries (HTML-escapable) URLs. Guests open the link too — the
+     * click record is a signed-in-only write and is simply skipped.
      */
     public function openUserLink(int $id): void
     {
-        $token = $this->requireToken();
-
-        if ($token === null) {
-            return;
-        }
-
         $url = null;
 
         foreach ((array) data_get($this->profile, 'links', []) as $link) {
@@ -353,13 +326,17 @@ final class Profile extends NativeComponent
             return;
         }
 
-        $api = app(PinkaryApi::class);
-        $api->attempt(fn () => $api->clickLink($token, $id));
-
         if (! preg_match('#^https?://#i', $url)) {
             $this->errorMessage = 'This link could not be opened.';
 
             return;
+        }
+
+        $token = $this->token();
+
+        if ($token !== null) {
+            $api = app(PinkaryApi::class);
+            $api->attempt(fn () => $api->clickLink($token, $id));
         }
 
         app(Browser::class)->inApp($url);
@@ -394,14 +371,25 @@ final class Profile extends NativeComponent
         return view('native.profile');
     }
 
-    private function load(string $token): void
+    private function load(?string $token): void
     {
+        // Your own profile is signed-in only; someone else's is public
+        // on the web, so guests read it with a null token.
+        if ($this->username === '') {
+            $token = $this->requireToken();
+
+            if ($token === null) {
+                return;
+            }
+        }
+
         $this->loading = true;
         $this->errorMessage = '';
 
+        $api = app(PinkaryApi::class);
         $response = $this->username === ''
-            ? app(PinkaryApi::class)->attempt(fn () => app(PinkaryApi::class)->profile($token))
-            : app(PinkaryApi::class)->attempt(fn () => app(PinkaryApi::class)->user($token, $this->username));
+            ? $api->attempt(fn () => $api->profile($token))
+            : $api->attempt(fn () => $api->user($token, $this->username));
 
         if ($response === null) {
             $this->loading = false;
@@ -413,7 +401,7 @@ final class Profile extends NativeComponent
             return;
         }
 
-        if ($this->handleUnauthorized($response)) {
+        if ($token !== null && $this->handleUnauthorized($response)) {
             return;
         }
 
@@ -457,7 +445,7 @@ final class Profile extends NativeComponent
     /**
      * Load the profile's answered posts, pinned first (server-side).
      */
-    private function loadQuestions(string $token, string $username): void
+    private function loadQuestions(?string $token, string $username): void
     {
         $this->questionsLoading = true;
         $this->questionsError = '';
@@ -482,7 +470,7 @@ final class Profile extends NativeComponent
             return;
         }
 
-        if ($this->handleUnauthorized($response)) {
+        if ($token !== null && $this->handleUnauthorized($response)) {
             return;
         }
 
@@ -493,9 +481,7 @@ final class Profile extends NativeComponent
             return;
         }
 
-        /** @var list<array<string, mixed>> $questions */
-        $questions = $response->json('data', []);
-        $this->questions = $questions;
+        $this->questions = $api->normalizeQuestions($response->json('data', []));
         $this->hasMoreQuestions = $response->json('links.next') !== null;
         $this->questionsLoading = false;
     }

@@ -242,7 +242,7 @@ final class Home extends NativeComponent
         }
 
         /** @var list<array<string, mixed>> $next */
-        $next = $response->json('data', []);
+        $next = $api->normalizeQuestions($response->json('data', []));
         $this->posts = [...$this->posts, ...$next];
         $this->page++;
         $this->hasMore = $response->json('links.next') !== null;
@@ -297,7 +297,7 @@ final class Home extends NativeComponent
 
         /** @var list<array<string, mixed>> $posts */
         $posts = $response->json('data', []);
-        $this->posts = $posts;
+        $this->posts = $api->normalizeQuestions($posts);
         $this->page = 1;
         $this->hasMore = $response->json('links.next') !== null;
         $this->loadMoreError = '';

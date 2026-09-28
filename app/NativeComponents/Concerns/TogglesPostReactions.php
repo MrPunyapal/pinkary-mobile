@@ -412,9 +412,12 @@ trait TogglesPostReactions
      */
     private function translateHtml(?string $html): void
     {
+        // A shared update has no content (PinkaryApi normalizes the
+        // legacy `__UPDATE__` marker to null), so an empty text is the
+        // only thing worth skipping here.
         $text = trim(html_entity_decode(strip_tags((string) $html), ENT_QUOTES, 'UTF-8'));
 
-        if ($text === '' || $text === '__UPDATE__') {
+        if ($text === '') {
             return;
         }
 

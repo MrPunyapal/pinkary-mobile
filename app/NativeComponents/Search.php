@@ -40,11 +40,6 @@ final class Search extends NativeComponent
         return 'Search';
     }
 
-    public function mount(): void
-    {
-        $this->requireToken();
-    }
-
     public function updatedQuery(): void
     {
         $this->search();
@@ -81,11 +76,7 @@ final class Search extends NativeComponent
 
     public function search(): void
     {
-        $token = $this->requireToken();
-
-        if ($token === null) {
-            return;
-        }
+        $token = $this->token();
 
         $query = mb_trim($this->query, "@# \t\n\r\0\x0B");
 
@@ -111,7 +102,7 @@ final class Search extends NativeComponent
             return;
         }
 
-        if ($this->handleUnauthorized($response)) {
+        if ($token !== null && $this->handleUnauthorized($response)) {
             return;
         }
 

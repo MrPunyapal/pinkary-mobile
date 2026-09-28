@@ -29,10 +29,9 @@ function bookmarkRow(string $id, string $answer): array
     ];
 }
 
-it('redirects guests away from the new screens', function (): void {
+it('redirects guests away from the signed-in-only screens', function (): void {
     Native::test(Bookmarks::class)->assertReplacedWith('/login');
     Native::test(Notifications::class)->assertReplacedWith('/login');
-    Native::test(Search::class)->assertReplacedWith('/login');
 });
 
 it('lists bookmarked posts with an empty state', function (): void {
