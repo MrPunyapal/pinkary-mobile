@@ -90,9 +90,19 @@
 
                 {{-- The web's secondary controls sit under the field: a photo
                     button, a poll toggle and the counter pushed right
-                    (create.blade.php:85-119). There is no photo button here --
-                    native has no file picker, and a control that cannot work
-                    must not be drawn. --}}
+                    (create.blade.php:85-119).
+
+                    No photo button yet, and that is a backend gap rather than
+                    a platform one. The framework does ship a gallery picker
+                    (Native\Mobile\Facades\Camera::pickImages, delivering
+                    Events\Gallery\MediaSelected), so the button is buildable
+                    -- but the API has no endpoint to receive a post image.
+                    The web stores images through ImageProcessor and puts a
+                    markdown ![alt](url) in the post body, which
+                    ImageProviderParsable then renders; the only multipart
+                    surface the API has is the avatar on UpdateProfileRequest.
+                    Until that endpoint exists, a photo button would be a
+                    visible control that silently does nothing. --}}
                 <native:row class="w-full items-center gap-1 pl-3.5">
                     <native:pressable class="w-7 h-7 items-center justify-center" @tap="togglePoll" a11y-label="Create a poll">
                         <native:icon :ios="\App\Icons\Ios::ChartBar" :android="\App\Icons\AndroidOutlined::InsertChart" :size="16" :color="$isPoll ? '#EC4899' : '#64748B'" dark-color="#94A3B8" />
