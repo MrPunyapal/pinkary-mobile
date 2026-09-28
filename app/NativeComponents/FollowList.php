@@ -6,6 +6,8 @@ namespace App\NativeComponents;
 
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
+use App\Support\AccountStore;
+use App\Support\CurrentUser;
 use Illuminate\Http\Client\Response;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
@@ -47,6 +49,16 @@ final class FollowList extends NativeComponent
     /** @var list<string> */
     public array $busyUsernames = [];
 
+    /**
+     * Whether the signed-in user is the profile whose list this is.
+     *
+     * The web hides its "Follows you" badge on your own sheets
+     * (followers/index.blade.php:55): on your follower list every row follows
+     * you by definition, so the badge would be true of all of them and say
+     * nothing.
+     */
+    public bool $isOwnProfile = false;
+
     public function navTitle(): string
     {
         $label = $this->mode === 'following' ? 'Following' : 'Followers';
@@ -71,6 +83,11 @@ final class FollowList extends NativeComponent
         }
 
         $token = $this->token();
+
+        $me = CurrentUser::get() ?? AccountStore::active();
+        $myUsername = is_array($me) ? (string) ($me['username'] ?? '') : '';
+
+        $this->isOwnProfile = $myUsername !== '' && mb_strtolower($myUsername) === mb_strtolower($this->username);
 
         if ($this->username === '') {
             $this->loading = false;

@@ -51,6 +51,11 @@
                     $rowFollowed = (bool) data_get($user, 'followed_by_me', false);
                     $rowIsMe = (bool) data_get($user, 'is_me', false);
                     $rowBusy = in_array($rowUsername, $busyUsernames ?? [], true);
+                    // The web shows this only on someone else's list: on your
+                    // own follower sheet every row follows you by definition,
+                    // so the badge would be true of all of them and mean
+                    // nothing (followers/index.blade.php:55).
+                    $rowFollowsMe = (bool) data_get($user, 'follows_me', false) && ! $isOwnProfile;
                 @endphp
                 <native:row class="w-full items-center gap-3 p-3 rounded-xl bg-theme-surface border border-theme-outline-variant">
                     <native:pressable class="flex-1 min-w-0" @tap="openProfile('{{ $rowUsername }}')" a11y-label="Open {{ '@'.$rowUsername }}’s profile">
@@ -67,7 +72,27 @@
                                         <native:icon :ios="\App\Icons\Ios::CheckmarkSealFill" :android="\App\Icons\Android::Verified" :size="14" color="#EC4899" />
                                     @endif
                                 </native:row>
-                                <native:text class="text-sm text-theme-on-surface-variant" max-lines="1">{{ '@'.$rowUsername }}</native:text>
+                                {{-- Web parity: the username line carries a
+                                    "Follows you" badge when the person on the
+                                    row also follows the profile's owner
+                                    (followers/index.blade.php:55-57, and the
+                                    same line in following/index.blade.php and
+                                    likes/index.blade.php). It sits on the
+                                    username's own line, not in a row of its
+                                    own. The web hardcodes the pill as
+                                    bg-slate-900 text-slate-50
+                                    (components/badge.blade.php:2) and never
+                                    flips it; this themes it with the
+                                    secondary pair instead, which is the same
+                                    dark-on-light inversion in both modes. --}}
+                                @if ($rowFollowsMe)
+                                    <native:row class="items-center gap-1.5 min-w-0">
+                                        <native:text class="text-sm text-theme-on-surface-variant shrink-0" max-lines="1">{{ '@'.$rowUsername }}</native:text>
+                                        <native:text class="px-2 py-1 leading-none text-xs rounded-full bg-theme-secondary text-theme-on-secondary" max-lines="1">Follows you</native:text>
+                                    </native:row>
+                                @else
+                                    <native:text class="text-sm text-theme-on-surface-variant" max-lines="1">{{ '@'.$rowUsername }}</native:text>
+                                @endif
                             </native:column>
                         </native:row>
                     </native:pressable>
@@ -75,10 +100,11 @@
                         {{-- Web parity (components/follow-button.blade.php:9-16):
                             ONE outlined pill for both states, and the label
                             never changes width — busy dims the row instead
-                            of swapping in an ellipsis. "Follow Back" is not
-                            offered: the followers/following endpoints return
-                            `followed_by_me` but no `is_follower`, so the
-                            web's third state is not derivable here. --}}
+                            of swapping in an ellipsis. The follow direction
+                            the button cannot express is carried by the
+                            "Follows you" badge beside the username, exactly
+                            as the web does; the web has no "Follow Back"
+                            state either. --}}
                         <native:pressable class="shrink-0 px-3 py-1.5 rounded-full border border-theme-outline-variant text-nowrap {{ $rowBusy ? 'opacity-40' : '' }}" @tap="toggleFollow('{{ $rowUsername }}')" a11y-label="{{ $rowFollowed ? 'Unfollow' : 'Follow' }}">
                             <native:text class="text-xs font-medium text-theme-on-surface-variant">{{ $rowFollowed ? 'Unfollow' : 'Follow' }}</native:text>
                         </native:pressable>
