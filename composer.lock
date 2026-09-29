@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "7631fe4009f2078cc6ba806e4ba36ad2",
+    "content-hash": "feffad0dcc6e92f92ae7d64131aa89fb",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -2598,6 +2598,61 @@
             "time": "2026-09-19T15:03:37+00:00"
         },
         {
+            "name": "nativephp/mobile-camera",
+            "version": "1.0.4",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/NativePHP/mobile-camera.git",
+                "reference": "1cdbf3059517f3cf2b0e4a341b6c298eba4123f6"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/NativePHP/mobile-camera/zipball/1cdbf3059517f3cf2b0e4a341b6c298eba4123f6",
+                "reference": "1cdbf3059517f3cf2b0e4a341b6c298eba4123f6",
+                "shasum": ""
+            },
+            "require": {
+                "nativephp/mobile": "^3.0 || ^4.0",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "orchestra/testbench": "^10.0",
+                "pestphp/pest": "^2.7|^3.0|^4.0"
+            },
+            "type": "nativephp-plugin",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Native\\Mobile\\Providers\\CameraServiceProvider"
+                    ]
+                },
+                "nativephp": {
+                    "manifest": "nativephp.json"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Native\\Mobile\\Providers\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "NativePHP",
+                    "email": "info@nativephp.com"
+                }
+            ],
+            "description": "Camera plugin for NativePHP Mobile (Photo capture, Video recording, Gallery picker)",
+            "support": {
+                "issues": "https://github.com/NativePHP/mobile-camera/issues",
+                "source": "https://github.com/NativePHP/mobile-camera/tree/1.0.4"
+            },
+            "time": "2026-07-17T01:38:16+00:00"
+        },
+        {
             "name": "nativephp/mobile-ui",
             "version": "0.4.0",
             "source": {
@@ -3205,39 +3260,6 @@
                 }
             ],
             "time": "2026-08-24T00:54:40+00:00"
-        },
-        {
-            "name": "pinkary/nativephp-camera-picker",
-            "version": "dev-main",
-            "dist": {
-                "type": "path",
-                "url": "packages/nativephp-camera-picker",
-                "reference": "dfdcb9fb315316f90df46a055072b79e79bc076f"
-            },
-            "require": {
-                "php": "^8.2"
-            },
-            "type": "nativephp-plugin",
-            "extra": {
-                "laravel": {
-                    "providers": [
-                        "Pinkary\\NativePhp\\CameraPicker\\CameraPickerServiceProvider"
-                    ]
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Pinkary\\NativePhp\\CameraPicker\\": "src/"
-                }
-            },
-            "license": [
-                "MIT"
-            ],
-            "description": "Implements NativePHP's Camera.PickMedia bridge function for the Pinkary composer.",
-            "transport-options": {
-                "symlink": true,
-                "relative": true
-            }
         },
         {
             "name": "psr/clock",
@@ -11128,8 +11150,7 @@
     "aliases": [],
     "minimum-stability": "dev",
     "stability-flags": {
-        "nativephp/web-ui": 15,
-        "pinkary/nativephp-camera-picker": 20
+        "nativephp/web-ui": 15
     },
     "prefer-stable": true,
     "prefer-lowest": false,

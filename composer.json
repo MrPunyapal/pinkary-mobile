@@ -18,19 +18,10 @@
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",
         "nativephp/mobile": "^4.4",
+        "nativephp/mobile-camera": "^1.0",
         "nativephp/mobile-ui": "^0.4.0",
-        "nativephp/web-ui": "^0.0.1@alpha",
-        "pinkary/nativephp-camera-picker": "@dev"
+        "nativephp/web-ui": "^0.0.1@alpha"
     },
-    "repositories": [
-        {
-            "type": "path",
-            "url": "packages/nativephp-camera-picker",
-            "options": {
-                "symlink": true
-            }
-        }
-    ],
     "require-dev": {
         "fakerphp/faker": "^1.23",
         "laravel/boost": "^2.9",
