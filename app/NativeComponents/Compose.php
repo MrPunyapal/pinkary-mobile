@@ -644,12 +644,13 @@ final class Compose extends NativeComponent
         foreach ($uploaded as $image) {
             $url = (string) data_get($image, 'url', '');
             $name = (string) data_get($image, 'original_name', '');
+            $storedPath = (string) data_get($image, 'path', '');
 
-            if ($url === '' || $name === '') {
+            if ($url === '' || $name === '' || $storedPath === '') {
                 continue;
             }
 
-            $this->addImage($url, $name, (string) data_get($image, 'path', ''));
+            $this->addImage($url, $name, $storedPath);
         }
 
         $this->touchDraft();
@@ -665,7 +666,11 @@ final class Compose extends NativeComponent
      */
     private function addImage(string $url, string $name, string $path = ''): void
     {
-        $snippet = '!['.$name.']('.$url.')';
+        // The snippet carries `path`, not `url`. `content` is stored verbatim
+        // and rendered by the server, so a host in it could not survive a disk
+        // or CDN change, and the server's cleanup job matches references
+        // against stored paths.
+        $snippet = '!['.$name.']('.($path !== '' ? $path : $url).')';
 
         if (str_contains($this->content, $snippet)) {
             return;
@@ -701,7 +706,7 @@ final class Compose extends NativeComponent
 
         $image = $this->images[$index];
 
-        $snippet = '!['.$image['name'].']('.$image['url'].')';
+        $snippet = $this->imageSnippet($image);
 
         // A trailing newline came in with the snippet, so it leaves with it.
         $this->content = str_replace($snippet."\n", '', $this->content);
@@ -726,8 +731,25 @@ final class Compose extends NativeComponent
             return;
         }
 
-        $this->addImage($this->images[$index]['url'], $this->images[$index]['name'], $this->images[$index]['path']);
+        $image = $this->images[$index];
+
+        $this->addImage($image['url'], $image['name'], $image['path']);
         $this->touchDraft();
+    }
+
+    /**
+     * The markdown reference for a staged image.
+     *
+     * `path` is what got written, so removal has to build the identical
+     * string or the snippet is orphaned in the post body.
+     *
+     * @param  array{url: string, name: string, path: string}  $image
+     */
+    private function imageSnippet(array $image): string
+    {
+        $path = (string) ($image['path'] ?? '');
+
+        return '!['.$image['name'].']('.($path !== '' ? $path : $image['url']).')';
     }
 
     public function publish(): void

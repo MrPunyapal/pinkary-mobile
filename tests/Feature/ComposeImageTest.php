@@ -160,7 +160,7 @@ it('inserts image markdown into the post', function (): void {
         ->set('content', 'Look at this')
         ->call('onMediaSelected', pickedEvent([pickedFile()->getPathname()]));
 
-    expect($test->get('content'))->toBe("Look at this\n![a.png](https://pinkary.test/storage/1/a.png)")
+    expect($test->get('content'))->toBe("Look at this\n![a.png](images/2026/a.png)")
         ->and($test->get('images'))->toHaveCount(1);
 
     Http::assertSent(fn ($request) => str_ends_with($request->url(), '/api/v1/images')
@@ -177,7 +177,7 @@ it('inserts markdown without a leading newline on an empty post', function (): v
     $test = Native::test(Compose::class)
         ->call('onMediaSelected', pickedEvent([pickedFile()->getPathname()]));
 
-    expect($test->get('content'))->toBe('![a.png](https://pinkary.test/storage/1/a.png)');
+    expect($test->get('content'))->toBe('![a.png](images/2026/a.png)');
 });
 
 it('says nothing when the pick is cancelled', function (): void {
@@ -256,6 +256,23 @@ it('removes an image and takes its markdown with it', function (): void {
         ->and($test->get('content'))->toBe('');
 });
 
+it('skips an image the API returned without a stored path', function (): void {
+    // The snippet is built from `path`. Without one there is nothing
+    // disk-relative to store, and silently falling back to the url would
+    // reintroduce a host into content.
+    fakeImageUpload([[
+        'url' => 'https://pinkary.test/storage/1/a.png',
+        'original_name' => 'a.png',
+    ]]);
+
+    $test = Native::test(Compose::class)
+        ->set('content', 'Look at this')
+        ->call('onMediaSelected', pickedEvent([pickedFile()->getPathname()]));
+
+    expect($test->get('images'))->toBe([])
+        ->and($test->get('content'))->toBe('Look at this');
+});
+
 it('puts a removed images markdown back on request', function (): void {
     fakeImageUpload([[
         'url' => 'https://pinkary.test/storage/1/a.png',
@@ -266,7 +283,7 @@ it('puts a removed images markdown back on request', function (): void {
     $test = Native::test(Compose::class)
         ->call('onMediaSelected', pickedEvent([pickedFile()->getPathname()]));
 
-    $snippet = '![a.png](https://pinkary.test/storage/1/a.png)';
+    $snippet = '![a.png](images/2026/a.png)';
 
     // The user deleted the markdown by hand; the thumbnail is still staged, so
     // tapping it puts the image back (the web's createMarkdownImage(index)).
