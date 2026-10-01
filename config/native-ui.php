@@ -50,6 +50,7 @@ return [
         'light' => [
             // Primary brand color — Pinkary pink, used for filled buttons, active states, key accents.
             'primary' => '#EC4899',
+            'link' => '#2563EB',
             'on-primary' => '#FFFFFF',
 
             // Secondary / muted action color.
@@ -106,6 +107,7 @@ return [
             // Specify any token here to override the derived value.
             // Pink stays identical in both modes on web.
             'primary' => '#EC4899',
+            'link' => '#3B82F6',
             'on-primary' => '#FFFFFF',
 
             'secondary' => '#151C2A',

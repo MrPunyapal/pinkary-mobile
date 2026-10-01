@@ -53,6 +53,10 @@ final class Register extends NativeComponent
 
     public function createAccount(): void
     {
+        if ($this->busy) {
+            return;
+        }
+
         $this->errorMessage = '';
         $this->fieldErrors = [];
 

@@ -1,12 +1,12 @@
 <native:scroll-view class="w-full h-full bg-theme-background">
-    <native:column class="w-full items-center px-5 py-8 gap-8 safe-area safe-area-bottom">
+    <native:column class="w-full items-center px-5 py-6 gap-6 safe-area">
         {{-- Web guest card: the wordmark sits above the card at h-12. --}}
         <x-pinkary-logo height="12" />
 
-        <native:column class="w-full p-6 gap-6 rounded-md bg-theme-surface border border-theme-outline-variant shadow-lg">
+        <native:column class="w-full p-5 gap-5 rounded-md bg-theme-surface border border-theme-outline-variant">
             <native:column class="w-full gap-2">
                 <native:text class="text-2xl font-semibold text-theme-on-surface">{{ $addingAccount ? 'Add Account' : 'Log in' }}</native:text>
-                <native:text class="text-base text-theme-on-surface-variant">{{ $addingAccount ? 'Sign in with another Pinkary account to switch between them easily.' : 'Continue to your Pinkary account.' }}</native:text>
+                <native:text class="text-sm leading-relaxed text-theme-on-surface-variant">{{ $addingAccount ? 'Sign in with another Pinkary account to switch between them easily.' : 'Continue to your Pinkary account.' }}</native:text>
             </native:column>
 
             @if ($addingAccount && $activeAccountUsername !== '')
@@ -37,11 +37,8 @@
                         <native:text class="text-sm font-medium text-theme-accent">Use a different account</native:text>
                     </native:pressable>
                 @else
-                    <native:outlined-text-input label="Email" keyboard="email" native:model="email" :supporting="$fieldErrors['email'] ?? ''" :error="isset($fieldErrors['email'])" />
-                    <native:outlined-text-input label="Password" :secure="! $showPassword" native:model="password" :supporting="$fieldErrors['password'] ?? ''" :error="isset($fieldErrors['password'])" />
-                    <native:pressable class="self-end py-1" @tap="togglePasswordVisibility" a11y-label="{{ $showPassword ? 'Hide password' : 'Show password' }}">
-                        <native:text class="text-sm font-medium text-theme-accent">{{ $showPassword ? 'Hide password' : 'Show password' }}</native:text>
-                    </native:pressable>
+                    <x-auth-field label="Email" model="email" keyboard="email" :error="$fieldErrors['email'] ?? ''" />
+                    <x-auth-field label="Password" model="password" :password="true" :show-password="$showPassword" :error="$fieldErrors['password'] ?? ''" />
 
                     {{-- Web parity (auth/login:63-82), minus "Remember me":
                          TokenStorage already keeps the session in the device
@@ -55,9 +52,11 @@
             </native:column>
 
             @if ($needsTwoFactor)
-                <native:button variant="primary" :disabled="$busy" @tap="submitTwoFactor">{{ $busy ? 'Checking…' : 'Verify' }}</native:button>
+                <native:button class="w-full" variant="primary" :disabled="$busy" @tap="submitTwoFactor">{{ $busy ? 'Checking…' : 'Verify' }}</native:button>
             @else
-                <native:button variant="primary" :disabled="$busy" @tap="authenticate">{{ $busy ? 'Logging in…' : ($addingAccount ? 'Add Account' : 'Log in') }}</native:button>
+                <native:pressable class="w-full h-11 items-center justify-center rounded-md bg-theme-primary {{ $busy ? 'opacity-50' : '' }}" @tap="authenticate" a11y-label="{{ $addingAccount ? 'Add Account' : 'Log in' }}">
+                    <native:text class="text-sm font-semibold text-white">{{ $busy ? 'Logging in…' : ($addingAccount ? 'Add Account' : 'Log in') }}</native:text>
+                </native:pressable>
             @endif
 
             <native:column class="w-full pt-6 border-t border-theme-outline-variant">

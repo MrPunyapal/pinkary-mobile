@@ -82,6 +82,10 @@ final class Login extends NativeComponent
 
     public function authenticate(): void
     {
+        if ($this->busy) {
+            return;
+        }
+
         $this->errorMessage = '';
         $this->fieldErrors = [];
 

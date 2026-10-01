@@ -48,7 +48,10 @@
                     <x-avatar :user="$me" :link="false" />
                 </native:column>
                 <native:column class="flex-1 gap-1 min-w-0">
-                    <native:outlined-text-input label="Ask {{ '@'.$askUsername }}" placeholder="Ask {{ '@'.$askUsername }}..." multiline native:model="content" />
+                    <native:outlined-text-input label="Ask {{ '@'.$askUsername }}" placeholder="Ask {{ '@'.$askUsername }}..." multiline native:model="content" :selection-debounce-ms="400" @selectionChange="updateMentionSelection(-1)" />
+                    @if ($mentionPostIndex === -1)
+                        <x-mention-suggestions :users="$mentionResults" />
+                    @endif
                     @php [$length, $over] = $counter($content); @endphp
                     <native:row class="w-full items-center justify-end">
                         @if ($over > 0)
@@ -86,7 +89,10 @@
                 @endif
             </native:column>
             <native:column class="flex-1 gap-1 min-w-0">
-                <native:bare-text-input class="w-full px-3.5 text-[15.2px] leading-7 text-theme-on-body" placeholder="Share an update..." multiline native:model="content" />
+                <native:bare-text-input native:key="compose-content" class="w-full text-theme-on-body" placeholder="Share an update..." multiline line-height="1.4" native:model="content" :selection-debounce-ms="400" @selectionChange="updateMentionSelection(-1)" />
+                @if ($mentionPostIndex === -1)
+                    <x-mention-suggestions :users="$mentionResults" />
+                @endif
 
                 {{-- The web's secondary controls sit under the field: a photo
                     button, a poll toggle and the counter pushed right
@@ -176,7 +182,10 @@
                     <native:column class="w-px flex-1 bg-theme-outline-variant" />
                 </native:column>
                 <native:column class="flex-1 gap-1 min-w-0">
-                    <native:bare-text-input class="w-full px-3.5 text-[15.2px] leading-7 text-theme-on-body" placeholder="Say more..." multiline :value="$post" @change="updatePost({{ $index }})" />
+                    <native:bare-text-input native:key="compose-post-{{ $index }}" ref="post-{{ $index }}" class="w-full text-theme-on-body" placeholder="Say more..." multiline line-height="1.4" :value="$post" @change="updatePost({{ $index }})" :selection-debounce-ms="400" @selectionChange="updateMentionSelection({{ $index }})" />
+                    @if ($mentionPostIndex === $index)
+                        <x-mention-suggestions :users="$mentionResults" />
+                    @endif
 
                     <native:row class="w-full items-center gap-1 pl-3.5">
                         <native:pressable class="w-7 h-7 items-center justify-center" @tap="togglePostPoll({{ $index }})" a11y-label="Create a poll for post {{ $index + 2 }}">

@@ -1,5 +1,5 @@
-@if ($menuPostId !== '')
-    <native:bottom-sheet visible @dismiss="closeMenu">
+<native:bottom-sheet native:key="post-menu-sheet" :visible="$menuPostId !== ''" @dismiss="closeMenu">
+    @if ($menuPostId !== '')
         {{-- The hairline mirrors the web sheet edge (border-slate-200/80). --}}
         <native:column class="w-full gap-1 px-5 py-4 bg-theme-surface border-t border-theme-outline-variant">
             @if ($menuError !== '')
@@ -93,5 +93,5 @@
                     dead control. --}}
             @endif
         </native:column>
-    </native:bottom-sheet>
-@endif
+    @endif
+</native:bottom-sheet>

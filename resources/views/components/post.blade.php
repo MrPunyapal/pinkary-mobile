@@ -1,4 +1,4 @@
-@props(['post', 'rail' => false, 'railTop' => false, 'moreLink' => null, 'flushTop' => false, 'bare' => false, 'expanded' => false, 'comment' => false])
+@props(['post', 'rail' => false, 'railTop' => false, 'moreLink' => null, 'flushTop' => false, 'bare' => false, 'expanded' => false, 'comment' => false, 'viewerUsername' => null])
 
 @php
     $anonymous = (bool) data_get($post, 'anonymously', false);
@@ -8,11 +8,6 @@
     // renders the sentinel as text.
     $sharedUpdate = (bool) data_get($post, 'is_update', false);
 
-    // The API returns parsed HTML (answers carry links, mentions, embeds).
-    // Native text cannot render HTML, so display its plain text — the same
-    // words the web shows, without the markup. Both flattening and the
-    // timestamp phrasing live in App\Support\DisplayText so the other
-    // screens cannot drift away from it.
     $questionText = \App\Support\DisplayText::plain(data_get($post, 'content'));
     $answerText = \App\Support\DisplayText::plain(data_get($post, 'answer'));
     $hasAnswer = $answerText !== '';
@@ -38,8 +33,7 @@
     // component receives only `$post`, so the same lowercase-trimmed
     // username comparison as viewerOwnsPost() in
     // App\NativeComponents\Concerns\TogglesPostReactions decides it here.
-    $activeAccount = \App\Support\AccountStore::active();
-    $viewerUsername = mb_strtolower(trim((string) data_get($activeAccount, 'username', '')));
+    $viewerUsername = mb_strtolower(trim((string) ($viewerUsername ?? data_get(\App\Support\AccountStore::active(), 'username', ''))));
     $postOwnerUsername = mb_strtolower(trim((string) data_get($post, 'to.username', '')));
     $viewerOwnsPost = $postOwnerUsername !== '' && $viewerUsername !== '' && $postOwnerUsername === $viewerUsername;
 
@@ -47,8 +41,8 @@
     // Show less toggle; the question box always shows fully. The web
     // measures a real pixel height (maxHeight 600, toggle only past 640px
     // — resources/js/show-more.js) and native has nothing to measure, so
-    // that budget is converted to CHARACTERS with this file's own rail
-    // assumptions below — 24px per line, 36 characters per line. 640px /
+    // that budget is converted to characters — 24px per line, 36 characters
+    // per line. 640px /
     // 24px = 26.7 lines, so the toggle appears at 27 lines x 36
     // characters = 972. (The old 600-character limit was roughly 16 lines,
     // which almost no real answer ever reached.)
@@ -59,7 +53,6 @@
         : mb_substr($answerText, 0, $answerLimit).'…';
     $hasMoreLink = $moreLink !== null && $moreLink !== '';
     $contentBottomPad = $hasMoreLink ? 'pb-0.5' : ($bare ? 'pb-1' : 'pb-3');
-    $bottomPadDp = $hasMoreLink ? 2 : ($bare ? 4 : 12);
 
     // Comments never carry an asked question: the asker box is skipped
     // and the comment renders as a plain avatar-lane row authored by
@@ -74,37 +67,10 @@
     $laneText = $comment ? ($answerText !== '' ? $answerText : $questionText) : $answerShown;
     $showLane = $comment ? $laneText !== '' : $hasAnswer;
 
-    // Thread rail: responsive avatar lane connector sized to the post's
-    // own content height — no extra overlap baked into the height (that
-    // painted as blank space between threads). The -mb-1.5 reaches 6px
-    // into the next segment's pad instead: negative margins collapse,
-    // so the line connects without pushing the row taller.
-    // Calibrated against the test collector (lane 8 + avatar 40): a
-    // 1-line post needs ~90px of content, so base 60 + 24/line lands the
-    // rail at content height instead of overshooting into a gap.
-    $textLines = max(1, (int) ceil(mb_strlen($answerShown) / 36));
-    $estimatedContentHeight = 60 + ($textLines * 24) + $bottomPadDp
-        + (count($images) * 198)
-        + (is_array($preview) && ($preview['url'] ?? '') !== '' ? 192 : 0)
-        + (is_array($poll) && $poll !== [] ? 120 : 0)
-        + ($answerLong ? 28 : 0);
-    // Rail starts at avatar bottom (40dp avatar). Height matches content.
-    $railHeight = max(40, $estimatedContentHeight - 40);
-
     $topPad = $sharedUpdate && ! $flushTop ? 'pt-3' : 'pt-2';
 @endphp
 
-{{-- Flat web-style post: full-width question box (asks only), then an
-    avatar-lane row. Chained posts draw the web's rail as a fixed-height
-    native:rect (w-0.5, estimated h-[Npx]) below the avatar plus an h-3
-    stub above it when rail-top is set, so the line visibly links
-    avatars. Estimated heights (not flex-1/absolute: both collapse on
-    the old Jump renderer) and border-l-2 never parses.
-    Web truth: 108. The row paints the web column's own fill
-    (home/feed.blade.php:2 — bg-white/80, dark #07101f) instead of the
-    page background, so the feed reads as a white sheet with hairline
-    rows over the slate page, not one flat gray block. --}}
-<native:column class="{{ $bare ? 'w-full' : 'w-full bg-theme-surface border-b border-theme-outline-variant' }}">
+<native:column native:key="post-{{ $postId }}" class="{{ $bare ? 'w-full' : 'w-full bg-theme-surface border-b border-theme-outline-variant' }}">
     @unless ($sharedUpdate || $comment)
         {{-- Chained thread segments stack tight (bare): smaller top pad
             so the gap between two questions stays compact. px-2 is the
@@ -176,7 +142,7 @@
                         slate-700 / slate-200. leading-7 does not parse in
                         this renderer; leading-loose (2.0 x 14px) is exactly
                         the 28px the web asks for. --}}
-                    <native:text class="text-sm leading-loose text-theme-on-body">{{ $questionText }}</native:text>
+                    <x-post-text :html="data_get($post, 'content')" :post-id="$postId" :question="true" />
                 @endif
             </native:column>
         </native:column>
@@ -192,7 +158,8 @@
                 @endif
                 <x-avatar :user="$laneAuthor" />
                 @if ($rail)
-                    <native:rect class="w-0.5 h-[{{ $railHeight }}px] bg-theme-outline shrink-0 -mb-1.5" />
+                    {{-- A continuation marker never determines the height of a post. --}}
+                    <native:rect class="w-0.5 h-4 bg-theme-outline shrink-0" />
                 @endif
             </native:column>
                 <native:column class="flex-1 gap-1.5 min-w-0 {{ $topPad }} {{ $contentBottomPad }}">
@@ -235,13 +202,7 @@
                         @endif
                     </native:row>
                 </native:row>
-                <native:pressable @tap="openDetail('{{ $postId }}')" a11y-label="Open post">
-                    {{-- Web parity (questions/show:166-171): the answer block
-                        carries no leading class at all — the browser default
-                        ~1.2 governs — so leading-[1.2] is the closest this
-                        renderer can get. --}}
-                    <native:text class="text-base leading-[1.2] text-theme-on-body">{{ $laneText }}</native:text>
-                </native:pressable>
+                <x-post-text :html="$comment && $answerText === '' ? data_get($post, 'content') : data_get($post, 'answer')" :post-id="$postId" :limit="! $comment && ! $expanded && $answerLong ? $answerLimit : null" />
 
                 @unless ($comment)
                 @if ($answerLong)

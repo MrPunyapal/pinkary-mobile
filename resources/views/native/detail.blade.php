@@ -1,5 +1,5 @@
-<native:list on-end-reached="loadMoreComments" class="w-full h-full bg-theme-background">
-    <native:column class="w-full gap-0">
+@php $viewerUsername = (string) data_get(\App\Support\AccountStore::active(), 'username', ''); @endphp
+<native:list native:key="detail-list" on-end-reached="loadMoreComments" class="w-full h-full bg-theme-background">
         <x-page-heading title="Post" :back="true" />
 
         @if ($refreshing ?? false)
@@ -16,7 +16,7 @@
                 </native:pressable>
             </native:column>
         @else
-            <x-thread-post :post="$post" :expanded-ids="$expanded" />
+            <x-thread-post :post="$post" :expanded-ids="$expanded" :viewer-username="$viewerUsername" />
 
             @if ($voteError !== '')
                 <native:column class="w-full p-4 gap-3 bg-theme-destructive/15 border-b border-theme-destructive">
@@ -45,7 +45,7 @@
 
             @if (count($comments) > 0 || $commentsFailed)
                 @forelse ($comments as $comment)
-                    <x-post :post="$comment" :comment="true" :expanded="in_array((string) data_get($comment, 'id'), array_map('strval', $expanded), true)" />
+                    <x-post :post="$comment" :viewer-username="$viewerUsername" :comment="true" :expanded="in_array((string) data_get($comment, 'id'), array_map('strval', $expanded), true)" />
                 @empty
                     @if ($commentsFailed)
                         <native:column class="w-full items-center gap-2 px-5 py-10">
@@ -62,7 +62,6 @@
         @endif
 
         <native:column class="w-full h-20" />
-    </native:column>
 </native:list>
 
 @php

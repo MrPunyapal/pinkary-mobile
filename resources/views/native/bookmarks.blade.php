@@ -1,5 +1,5 @@
-<native:list on-end-reached="loadMore" class="w-full h-full bg-theme-background">
-    <native:column class="w-full gap-0">
+@php $viewerUsername = (string) data_get(\App\Support\AccountStore::active(), 'username', ''); @endphp
+<native:list native:key="bookmarks-list" on-end-reached="loadMore" class="w-full h-full bg-theme-background">
         <x-page-heading title="Bookmarks" size="3xl" />
 
         @if ($refreshing ?? false)
@@ -19,14 +19,13 @@
             <x-empty-state title="No bookmarks yet." subtitle="Posts you save for later will show up here." />
         @else
             @foreach ($posts as $post)
-                <x-thread-post :post="$post" :expanded-ids="$expanded" />
+                <x-thread-post :post="$post" :expanded-ids="$expanded" :viewer-username="$viewerUsername" />
             @endforeach
 
             <x-list-footer :loading="$loadingMore" :error="$loadMoreError" tap="loadMore" :has-more="$hasMore" end-text="There are no more bookmarks to load, or you have scrolled too far." />
         @endif
 
         <native:column class="w-full h-20" />
-    </native:column>
 </native:list>
 
 @php

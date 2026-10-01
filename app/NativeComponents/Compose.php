@@ -58,6 +58,17 @@ final class Compose extends NativeComponent
 
     public string $content = '';
 
+    /** @var list<array<string, mixed>> */
+    public array $mentionResults = [];
+
+    public int $mentionPostIndex = -1;
+
+    public string $mentionQuery = '';
+
+    public int $mentionStart = -1;
+
+    public int $mentionEnd = -1;
+
     /** @var list<string> */
     public array $posts = [];
 
@@ -157,11 +168,96 @@ final class Compose extends NativeComponent
     }
 
     /**
-     * native:model on the outlined-text-input fires this after each sync.
+     * Persist live text without performing a network search per keystroke.
      */
     public function updatedContent(): void
     {
         $this->touchDraft();
+    }
+
+    public function updateMentionSelection(int $postIndex, string $text, int $selectionStart, int $selectionEnd): void
+    {
+        if ($this->busy || $postIndex < -1 || ($postIndex >= 0 && ! isset($this->posts[$postIndex]))) {
+            return;
+        }
+
+        $currentText = $postIndex < 0 ? $this->content : $this->posts[$postIndex];
+        if ($text !== $currentText) {
+            return;
+        }
+
+        if ($selectionStart !== $selectionEnd || $selectionStart < 0 || $selectionStart > mb_strlen($text)
+            || ! preg_match('/(?:^|\s)@([A-Za-z0-9_-]{1,50})$/u', mb_substr($text, 0, $selectionStart), $match)) {
+            $this->clearMentionSuggestions();
+
+            return;
+        }
+
+        $query = $match[1];
+        $this->mentionStart = $selectionStart - mb_strlen($query) - 1;
+        preg_match('/^[A-Za-z0-9_-]*/', mb_substr($text, $selectionStart), $suffix);
+        $this->mentionEnd = $selectionStart + mb_strlen($suffix[0] ?? '');
+
+        if ($query === $this->mentionQuery && $postIndex === $this->mentionPostIndex) {
+            return;
+        }
+
+        $this->mentionQuery = $query;
+        $this->mentionPostIndex = $postIndex;
+        $this->mentionResults = [];
+
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->search($this->token(), $query));
+
+        if ($response === null || ! $response->successful()) {
+            return;
+        }
+
+        $users = $response->json('data.users', []);
+        $this->mentionResults = array_slice(array_values(array_filter(
+            is_array($users) ? $users : [],
+            fn (mixed $user): bool => is_array($user)
+                && preg_match('/^[A-Za-z0-9_-]+$/D', (string) ($user['username'] ?? '')) === 1
+        )), 0, 5);
+    }
+
+    public function selectMention(int $index): void
+    {
+        if ($this->busy || ! isset($this->mentionResults[$index])) {
+            return;
+        }
+
+        $username = (string) $this->mentionResults[$index]['username'];
+        $postIndex = $this->mentionPostIndex;
+        $text = $postIndex < 0 ? $this->content : ($this->posts[$postIndex] ?? '');
+
+        $mention = mb_substr($text, $this->mentionStart, $this->mentionEnd - $this->mentionStart);
+        if ($this->mentionStart < 0 || ! str_starts_with($mention, '@'.$this->mentionQuery)
+            || ! preg_match('/^@[A-Za-z0-9_-]+$/D', $mention)) {
+            $this->clearMentionSuggestions();
+
+            return;
+        }
+
+        $suffix = mb_substr($text, $this->mentionEnd);
+        $text = mb_substr($text, 0, $this->mentionStart).'@'.$username.($suffix === '' ? ' ' : '').$suffix;
+        if ($postIndex < 0) {
+            $this->content = $text;
+        } elseif (isset($this->posts[$postIndex])) {
+            $this->posts[$postIndex] = $text;
+        }
+
+        $this->clearMentionSuggestions();
+        $this->touchDraft();
+    }
+
+    private function clearMentionSuggestions(): void
+    {
+        $this->mentionResults = [];
+        $this->mentionQuery = '';
+        $this->mentionPostIndex = -1;
+        $this->mentionStart = -1;
+        $this->mentionEnd = -1;
     }
 
     public function updatedAnonymous(): void
@@ -252,6 +348,7 @@ final class Compose extends NativeComponent
 
         unset($this->posts[$index]);
         unset($this->postPolls[$index]);
+        $this->clearMentionSuggestions();
         $this->posts = array_values($this->posts);
         $this->postPolls = array_values($this->postPolls);
         $this->touchDraft();

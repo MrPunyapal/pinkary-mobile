@@ -1,6 +1,6 @@
-{{-- Feed is a native:list: pull-to-refresh + on-end-reached auto-load (web intersect parity). Footer is spinner/error/end-copy only. --}}
-<native:list on-refresh="refreshFeed" on-end-reached="loadMore" class="w-full h-full bg-theme-surface">
-    <native:column class="w-full gap-0">
+@php $viewerUsername = (string) data_get(\App\Support\AccountStore::active(), 'username', ''); @endphp
+{{-- Posts must be direct children so the native list can virtualize them. --}}
+<native:list native:key="feed-list" on-refresh="refreshFeed" on-end-reached="loadMore" class="w-full h-full bg-theme-surface">
         {{-- App header: wordmark left, search action trailing (web parity:
             ../pinkary/resources/views/layouts/app.blade.php:83-95 is a
             left-identity / right-action row; the web wordmark ink is
@@ -70,15 +70,14 @@
             @endif
         @else
             @foreach ($posts as $post)
-                <x-thread-post :post="$post" :expanded-ids="$expanded" />
+                <x-thread-post :post="$post" :expanded-ids="$expanded" :viewer-username="$viewerUsername" />
             @endforeach
 
             <x-list-footer :loading="$loadingMore" :error="$loadMoreError" tap="loadMore" :has-more="$hasMore" end-text="There are no more questions to load, or you have scrolled too far." />
         @endif
 
         <native:column class="w-full h-20" />
-    </native:column>
- </native:list>
+</native:list>
 
 @php
     $menuPost = $menuPostId !== '' ? $this->menuPostData() : null;

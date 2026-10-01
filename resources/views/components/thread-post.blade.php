@@ -1,4 +1,4 @@
-@props(['post', 'expandedIds' => []])
+@props(['post', 'expandedIds' => [], 'viewerUsername' => null])
 
 @php
     $threadPosts = array_values(array_filter(
@@ -17,21 +17,13 @@
 @endphp
 
 @if (count($threadPosts) === 0)
-    <x-post :post="$post" :expanded="$isExpanded(data_get($post, 'id'))" />
+    <x-post :post="$post" :viewer-username="$viewerUsername" :expanded="$isExpanded(data_get($post, 'id'))" />
 @else
-    {{-- Flat web-style thread: chained posts are bare rows whose avatar
-        lanes draw the rail as a fixed-height rect (estimated h-[Npx],
-        h-3 stub on top for segments after the first) — responsive
-        enough without flex-1/absolute, which collapse on old Jump.
-        Segments stack with no gaps or boxes; the container owns the
-        single full-bleed divider, like the web.
-        Web parity (home/feed.blade.php:2): the thread carries the web
-        column's own white fill (bg-theme-surface, dark #07101F) and
-        draws the row hairline on it, not the slate page background. --}}
-    <native:column class="w-full gap-0 bg-theme-surface border-b border-theme-outline-variant">
+    <native:column native:key="thread-{{ data_get($post, 'id') }}" class="w-full gap-0 bg-theme-surface border-b border-theme-outline-variant">
         @foreach ($threadPosts as $index => $ancestor)
             <x-post
                 :post="$ancestor"
+                :viewer-username="$viewerUsername"
                 :bare="true"
                 :rail="true"
                 :rail-top="$index > 0"
@@ -39,6 +31,6 @@
                 :more-link="$linkAfterFirst && $index === 0 ? $threadMoreId : null"
                 :expanded="$isExpanded(data_get($ancestor, 'id'))" />
         @endforeach
-        <x-post :post="$post" :bare="true" :rail="false" :rail-top="true" :flush-top="true" :expanded="$isExpanded(data_get($post, 'id'))" />
+        <x-post :post="$post" :viewer-username="$viewerUsername" :bare="true" :rail="false" :rail-top="true" :flush-top="true" :expanded="$isExpanded(data_get($post, 'id'))" />
     </native:column>
 @endif

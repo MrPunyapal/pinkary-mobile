@@ -431,7 +431,7 @@ trait TogglesPostReactions
      */
     public function openMenu(string $id): void
     {
-        if ($id === '') {
+        if ($id === '' || $id === $this->menuPostId) {
             return;
         }
 
