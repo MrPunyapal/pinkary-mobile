@@ -103,6 +103,20 @@ final class PinkaryApi
     }
 
     /**
+     * Answer a two factor challenge and return the access token.
+     *
+     * `code` takes either the authenticator app's one time password or a
+     * recovery code; the server decides which it matched.
+     */
+    public function twoFactorChallenge(string $challenge, string $code): Response
+    {
+        return $this->request()->post(self::PREFIX.'/auth/login/two-factor-challenge', [
+            'challenge' => $challenge,
+            'code' => $code,
+        ]);
+    }
+
+    /**
      * Create a Pinkary account and return its access token.
      *
      * @param  array{name: string, username: string, email: string, password: string, password_confirmation: string, terms: bool}  $data

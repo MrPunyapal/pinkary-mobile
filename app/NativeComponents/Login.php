@@ -23,6 +23,21 @@ final class Login extends NativeComponent
     public string $errorMessage = '';
 
     /**
+     * Whether the password was accepted and a second factor is pending.
+     */
+    public bool $needsTwoFactor = false;
+
+    /**
+     * The short-lived challenge the server issued for this sign in attempt.
+     */
+    public string $twoFactorChallenge = '';
+
+    /**
+     * The one-time password or recovery code the user typed.
+     */
+    public string $twoFactorCode = '';
+
+    /**
      * First server/validation message per input, shown under the field.
      * The summary banner stays as the fallback for older clients.
      *
@@ -91,26 +106,18 @@ final class Login extends NativeComponent
         $response = app(PinkaryApi::class)->login($this->email, $this->password);
 
         if ($response->successful() && is_string($token = $response->json('token'))) {
-            $userData = $response->json('data') ?? $response->json('user');
-            $userData = is_array($userData) ? $userData : [];
-            $username = (string) ($userData['username'] ?? '');
+            $this->acceptToken($token, (array) ($response->json('data') ?? []));
 
-            // Re-login mints a fresh token: revoke the previous one for
-            // this username server-side so dead tokens never pile up.
-            $previous = $username !== '' ? AccountStore::tokenForUsername($username) : null;
+            return;
+        }
 
-            if (is_string($previous) && $previous !== '' && $previous !== $token) {
-                app(PinkaryApi::class)->attempt(fn () => app(PinkaryApi::class)->logout($previous));
-            }
-
-            app(TokenStorage::class)->store($token, $username, $userData);
-
-            if ($username !== '') {
-                CurrentUser::store($userData);
-            }
-
-            session()->forget('pinkary_add_account');
-            $this->replace($this->route('mobile.feed'));
+        // A 2FA account is not a failed login: the password was right and the
+        // server is holding the second step for a challenge token.
+        if ($response->json('code') === 'two_factor_required' && is_string($challenge = $response->json('challenge'))) {
+            $this->busy = false;
+            $this->twoFactorChallenge = $challenge;
+            $this->needsTwoFactor = true;
+            $this->twoFactorCode = '';
 
             return;
         }
@@ -120,6 +127,78 @@ final class Login extends NativeComponent
             'email' => 'email',
             'password' => 'password',
         ], (string) ($response->json('message') ?? 'We could not log you in. Please check your details and try again.'));
+    }
+
+    /**
+     * Answer a pending two factor challenge.
+     *
+     * Recovery codes go in the same box: the server accepts either and the
+     * field is one line, where a separate recovery screen would be more UI
+     * than the case deserves.
+     */
+    public function submitTwoFactor(): void
+    {
+        $this->errorMessage = '';
+        $this->fieldErrors = [];
+
+        $code = mb_trim($this->twoFactorCode);
+
+        if ($code === '') {
+            $this->errorMessage = 'Enter the code from your authenticator app.';
+
+            return;
+        }
+
+        $this->busy = true;
+        $response = app(PinkaryApi::class)->twoFactorChallenge($this->twoFactorChallenge, $code);
+
+        if ($response->successful() && is_string($token = $response->json('token'))) {
+            $this->acceptToken($token, (array) ($response->json('data') ?? []));
+
+            return;
+        }
+
+        $this->busy = false;
+        $this->errorMessage = (string) ($response->json('message') ?? 'That code was not accepted. Check it and try again.');
+    }
+
+    /**
+     * Abandon a pending challenge and go back to the password form.
+     */
+    public function cancelTwoFactor(): void
+    {
+        $this->needsTwoFactor = false;
+        $this->twoFactorChallenge = '';
+        $this->twoFactorCode = '';
+        $this->errorMessage = '';
+    }
+
+    /**
+     * Store a freshly minted token and go to the feed.
+     *
+     * @param  array<string, mixed>  $userData
+     */
+    private function acceptToken(string $token, array $userData): void
+    {
+        $username = (string) ($userData['username'] ?? '');
+
+        // Re-login mints a fresh token: revoke the previous one for
+        // this username server-side so dead tokens never pile up.
+        $previous = $username !== '' ? AccountStore::tokenForUsername($username) : null;
+
+        if (is_string($previous) && $previous !== '' && $previous !== $token) {
+            app(PinkaryApi::class)->attempt(fn () => app(PinkaryApi::class)->logout($previous));
+        }
+
+        app(TokenStorage::class)->store($token, $username, $userData);
+
+        if ($username !== '') {
+            CurrentUser::store($userData);
+        }
+
+        session()->forget('pinkary_add_account');
+        $this->busy = false;
+        $this->replace($this->route('mobile.feed'));
     }
 
     public function register(): void

@@ -28,23 +28,37 @@
             @endif
 
             <native:column class="w-full gap-5">
-                <native:outlined-text-input label="Email" keyboard="email" native:model="email" :supporting="$fieldErrors['email'] ?? ''" :error="isset($fieldErrors['email'])" />
-                <native:outlined-text-input label="Password" :secure="! $showPassword" native:model="password" :supporting="$fieldErrors['password'] ?? ''" :error="isset($fieldErrors['password'])" />
-                <native:pressable class="self-end py-1" @tap="togglePasswordVisibility" a11y-label="{{ $showPassword ? 'Hide password' : 'Show password' }}">
-                    <native:text class="text-sm font-medium text-theme-accent">{{ $showPassword ? 'Hide password' : 'Show password' }}</native:text>
-                </native:pressable>
+                @if ($needsTwoFactor)
+                    <native:text class="text-sm text-theme-on-surface">Enter the 6-digit code from your authenticator app, or one of your recovery codes.</native:text>
 
-                {{-- Web parity (auth/login:63-82), minus "Remember me":
-                     TokenStorage already keeps the session in the device
-                     keychain, so a checkbox here could not do anything. --}}
-                <native:row class="w-full items-center justify-end">
-                    <native:pressable class="py-1" @tap="forgotPassword" a11y-label="Forgot password?">
-                        <native:text class="text-sm font-medium text-theme-primary">Forgot password?</native:text>
+                    <native:outlined-text-input label="Code" keyboard="numeric" native:model="twoFactorCode" :supporting="$errorMessage" :error="$errorMessage !== ''" />
+
+                    <native:pressable class="self-end py-1" @tap="cancelTwoFactor" a11y-label="Use a different account">
+                        <native:text class="text-sm font-medium text-theme-accent">Use a different account</native:text>
                     </native:pressable>
-                </native:row>
+                @else
+                    <native:outlined-text-input label="Email" keyboard="email" native:model="email" :supporting="$fieldErrors['email'] ?? ''" :error="isset($fieldErrors['email'])" />
+                    <native:outlined-text-input label="Password" :secure="! $showPassword" native:model="password" :supporting="$fieldErrors['password'] ?? ''" :error="isset($fieldErrors['password'])" />
+                    <native:pressable class="self-end py-1" @tap="togglePasswordVisibility" a11y-label="{{ $showPassword ? 'Hide password' : 'Show password' }}">
+                        <native:text class="text-sm font-medium text-theme-accent">{{ $showPassword ? 'Hide password' : 'Show password' }}</native:text>
+                    </native:pressable>
+
+                    {{-- Web parity (auth/login:63-82), minus "Remember me":
+                         TokenStorage already keeps the session in the device
+                         keychain, so a checkbox here could not do anything. --}}
+                    <native:row class="w-full items-center justify-end">
+                        <native:pressable class="py-1" @tap="forgotPassword" a11y-label="Forgot password?">
+                            <native:text class="text-sm font-medium text-theme-primary">Forgot password?</native:text>
+                        </native:pressable>
+                    </native:row>
+                @endif
             </native:column>
 
-            <native:button variant="primary" :disabled="$busy" @tap="authenticate">{{ $busy ? 'Logging in…' : ($addingAccount ? 'Add Account' : 'Log in') }}</native:button>
+            @if ($needsTwoFactor)
+                <native:button variant="primary" :disabled="$busy" @tap="submitTwoFactor">{{ $busy ? 'Checking…' : 'Verify' }}</native:button>
+            @else
+                <native:button variant="primary" :disabled="$busy" @tap="authenticate">{{ $busy ? 'Logging in…' : ($addingAccount ? 'Add Account' : 'Log in') }}</native:button>
+            @endif
 
             <native:column class="w-full pt-6 border-t border-theme-outline-variant">
                 <native:pressable class="w-full items-center py-3" @tap="register">
