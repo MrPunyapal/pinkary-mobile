@@ -156,12 +156,12 @@ it('opens the avatar sheet from the card and closes it again', function (): void
     fakeCardResponses('profile', ownerCardProfile());
 
     $test = Native::test(Profile::class)
-        ->assertMissingElement('bottom_sheet')
+        ->assertMissingElement('bottom_sheet', fn (array $node): bool => ($node['props']['visible'] ?? false) === true)
         ->press('showAvatar')
-        ->assertElement('bottom_sheet')
+        ->assertElement('bottom_sheet', fn (array $node): bool => ($node['props']['visible'] ?? false) === true)
         ->assertSee('Close')
         ->tap('Close')
-        ->assertMissingElement('bottom_sheet');
+        ->assertMissingElement('bottom_sheet', fn (array $node): bool => ($node['props']['visible'] ?? false) === true);
 
     expect($test->get('showAvatar'))->toBeFalse();
 });
@@ -173,9 +173,9 @@ it('closes the avatar sheet on drag-down', function (): void {
     // sheet has to be open before the drag-down handler is registered.
     Native::test(Profile::class)
         ->call('toggleAvatar')
-        ->assertElement('bottom_sheet')
+        ->assertElement('bottom_sheet', fn (array $node): bool => ($node['props']['visible'] ?? false) === true)
         ->press('toggleAvatar')
-        ->assertMissingElement('bottom_sheet');
+        ->assertMissingElement('bottom_sheet', fn (array $node): bool => ($node['props']['visible'] ?? false) === true);
 });
 
 it('shows the follow pill on search result rows like the web', function (): void {
