@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use MrPunyapal\Impressions\Providers\ImpressionsServiceProvider;
 use Native\Mobile\Providers\CameraServiceProvider;
 use Native\Mobile\UI\NativeUIServiceProvider;
 
@@ -37,6 +38,7 @@ class NativeServiceProvider extends ServiceProvider
     {
         return [
             NativeUIServiceProvider::class,
+            ImpressionsServiceProvider::class,
 
             // Supplies the Camera.PickMedia bridge function that
             // Native\Mobile\Camera::pickImages() calls. Core ships the PHP

@@ -277,7 +277,7 @@ it('opens the about page in the in-app browser', function (): void {
         ->assertNativeCalled('Browser.OpenInApp', fn (array $params) => ($params['url'] ?? null) === 'https://pinkary.test/about');
 });
 
-it('renders the feed tabs as pills without an underline', function (): void {
+it('renders the feed tabs as pills with only a subtle section separator', function (): void {
     // Web: ../pinkary/resources/views/components/home-menu.blade.php:15 —
     // rounded-md pills, a pink fill on the active one, no underline.
     $source = file_get_contents(resource_path('views/components/feed-tabs.blade.php'));
@@ -285,7 +285,8 @@ it('renders the feed tabs as pills without an underline', function (): void {
     expect($source)
         ->toContain('rounded-md')
         ->toContain('bg-theme-primary')
-        ->not->toContain('native:rect')
+        ->toContain('<native:rect class="w-full h-px bg-theme-outline-variant" />')
+        ->not->toContain('border-b')
         ->not->toContain('flex-1 items-center');
 });
 

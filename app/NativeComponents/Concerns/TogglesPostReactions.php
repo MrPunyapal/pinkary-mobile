@@ -9,6 +9,8 @@ use App\Services\TokenStorage;
 use App\Support\AccountStore;
 use App\Support\ApiErrors;
 use App\Support\CurrentUser;
+use App\Support\DisplayText;
+use App\Support\PostViews;
 use Illuminate\Support\Carbon;
 use Native\Mobile\Browser;
 use Native\Mobile\Edge\NativeComponent;
@@ -22,6 +24,29 @@ use Native\Mobile\Share;
  */
 trait TogglesPostReactions
 {
+    public function recordPostView(string $id): void
+    {
+        $post = $this->findPostForMenu($id);
+        if ($post === null || DisplayText::plain($post['answer'] ?? null) === '') {
+            return;
+        }
+
+        $token = $this->token();
+        $viewer = PostViews::viewerId();
+        $key = PostViews::claim($id, $token, $viewer);
+        if ($key === null) {
+            return;
+        }
+
+        $this->async(static function () use ($id, $token, $viewer): bool {
+            return app(PinkaryApi::class)->recordView($token, $id, $viewer)->successful();
+        })->finished(static function (bool $accepted) use ($key): void {
+            PostViews::finish($key, $accepted);
+        })->failed(static function (\Throwable $exception) use ($key): void {
+            PostViews::finish($key, false);
+        });
+    }
+
     /** @var array<string, true> In-flight like/bookmark/vote locks per post+action. */
     private array $reactionLocks = [];
 

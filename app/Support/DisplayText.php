@@ -8,6 +8,7 @@ use DOMDocument;
 use DOMElement;
 use DOMNode;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 /**
  * Text helpers for the native views.
@@ -26,13 +27,7 @@ final class DisplayText
      */
     public static function plain(mixed $html): string
     {
-        if (! is_string($html) && ! is_numeric($html)) {
-            return '';
-        }
-
-        $html = preg_replace('/<br\s*\/?\s*>|<\/(?:p|div|li|blockquote)>/i', "\n", (string) $html);
-
-        return trim(html_entity_decode(strip_tags($html ?? ''), ENT_QUOTES, 'UTF-8'));
+        return implode('', array_column(self::runs($html), 'text'));
     }
 
     /**
@@ -42,22 +37,57 @@ final class DisplayText
      */
     public static function runs(mixed $html, ?int $limit = null): array
     {
-        $text = self::plain($html);
-
-        if ($text === '') {
+        if (! is_string($html) && ! is_numeric($html)) {
             return [];
         }
 
+        $html = str_replace(["\r\n", "\r"], "\n", (string) $html);
+        if (preg_match('/^ {0,3}(?:`{3,}|~{3,})/m', $html)) {
+            $html = Str::markdown($html, ['html_input' => 'strip', 'allow_unsafe_links' => false]);
+        }
+
         $runs = [];
-        if (is_string($html) && str_contains($html, '<')) {
+        if (preg_match('/<\/?[a-z][^>]*>/i', $html)) {
             $document = new DOMDocument;
             $document->loadHTML('<?xml encoding="UTF-8"><div>'.$html.'</div>', LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
             $walk = function (DOMNode $node, string $target = '') use (&$walk, &$runs): void {
-                if ($node instanceof DOMElement && in_array(strtolower($node->tagName), ['script', 'style', 'iframe'], true)) {
+                $tag = $node instanceof DOMElement ? strtolower($node->tagName) : '';
+                if (in_array($tag, ['script', 'style', 'iframe', 'object', 'svg'], true)
+                    || ($node instanceof DOMElement && $node->getAttribute('id') === 'link-preview-card')) {
                     return;
                 }
 
-                if ($node instanceof DOMElement && $node->tagName === 'a') {
+                if ($tag === 'pre') {
+                    $code = $node->getElementsByTagName('code')->item(0);
+                    $language = $code instanceof DOMElement && preg_match('/(?:language-|(?:^|\s)hljs\s+)([\w+-]+)/', $code->getAttribute('class'), $match) ? $match[1] : '';
+                    $runs[] = ['text' => "\n", 'type' => 'text', 'target' => ''];
+                    $runs[] = ['text' => preg_replace('/\n$/', '', self::codeText($code ?? $node)), 'type' => 'code', 'target' => $language];
+                    $runs[] = ['text' => "\n", 'type' => 'text', 'target' => ''];
+
+                    return;
+                }
+
+                if ($tag === 'code') {
+                    $runs[] = ['text' => $node->textContent, 'type' => 'code_inline', 'target' => ''];
+
+                    return;
+                }
+
+                if ($tag === 'li') {
+                    $prefix = '- ';
+                    if ($node->parentNode?->nodeName === 'ol') {
+                        $index = 1;
+                        for ($sibling = $node->previousSibling; $sibling !== null; $sibling = $sibling->previousSibling) {
+                            if ($sibling->nodeName === 'li') {
+                                $index++;
+                            }
+                        }
+                        $prefix = $index.'. ';
+                    }
+                    $runs[] = ['text' => $prefix, 'type' => 'text', 'target' => ''];
+                }
+
+                if ($tag === 'a') {
                     $target = $node->getAttribute('href');
                 }
 
@@ -71,19 +101,19 @@ final class DisplayText
                     $walk($child, $target);
                 }
 
-                if ($node instanceof DOMElement && in_array(strtolower($node->tagName), ['br', 'p', 'div', 'li', 'blockquote'], true)) {
+                if (in_array($tag, ['br', 'p', 'div', 'li', 'blockquote', 'ul', 'ol'], true)) {
                     $runs[] = ['text' => "\n", 'type' => 'text', 'target' => ''];
                 }
             };
             $walk($document->getElementsByTagName('body')->item(0) ?? $document);
         } else {
-            $runs = self::textRuns($text);
+            $runs = self::textRuns(html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
         }
 
         $merged = [];
         foreach ($runs as $run) {
             $last = array_key_last($merged);
-            if ($last !== null && $merged[$last]['type'] === $run['type'] && $merged[$last]['target'] === $run['target']) {
+            if ($last !== null && $run['type'] !== 'code' && $merged[$last]['type'] === $run['type'] && $merged[$last]['target'] === $run['target']) {
                 $merged[$last]['text'] .= $run['text'];
             } else {
                 $merged[] = $run;
@@ -92,7 +122,9 @@ final class DisplayText
         $runs = $merged;
 
         while ($runs !== []) {
-            $runs[0]['text'] = ltrim($runs[0]['text']);
+            if ($runs[0]['type'] !== 'code') {
+                $runs[0]['text'] = ltrim($runs[0]['text']);
+            }
             if ($runs[0]['text'] !== '') {
                 break;
             }
@@ -100,7 +132,9 @@ final class DisplayText
         }
         while ($runs !== []) {
             $last = array_key_last($runs);
-            $runs[$last]['text'] = rtrim($runs[$last]['text']);
+            if ($runs[$last]['type'] !== 'code') {
+                $runs[$last]['text'] = rtrim($runs[$last]['text']);
+            }
             if ($runs[$last]['text'] !== '') {
                 break;
             }
@@ -129,35 +163,95 @@ final class DisplayText
         return $result;
     }
 
+    private static function codeText(DOMNode $node): string
+    {
+        if ($node->nodeName === 'br') {
+            return "\n";
+        }
+        if ($node->nodeType === XML_TEXT_NODE) {
+            return $node->textContent;
+        }
+        $text = '';
+        foreach ($node->childNodes as $child) {
+            $text .= self::codeText($child);
+        }
+
+        return $text;
+    }
+
     /** @return list<array{text: string, type: string, target: string}> */
     private static function textRuns(string $text, string $href = ''): array
     {
-        $baseUrl = rtrim((string) config('services.pinkary.url'), '/');
-        $path = parse_url($href, PHP_URL_PATH);
-        $host = parse_url($href, PHP_URL_HOST);
-        $internal = $host === null || $host === parse_url($baseUrl, PHP_URL_HOST);
+        $url = self::url($href);
+        $path = $url === null ? null : parse_url($url, PHP_URL_PATH);
+        $host = $url === null ? null : parse_url($url, PHP_URL_HOST);
+        $internal = in_array($host, [parse_url((string) config('services.pinkary.url'), PHP_URL_HOST), 'pinkary.com'], true);
 
         if ($internal && is_string($path) && preg_match('~^/@([A-Za-z0-9_-]+)$~D', $path, $match)) {
             return [['text' => $text, 'type' => 'mention', 'target' => $match[1]]];
         }
 
-        if (in_array(strtolower((string) parse_url($href, PHP_URL_SCHEME)), ['https', 'http'], true)) {
-            return [['text' => $text, 'type' => 'link', 'target' => $href]];
+        if ($url !== null) {
+            return [['text' => $text, 'type' => 'link', 'target' => $url]];
         }
 
-        $pieces = preg_split('~((?<![\p{L}\p{N}_@])@[A-Za-z0-9_-]+|https?://[^\s<>]+)~u', $text, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) ?: [];
+        $pieces = preg_split('~((?<![\p{L}\p{N}_@])@[A-Za-z0-9_-]+|(?<![\p{L}\p{N}_@./])(?:https?://[^\s<>]+|(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,63}(?:[/:?#][^\s<>]*)?))~iu', $text, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) ?: [];
 
-        return array_map(function (string $piece): array {
+        $runs = [];
+        foreach ($pieces as $piece) {
             if (preg_match('~^@([A-Za-z0-9_-]+)$~D', $piece, $match)) {
-                return ['text' => $piece, 'type' => 'mention', 'target' => $match[1]];
+                $runs[] = ['text' => $piece, 'type' => 'mention', 'target' => $match[1]];
+
+                continue;
             }
 
-            if (preg_match('~^https?://~i', $piece)) {
-                return ['text' => $piece, 'type' => 'link', 'target' => $piece];
+            $label = rtrim($piece, '.,!?;:');
+            while (str_ends_with($label, ')') && substr_count($label, ')') > substr_count($label, '(')) {
+                $label = substr($label, 0, -1);
             }
+            $url = self::url(preg_match('~^https?://~i', $label) ? $label : 'https://'.$label);
+            if ($url !== null && preg_match('~^(?:https?://|(?:[a-z0-9-]+\.)+[a-z]{2,63}(?:[/:?#]|$))~i', $label)) {
+                $runs[] = ['text' => $label, 'type' => 'link', 'target' => $url];
+                if ($label !== $piece) {
+                    $runs[] = ['text' => substr($piece, strlen($label)), 'type' => 'text', 'target' => ''];
+                }
+            } else {
+                $runs[] = ['text' => $piece, 'type' => 'text', 'target' => ''];
+            }
+        }
 
-            return ['text' => $piece, 'type' => 'text', 'target' => ''];
-        }, $pieces);
+        return $runs;
+    }
+
+    public static function url(string $url): ?string
+    {
+        if ($url === '' || preg_match('/[\x00-\x20\x7f\\\\]/', $url)) {
+            return null;
+        }
+        if (str_starts_with($url, '//')) {
+            $url = 'https:'.$url;
+        } elseif (str_starts_with($url, '/')) {
+            $url = rtrim((string) config('services.pinkary.url'), '/').$url;
+        }
+        $parts = parse_url($url);
+        if (! is_array($parts) || ! in_array(strtolower($parts['scheme'] ?? ''), ['http', 'https'], true)
+            || empty($parts['host']) || isset($parts['user']) || isset($parts['pass'])) {
+            return null;
+        }
+
+        return $url;
+    }
+
+    /** @return array{url: string, host: string, title: string, image: null}|null */
+    public static function preview(mixed $html): ?array
+    {
+        foreach (self::runs($html) as $run) {
+            if ($run['type'] === 'link') {
+                return ['url' => $run['target'], 'host' => (string) parse_url($run['target'], PHP_URL_HOST), 'title' => $run['target'], 'image' => null];
+            }
+        }
+
+        return null;
     }
 
     /**

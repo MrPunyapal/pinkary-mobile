@@ -87,7 +87,7 @@ return [
             // Outline = neutral borders (text fields, dividers, cards).
             // outline-variant = softer edges: hairline dividers, card seams.
             'outline' => '#CBD5E1',
-            'outline-variant' => '#E2E8F0',
+            'outline-variant' => '#EDF1F7',
 
             // Destructive actions — maps to `variant="destructive"` on components.
             'destructive' => '#B91C1C',
@@ -132,7 +132,7 @@ return [
             'poll-fill' => '#475569',
 
             'outline' => '#334155',
-            'outline-variant' => '#1E293B',
+            'outline-variant' => '#131F30',
 
             'destructive' => '#F87171',
             'on-destructive' => '#0F172A',

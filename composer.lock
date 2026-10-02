@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "feffad0dcc6e92f92ae7d64131aa89fb",
+    "content-hash": "9ef209bd3625c87001f75f1cc4fde665",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -2499,6 +2499,100 @@
                 }
             ],
             "time": "2026-09-09T08:34:20+00:00"
+        },
+        {
+            "name": "mrpunyapal/nativephp-plugin-impressions",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../nativephp-plugin-impressions"
+            },
+            "require": {
+                "illuminate/contracts": "^12.0|^13.0",
+                "illuminate/support": "^12.0|^13.0",
+                "nativephp/mobile": "^4.5",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "larastan/larastan": "^3.0",
+                "laravel/pint": "^1.24",
+                "orchestra/testbench": "^10.0|^11.0",
+                "pestphp/pest": "^4.0|^5.0",
+                "pestphp/pest-plugin-laravel": "^4.0|^5.0",
+                "phpstan/phpstan": "^2.1",
+                "phpstan/phpstan-deprecation-rules": "^2.0",
+                "rector/rector": "^2.1"
+            },
+            "type": "nativephp-plugin",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "MrPunyapal\\Impressions\\Providers\\ImpressionsServiceProvider"
+                    ],
+                    "aliases": {
+                        "Impressions": "MrPunyapal\\Impressions\\Facades\\Impressions"
+                    }
+                },
+                "nativephp": {
+                    "manifest": "nativephp.json"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "MrPunyapal\\Impressions\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "MrPunyapal\\Impressions\\Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "configure": [
+                    "@php configure.php"
+                ],
+                "test": [
+                    "pest"
+                ],
+                "test:coverage": [
+                    "pest --coverage"
+                ],
+                "lint": [
+                    "composer validate --strict && pint --test && phpstan analyse && rector process --dry-run"
+                ],
+                "format": [
+                    "pint"
+                ],
+                "analyse": [
+                    "phpstan analyse"
+                ],
+                "rector": [
+                    "rector process"
+                ],
+                "rector:test": [
+                    "rector process --dry-run"
+                ]
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Native visibility impressions for NativePHP Mobile EDGE components",
+            "homepage": "https://github.com/mrpunyapal/nativephp-plugin-impressions",
+            "keywords": [
+                "Impressions",
+                "nativephp",
+                "nativephp-mobile",
+                "nativephp-plugin",
+                "nativephp-plugin-impressions"
+            ],
+            "support": {
+                "issues": "https://github.com/mrpunyapal/nativephp-plugin-impressions/issues",
+                "source": "https://github.com/mrpunyapal/nativephp-plugin-impressions"
+            },
+            "transport-options": {
+                "symlink": false,
+                "relative": true
+            }
         },
         {
             "name": "nativephp/mobile",
@@ -11150,6 +11244,7 @@
     "aliases": [],
     "minimum-stability": "dev",
     "stability-flags": {
+        "mrpunyapal/nativephp-plugin-impressions": 20,
         "nativephp/web-ui": 15
     },
     "prefer-stable": true,

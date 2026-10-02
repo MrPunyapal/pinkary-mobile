@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Support\DisplayText;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -38,9 +39,23 @@ final class PinkaryApi
      */
     public function normalizeQuestion(array $post): array
     {
+        foreach (['content', 'answer'] as $field) {
+            if (is_string($post[$field.'_html'] ?? null)) {
+                $post[$field] = $post[$field.'_html'];
+            }
+        }
+
         if (($post['content'] ?? null) === self::UPDATE_MARKER) {
             $post['is_update'] = true;
             $post['content'] = null;
+        }
+
+        if (($post['is_update'] ?? false) === true) {
+            $post['content'] = null;
+        }
+
+        if (! is_array($post['preview'] ?? null)) {
+            $post['preview'] = DisplayText::preview($post['answer'] ?? $post['content'] ?? null);
         }
 
         // Chained posts carry their rendered ancestors, which are
@@ -144,6 +159,11 @@ final class PinkaryApi
             'tab' => $tab,
             'page' => $page,
         ]);
+    }
+
+    public function recordView(?string $token, string $id, string $viewer): Response
+    {
+        return $this->authed($token)->withUserAgent('PinkaryMobile/1.0')->timeout(3)->post(self::PREFIX."/questions/{$id}/views", ['viewer_id' => $viewer]);
     }
 
     /**

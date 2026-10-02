@@ -4,7 +4,7 @@
             ../pinkary/resources/views/layouts/app.blade.php:83-95 is a
             left-identity / right-action row; the web wordmark ink is
             #0F172A, not the brand pink). --}}
-        <native:column class="w-full bg-theme-surface border-b border-theme-outline-variant justify-center">
+        <native:column class="w-full bg-theme-surface justify-center">
             <native:row class="w-full items-center gap-3 px-4 py-4 min-h-14">
                 <native:text class="flex-1 text-xl font-bold text-theme-on-surface" max-lines="1">Pinkary</native:text>
 
@@ -12,6 +12,7 @@
                     <native:icon :ios="\App\Icons\Ios::Magnifyingglass" :android="\App\Icons\Android::Search" :size="20" color="#64748B" dark-color="#94A3B8" />
                 </native:pressable>
             </native:row>
+            <native:rect class="w-full h-px bg-theme-outline-variant" />
         </native:column>
 
         <x-feed-tabs :tab="$tab" />

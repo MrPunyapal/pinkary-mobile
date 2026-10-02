@@ -156,22 +156,22 @@ it('paints feed rows with the web column white instead of the page gray', functi
 
     $tree = Native::test(Home::class)->assertSee('A single-post row.')->tree();
 
-    // The row container is the ancestor of the answer that carries a
-    // border: home/feed.blade.php:2 paints the web column bg-white/80 /
-    // dark #07101f and livewire/feed.blade.php:6 draws the row hairline on
-    // it. bg-theme-background (#F1F5F9) is the page BEHIND the column.
-    $row = parityAncestor(
+    $impression = parityAncestor(
         $tree,
-        fn (array $n): bool => isset($n['style']['border_width']),
+        fn (array $n): bool => ($n['type'] ?? null) === 'impression',
         fn (array $n): bool => ($n['props']['text'] ?? null) === 'A single-post row.'
     );
+    $row = $impression['children'][0] ?? null;
+    $separator = $row === null ? null : end($row['children']);
 
     expect($row)->not->toBeNull()
         ->and($row['style']['bg_color'])->toBe('#FFFFFF')
         ->and($row['style']['bg_color'])->not->toBe('#F1F5F9')
         ->and($row['props']['dark_bg_color'] ?? null)->toBe('#07101F')
-        ->and($row['style']['border_color'] ?? null)->toBe('#E2E8F0')
-        ->and($row['style']['border_width'])->toEqual(1.0);
+        ->and($row['style']['border_width'] ?? null)->toBeNull()
+        ->and($separator['layout']['height'] ?? null)->toEqual(1.0)
+        ->and($separator['style']['bg_color'] ?? null)->toBe('#EDF1F7')
+        ->and($separator['props']['dark_bg_color'] ?? null)->toBe('#131F30');
 });
 
 it('paints a chained thread container with the web column white too', function (): void {
@@ -550,11 +550,12 @@ it('insets the asker box and the avatar lane 8px like the web per-thread padding
     // box and the avatar-lane row must pad 8px, not the old 16px.
     // The lane now lives in a relative wrapper so its avatar can
     // overlay the content-sized connector.
-    $row = parityAncestor(
+    $impression = parityAncestor(
         $tree,
-        fn (array $n): bool => isset($n['style']['border_width']),
+        fn (array $n): bool => ($n['type'] ?? null) === 'impression',
         fn (array $n): bool => ($n['props']['text'] ?? null) === 'Inset answer.'
     );
+    $row = $impression['children'][0] ?? null;
 
     expect($row)->not->toBeNull();
 

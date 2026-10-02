@@ -3,7 +3,8 @@
 {{-- Web parity (../pinkary/resources/views/components/home-menu.blade.php:9-23):
     a left-aligned row of rounded-md pills — the active one is a pink
     fill, idle ones are muted text. No underline, no full-width thirds. --}}
-<native:row class="w-full items-center gap-1 px-4 py-3 bg-theme-surface border-b border-theme-outline-variant">
+<native:column class="w-full bg-theme-surface">
+<native:row class="w-full items-center gap-1 px-4 py-3">
     @php
         $tabs = [
             ['key' => 'recent', 'label' => 'Recent', 'tap' => 'showRecent'],
@@ -17,3 +18,5 @@
         </native:pressable>
     @endforeach
 </native:row>
+<native:rect class="w-full h-px bg-theme-outline-variant" />
+</native:column>

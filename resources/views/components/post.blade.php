@@ -70,7 +70,10 @@
     $topPad = $sharedUpdate && ! $flushTop ? 'pt-3' : 'pt-2';
 @endphp
 
-<native:column native:key="post-{{ $postId }}" class="{{ $bare ? 'w-full' : 'w-full bg-theme-surface border-b border-theme-outline-variant' }}">
+@if (! \Native\Mobile\System::runningInJump())
+<native:impression native:key="impression-{{ $postId }}" identity="{{ $postId }}" :enabled="$hasAnswer" on-impression="recordPostView('{{ $postId }}')" class="w-full">
+@endif
+<native:column native:key="post-{{ $postId }}" class="w-full {{ $bare ? '' : 'bg-theme-surface' }}">
     @unless ($sharedUpdate || $comment)
         {{-- Chained thread segments stack tight (bare): smaller top pad
             so the gap between two questions stays compact. px-2 is the
@@ -322,4 +325,10 @@
     @if ($moreLink !== null && $moreLink !== '')
         <x-post-divider :link="$moreLink" />
     @endif
+    @unless ($bare)
+        <native:rect native:key="post-separator" class="w-full h-px bg-theme-outline-variant" />
+    @endunless
 </native:column>
+@if (! \Native\Mobile\System::runningInJump())
+</native:impression>
+@endif
