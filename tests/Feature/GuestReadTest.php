@@ -153,7 +153,7 @@ it('sends a guest bookmark to login', function (): void {
 
     Native::test(Detail::class, ['id' => 'q1'])
         ->press("toggleBookmark('q1')")
-        ->assertReplacedWith('/login');
+        ->assertNavigatedTo('/login');
 
     Http::assertNotSent(fn ($request) => $request->method() === 'POST');
 });
@@ -168,7 +168,7 @@ it('sends a guest comment submit to login', function (): void {
         ->assertSee('Reply')
         ->set('comment', 'Nice work.')
         ->call('postComment')
-        ->assertReplacedWith('/login');
+        ->assertNavigatedTo('/login');
 
     Http::assertNotSent(fn ($request) => $request->method() === 'POST');
 });
@@ -179,7 +179,7 @@ it('sends a guest poll vote to login', function (): void {
 
     Native::test(Detail::class, ['id' => 'q1'])
         ->call('votePoll', 'q1', 7)
-        ->assertReplacedWith('/login');
+        ->assertNavigatedTo('/login');
 
     Http::assertNotSent(fn ($request) => $request->method() === 'POST');
 });
@@ -205,7 +205,7 @@ it('sends a guest follow to login and keeps the card as-is', function (): void {
     $test = Native::test(Profile::class, ['username' => 'ada'])
         ->assertSee('Follow')
         ->press('toggleFollow')
-        ->assertReplacedWith('/login');
+        ->assertNavigatedTo('/login');
 
     expect($test->get('profile')['followed_by_me'])->toBeFalse();
 
@@ -251,7 +251,7 @@ it('sends a guest follow from the list to login', function (): void {
     Native::test(FollowList::class, ['username' => 'ada', 'mode' => 'followers'])
         ->assertSee('Follow')
         ->press("toggleFollow('grace')")
-        ->assertReplacedWith('/login');
+        ->assertNavigatedTo('/login');
 
     Http::assertNotSent(fn ($request) => $request->method() === 'POST');
 });

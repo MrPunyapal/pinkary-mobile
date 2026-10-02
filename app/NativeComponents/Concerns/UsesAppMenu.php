@@ -50,12 +50,16 @@ trait UsesAppMenu
      * Resolve the token or send guests to login. Returns null after
      * redirecting so callers can simply return early.
      */
-    private function requireToken(): ?string
+    private function requireToken(bool $replaceScreen = false): ?string
     {
         $token = $this->token();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
+            if ($replaceScreen) {
+                $this->replace($this->route('mobile.login'));
+            } else {
+                $this->navigate($this->route('mobile.login'));
+            }
         }
 
         return $token;

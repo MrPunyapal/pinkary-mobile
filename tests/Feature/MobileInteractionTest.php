@@ -145,31 +145,53 @@ it('keeps each feed post as an individual native list item', function (): void {
 
     $screen = Native::test(Home::class);
     $list = interactionNode($screen->tree(), 'list');
-    $postIds = array_column(array_slice($list['children'], 2, 2), 'id');
+    $postIds = array_column(array_slice($list['children'], 0, 2), 'id');
     $screen->call('openMenu', 'missing');
 
     expect($postIds)->toHaveCount(2)
         ->and(count(array_unique($postIds)))->toBe(2)
-        ->and(array_column(array_slice(interactionNode($screen->tree(), 'list')['children'], 2, 2), 'id'))->toBe($postIds);
+        ->and(array_column(array_slice(interactionNode($screen->tree(), 'list')['children'], 0, 2), 'id'))->toBe($postIds);
 });
 
-it('does not give a thread connector an estimated content height', function (): void {
+it('joins thread avatars with a content sized rail and stops at the final avatar', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
-    $post = interactionPost('q2', 'Reply.');
+    $post = interactionPost('q3', 'Reply.');
     $ancestor = interactionPost('q1', str_repeat('Long text ', 60));
     $ancestor['preview'] = ['url' => 'https://example.com', 'image' => 'https://example.com/card.png'];
-    $post['thread'] = ['root_id' => 'q1', 'posts' => [$ancestor]];
+    $post['thread'] = ['root_id' => 'q1', 'posts' => [$ancestor, interactionPost('q2', 'Middle post.')]];
     Http::preventStrayRequests();
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [$post]]),
     ]);
 
-    $rails = array_values(array_filter(interactionNodes(Native::test(Home::class)->tree()), fn (array $node): bool => ($node['type'] ?? '') === 'rect' && ($node['layout']['width'] ?? null) == 2));
+    $nodes = interactionNodes(Native::test(Home::class)->tree());
+    $rails = array_values(array_filter($nodes, fn (array $node): bool => ($node['type'] ?? '') === 'column' && ($node['layout']['padding'][3] ?? null) == 2));
 
-    expect($rails)->toHaveCount(2);
+    expect($rails)->toHaveCount(3);
     foreach ($rails as $rail) {
-        expect($rail['layout']['height'])->toBeLessThanOrEqual(16);
+        expect($rail['layout']['height'] ?? 0)->toBe(0)
+            ->and($rail['children'][0]['style']['bg_color'])->toBe('#FFFFFF')
+            ->and($rail['children'][0]['props']['dark_bg_color'])->toBe('#07101F');
     }
+
+    expect(array_column(array_column($rails, 'style'), 'bg_color'))->toBe(['#CBD5E1', '#CBD5E1', '#FFFFFF']);
+
+    $avatars = array_values(array_filter($nodes, fn (array $node): bool => ($node['type'] ?? '') === 'column'
+        && ($node['layout']['position_type'] ?? 0) === 1 && ($node['layout']['width'] ?? 0) == 40));
+    expect($avatars)->toHaveCount(3);
+    foreach ($avatars as $avatar) {
+        expect($avatar['layout']['position'][3] + $avatar['layout']['width'] / 2)->toEqual(28);
+    }
+
+    $endpoints = array_values(array_filter($nodes, fn (array $node): bool => ($node['type'] ?? '') === 'rect'
+        && ($node['layout']['position_type'] ?? 0) === 1 && ($node['layout']['width'] ?? 0) == 2));
+    expect($endpoints)->toHaveCount(2)
+        ->and($endpoints[0]['layout']['position'][3])->toEqual(28)
+        ->and($endpoints[0]['layout']['height'])->toEqual(52)
+        ->and($endpoints[0]['style']['bg_color'])->toBe('#FFFFFF')
+        ->and($endpoints[1]['layout']['position'][3])->toEqual(28)
+        ->and($endpoints[1]['layout']['height'])->toEqual(8)
+        ->and($endpoints[1]['style']['bg_color'])->toBe('#CBD5E1');
 });
 
 it('assigns distinct node identities to linked questions and answers', function (): void {

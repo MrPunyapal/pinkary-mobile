@@ -85,7 +85,7 @@ trait TogglesPostReactions
     private function reactLike(array &$post, string $id, ?string $token): void
     {
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
+            $this->navigate($this->route('mobile.login'));
 
             return;
         }
@@ -148,7 +148,7 @@ trait TogglesPostReactions
     private function reactBookmark(array &$post, string $id, ?string $token): void
     {
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
+            $this->navigate($this->route('mobile.login'));
 
             return;
         }
@@ -201,7 +201,7 @@ trait TogglesPostReactions
     private function voteOnPoll(array &$post, string $id, int $optionId, ?string $token): void
     {
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
+            $this->navigate($this->route('mobile.login'));
 
             return;
         }
@@ -1411,7 +1411,7 @@ trait TogglesPostReactions
         $token = app(TokenStorage::class)->get();
 
         if (! is_string($token) || $token === '') {
-            $this->replace($this->route('mobile.login'));
+            $this->navigate($this->route('mobile.login'));
 
             return null;
         }

@@ -46,6 +46,8 @@ final class Home extends NativeComponent
 
     public string $loadMoreError = '';
 
+    private int $feedRevision = 0;
+
     /**
      * Last detail screen pushed from the feed. Repeat taps on the same
      * post while its detail is still on top are ignored, so a
@@ -145,6 +147,12 @@ final class Home extends NativeComponent
     public function onResume(): void
     {
         $this->openedDetailId = '';
+
+        if ($this->loadingMore) {
+            $this->feedRevision++;
+            $this->loadingMore = false;
+            $this->prefetchMore();
+        }
     }
 
     public function openLink(string $url): void
@@ -183,7 +191,7 @@ final class Home extends NativeComponent
         $token = $this->token();
 
         if ($token === null) {
-            $this->replace($this->route('mobile.login'));
+            $this->navigate($this->route('mobile.login'));
 
             return;
         }
@@ -233,44 +241,66 @@ final class Home extends NativeComponent
     /**
      * Append the next feed page to the current list.
      */
+    public function prefetchMore(): void
+    {
+        if ($this->loadMoreError === '') {
+            $this->loadMore();
+        }
+    }
+
     public function loadMore(): void
     {
-        if ($this->loadingMore || ! $this->hasMore) {
+        if ($this->loading || $this->loadingMore || ! $this->hasMore) {
             return;
         }
 
         $token = $this->token();
-
+        $accountId = AccountStore::activeId();
+        $tab = $this->tab;
+        $page = $this->page;
+        $revision = $this->feedRevision;
         $this->loadingMore = true;
         $this->loadMoreError = '';
 
-        $api = app(PinkaryApi::class);
-        $response = $api->attempt(fn () => $api->feed($token, $this->tab, $this->page + 1));
+        $this->async(static function () use ($token, $tab, $page): array {
+            $response = app(PinkaryApi::class)->feed($token, $tab, $page + 1);
 
-        $this->loadingMore = false;
+            return [
+                'status' => $response->status(),
+                'posts' => $response->json('data', []),
+                'hasMore' => $response->json('links.next') !== null,
+            ];
+        })->finished(function (array $result) use ($token, $accountId, $tab, $page, $revision): void {
+            if (! $this->isCurrentFeedRequest($accountId, $tab, $page, $revision)) {
+                return;
+            }
 
-        if ($response === null) {
-            $this->loadMoreError = 'Could not load more posts. Please try again.';
+            $this->loadingMore = false;
 
-            return;
-        }
+            if ($result['status'] === 401 && $token !== null) {
+                AccountStore::removeActive();
+                $this->afterActiveAccountRemoved();
 
-        if ($token !== null && $this->handleUnauthorized($response)) {
-            return;
-        }
+                return;
+            }
 
-        if (! $response->successful()) {
-            $this->loadMoreError = 'Could not load more posts. Please try again.';
+            if ($result['status'] < 200 || $result['status'] >= 300) {
+                $this->loadMoreError = 'Could not load more posts. Please try again.';
 
-            return;
-        }
+                return;
+            }
 
-        /** @var list<array<string, mixed>> $next */
-        $next = $api->normalizeQuestions($response->json('data', []));
-        $this->posts = [...$this->posts, ...$next];
-        $this->page++;
-        $this->hasMore = $response->json('links.next') !== null;
-        $this->rememberFeed();
+            $next = app(PinkaryApi::class)->normalizeQuestions($result['posts']);
+            $this->posts = array_values(collect([...$this->posts, ...$next])->unique('id')->all());
+            $this->page = $page + 1;
+            $this->hasMore = $result['hasMore'];
+            $this->rememberFeed();
+        })->failed(function (\Throwable $exception) use ($accountId, $tab, $page, $revision): void {
+            if ($this->isCurrentFeedRequest($accountId, $tab, $page, $revision)) {
+                $this->loadingMore = false;
+                $this->loadMoreError = 'Could not load more posts. Please try again.';
+            }
+        });
     }
 
     public function render(): View
@@ -297,6 +327,8 @@ final class Home extends NativeComponent
 
     private function loadFeed(?string $token): void
     {
+        $this->feedRevision++;
+        $this->loadingMore = false;
         $this->hydrateFromCache();
         $this->errorMessage = '';
 
@@ -366,6 +398,14 @@ final class Home extends NativeComponent
             'page' => $this->page,
             'hasMore' => $this->hasMore,
         ]);
+    }
+
+    private function isCurrentFeedRequest(?string $accountId, string $tab, int $page, int $revision): bool
+    {
+        return $this->feedRevision === $revision
+            && $this->tab === $tab
+            && $this->page === $page
+            && AccountStore::activeId() === $accountId;
     }
 
     private function failFeedLoad(): void

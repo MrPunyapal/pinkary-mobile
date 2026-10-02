@@ -61,8 +61,8 @@ final class MobileLayout extends NativeLayout
         if (AccountStore::activeId() === null) {
             return $bar
                 ->add(Tab::link('Feed', '/feed', ios: Ios::HouseFill, android: Android::Home))
-                ->add(Tab::link('Log in', '/login', ios: Ios::ArrowRightSquare, android: Android::Login))
-                ->add(Tab::link('Register', '/register', ios: Ios::PersonBadgePlus, android: Android::PersonAdd))
+                ->add(Tab::action('Log in', ios: Ios::ArrowRightSquare, android: Android::Login)->press('openLogin'))
+                ->add(Tab::action('Register', ios: Ios::PersonBadgePlus, android: Android::PersonAdd)->press('openRegister'))
                 ->add($this->menuTab());
         }
 

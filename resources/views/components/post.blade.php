@@ -151,18 +151,13 @@
     @if ($showLane)
         {{-- px-2 matches the web's per-thread inset (livewire/feed.blade.php:6)
             and the asker box above, so the avatar lane hugs the column edge. --}}
-        <native:row class="w-full items-stretch gap-3 px-2">
-            <native:column class="w-10 items-center shrink-0 {{ $railTop ? 'pt-0' : $topPad }}">
-                @if ($railTop)
-                    <native:rect class="w-0.5 h-3 bg-theme-outline shrink-0 -mt-1" />
-                @endif
-                <x-avatar :user="$laneAuthor" />
-                @if ($rail)
-                    {{-- A continuation marker never determines the height of a post. --}}
-                    <native:rect class="w-0.5 h-4 bg-theme-outline shrink-0" />
-                @endif
-            </native:column>
-                <native:column class="flex-1 gap-1.5 min-w-0 {{ $topPad }} {{ $contentBottomPad }}">
+        <native:column class="w-full relative">
+            <native:row class="w-full px-2">
+                <native:column class="w-5 shrink-0" />
+                {{-- The 2px background gutter inherits the content's measured height.
+                    Unlike a stretched sibling, it cannot enlarge or collapse a post. --}}
+                <native:column native:key="thread-rail" class="flex-1 min-w-0 pl-0.5 {{ $rail ? 'bg-theme-outline' : 'bg-theme-surface' }}">
+                <native:column class="w-full gap-1.5 min-w-0 pl-[30] bg-theme-surface {{ $topPad }} {{ $contentBottomPad }}">
                     <native:row class="w-full items-center justify-between gap-2">
                         <native:pressable class="flex-1 min-w-0" @tap="openProfile('{{ data_get($laneAuthor, 'username', '') }}')" a11y-label="Open {{ '@'.data_get($laneAuthor, 'username', '') }}’s profile">
                             {{-- Web parity (questions/show): the name never wraps
@@ -306,8 +301,20 @@
                     @endif
                 </native:row>
                 @endunless
+                </native:column>
+                </native:column>
+            </native:row>
+
+            @if ($rail && ! $railTop)
+                <native:rect class="absolute left-[28] top-0 w-0.5 {{ $topPad === 'pt-3' ? 'h-[52]' : 'h-[48]' }} bg-theme-surface" />
+            @elseif ($railTop && ! $rail)
+                <native:rect class="absolute left-[28] top-0 w-0.5 {{ $topPad === 'pt-3' ? 'h-3' : 'h-2' }} bg-theme-outline" />
+            @endif
+
+            <native:column native:key="post-avatar" class="absolute left-2 {{ $topPad === 'pt-3' ? 'top-3' : 'top-2' }} w-10 h-10">
+                <x-avatar :user="$laneAuthor" />
             </native:column>
-        </native:row>
+        </native:column>
     @endif
 
     {{-- Thread "View more comments" divider: a full lane-aligned row of

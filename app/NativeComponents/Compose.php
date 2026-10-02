@@ -146,7 +146,7 @@ final class Compose extends NativeComponent
     {
         $this->askUsername = (string) $this->param('username', '');
 
-        $token = $this->requireToken();
+        $token = $this->requireToken(replaceScreen: true);
 
         if ($token === null) {
             return;

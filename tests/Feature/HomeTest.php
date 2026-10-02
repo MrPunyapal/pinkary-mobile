@@ -9,6 +9,7 @@ use App\Support\UnreadCount;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Native\Mobile\AsyncTask;
 use Native\Mobile\Testing\FakeBridge;
 use Native\Mobile\Testing\Native;
 
@@ -656,6 +657,7 @@ it('toggles bookmarks through the action row', function (): void {
 });
 
 it('appends the next page when loading more', function (): void {
+    AsyncTask::fake();
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
@@ -694,6 +696,7 @@ it('appends the next page when loading more', function (): void {
 });
 
 it('keeps the feed when loading more fails', function (): void {
+    AsyncTask::fake();
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([

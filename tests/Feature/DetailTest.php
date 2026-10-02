@@ -52,7 +52,7 @@ it('opens a post for guests and sends writes to login', function (): void {
         ->assertSee('A thoughtful mobile experience.')
         ->assertSee('A public comment.')
         ->press("toggleLike('q1')")
-        ->assertReplacedWith('/login');
+        ->assertNavigatedTo('/login');
 });
 
 it('returns to the feed without an id', function (): void {

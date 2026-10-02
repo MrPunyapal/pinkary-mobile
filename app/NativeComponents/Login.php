@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 use Native\Mobile\Browser;
 use Native\Mobile\Edge\NativeComponent;
+use Native\Mobile\Platform;
 
 final class Login extends NativeComponent
 {
@@ -208,6 +209,25 @@ final class Login extends NativeComponent
     public function register(): void
     {
         $this->navigate($this->route('mobile.register'));
+    }
+
+    public function onBackPressed(): void
+    {
+        if ($this->needsTwoFactor) {
+            $this->cancelTwoFactor();
+
+            return;
+        }
+
+        session()->forget('pinkary_add_account');
+
+        if ($this->nativeRouter?->isRootScreen() && Platform::current() !== null) {
+            $this->replace($this->route('mobile.feed'));
+
+            return;
+        }
+
+        $this->back();
     }
 
     public function togglePasswordVisibility(): void

@@ -44,7 +44,7 @@ final class Bookmarks extends NativeComponent
 
     public function mount(): void
     {
-        $token = $this->requireToken();
+        $token = $this->requireToken(replaceScreen: true);
 
         if ($token === null) {
             return;

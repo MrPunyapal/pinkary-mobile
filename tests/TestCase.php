@@ -3,6 +3,7 @@
 namespace Tests;
 
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Native\Mobile\AsyncTask;
 use Native\Mobile\Testing\FakeBridge;
 
 abstract class TestCase extends BaseTestCase
@@ -20,6 +21,7 @@ abstract class TestCase extends BaseTestCase
 
     protected function tearDown(): void
     {
+        AsyncTask::clearFake();
         FakeBridge::disable();
 
         parent::tearDown();

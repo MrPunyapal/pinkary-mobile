@@ -137,7 +137,7 @@ it('sends a guest poll tap to login before any api call', function (): void {
 
     Native::test(Home::class)
         ->call('votePoll', 'q1', 1)
-        ->assertReplacedWith('/login');
+        ->assertNavigatedTo('/login');
 
     // The redirect is the whole behaviour — no poll/vote request was made.
     Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/poll/vote'));

@@ -149,7 +149,7 @@ it('sends a guest tapping the eye to login', function (): void {
     Native::test(Profile::class, ['username' => 'ada'])
         ->set('profile', array_merge(otherCardProfile(), ['is_me' => true]))
         ->press('toggleLinkVisibility(9)')
-        ->assertReplacedWith('/login');
+        ->assertNavigatedTo('/login');
 });
 
 it('opens the avatar sheet from the card and closes it again', function (): void {

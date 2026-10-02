@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 use Native\Mobile\Browser;
 use Native\Mobile\Edge\NativeComponent;
+use Native\Mobile\Platform;
 
 final class Register extends NativeComponent
 {
@@ -141,6 +142,17 @@ final class Register extends NativeComponent
     public function login(): void
     {
         $this->navigate($this->route('mobile.login'));
+    }
+
+    public function onBackPressed(): void
+    {
+        if ($this->nativeRouter?->isRootScreen() && Platform::current() !== null) {
+            $this->replace($this->route('mobile.feed'));
+
+            return;
+        }
+
+        $this->back();
     }
 
     public function togglePasswordVisibility(): void

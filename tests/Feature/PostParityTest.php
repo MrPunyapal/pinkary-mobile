@@ -547,9 +547,9 @@ it('insets the asker box and the avatar lane 8px like the web per-thread padding
     $tree = Native::test(Home::class)->assertSee('Inset answer.')->tree();
 
     // livewire/feed.blade.php:6 wraps every thread in px-2, so the asker
-    // box and the avatar-lane row — the post row's own full-width
-    // children — must pad 8px, not the old 16px. (The bubble inside the
-    // asker box keeps its own px-3; the scan stops at depth 1.)
+    // box and the avatar-lane row must pad 8px, not the old 16px.
+    // The lane now lives in a relative wrapper so its avatar can
+    // overlay the content-sized connector.
     $row = parityAncestor(
         $tree,
         fn (array $n): bool => isset($n['style']['border_width']),
@@ -558,11 +558,7 @@ it('insets the asker box and the avatar lane 8px like the web per-thread padding
 
     expect($row)->not->toBeNull();
 
-    $insets = array_values(array_filter(
-        $row['children'] ?? [],
-        fn (array $child): bool => is_array($child)
-            && is_array($child['layout']['padding'] ?? null)
-    ));
+    $insets = [$row['children'][0], $row['children'][1]['children'][0]];
 
     expect($insets)->toHaveCount(2);
 

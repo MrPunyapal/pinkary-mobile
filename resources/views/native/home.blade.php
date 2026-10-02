@@ -1,6 +1,5 @@
 @php $viewerUsername = (string) data_get(\App\Support\AccountStore::active(), 'username', ''); @endphp
-{{-- Posts must be direct children so the native list can virtualize them. --}}
-<native:list native:key="feed-list" on-refresh="refreshFeed" on-end-reached="loadMore" class="w-full h-full bg-theme-surface">
+<native:column class="w-full h-full bg-theme-surface">
         {{-- App header: wordmark left, search action trailing (web parity:
             ../pinkary/resources/views/layouts/app.blade.php:83-95 is a
             left-identity / right-action row; the web wordmark ink is
@@ -21,6 +20,9 @@
             <x-refresh-bar />
         @endif
 
+    {{-- Only posts belong in the scrolling list: the native three-row
+        threshold must count posts, not the header, tabs, or a bottom spacer. --}}
+    <native:list native:key="feed-list" on-refresh="refreshFeed" on-end-reached="prefetchMore" class="w-full flex-1 bg-theme-surface">
         @if ($loading)
             <x-skeleton-feed />
         @elseif ($errorMessage !== '')
@@ -76,8 +78,8 @@
             <x-list-footer :loading="$loadingMore" :error="$loadMoreError" tap="loadMore" :has-more="$hasMore" end-text="There are no more questions to load, or you have scrolled too far." />
         @endif
 
-        <native:column class="w-full h-20" />
-</native:list>
+    </native:list>
+</native:column>
 
 @php
     $menuPost = $menuPostId !== '' ? $this->menuPostData() : null;

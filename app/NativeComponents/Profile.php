@@ -504,7 +504,7 @@ final class Profile extends NativeComponent
         // Your own profile is signed-in only; someone else's is public
         // on the web, so guests read it with a null token.
         if ($this->username === '') {
-            $token = $this->requireToken();
+            $token = $this->requireToken(replaceScreen: true);
 
             if ($token === null) {
                 return;
