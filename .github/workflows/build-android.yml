@@ -54,9 +54,19 @@ jobs:
 
       - name: Show native compiler errors if packaging produced no APK
         if: failure()
+        env:
+          BUILD_TYPE: ${{ inputs.build-type }}
         run: |
           if [ -f nativephp/android-build.log ]; then
             tail -n 250 nativephp/android-build.log
+          fi
+          if [ -f nativephp/android/gradlew ]; then
+            cd nativephp/android
+            task=assembleRelease
+            if [ "$BUILD_TYPE" = bundle ]; then
+              task=bundleRelease
+            fi
+            ./gradlew "$task" --console=plain
           fi
 
       - name: Upload Android artifact
