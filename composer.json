@@ -17,7 +17,7 @@
         "laravel/mcp": "^0.9.5",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",
-        "mrpunyapal/nativephp-plugin-impressions": "dev-main",
+        "mrpunyapal/nativephp-plugin-impressions": "^0.1.0",
         "nativephp/mobile": "^4.4",
         "nativephp/mobile-camera": "^1.0",
         "nativephp/mobile-ui": "^0.4.0",
@@ -25,9 +25,8 @@
     },
     "repositories": [
         {
-            "type": "path",
-            "url": "../../../packages/nativephp-plugin-impressions",
-            "options": { "symlink": false, "reference": "none" }
+            "type": "vcs",
+            "url": "https://github.com/MrPunyapal/nativephp-plugin-impressions"
         }
     ],
     "require-dev": {

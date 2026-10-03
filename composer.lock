@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "eab1e11f5ac466dbb4c820d4ce20bd71",
+    "content-hash": "623f35519aa41e71cb85f21b52b1e615",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -1838,16 +1838,16 @@
         },
         {
             "name": "league/commonmark",
-            "version": "2.10.1",
+            "version": "2.10.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/thephpleague/commonmark.git",
-                "reference": "9d489ab67a02960fd8ffe624d93f751daf95439e"
+                "reference": "6efbd9c472b91db0a3350fcd601c8332c2382e1f"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/thephpleague/commonmark/zipball/9d489ab67a02960fd8ffe624d93f751daf95439e",
-                "reference": "9d489ab67a02960fd8ffe624d93f751daf95439e",
+                "url": "https://api.github.com/repos/thephpleague/commonmark/zipball/6efbd9c472b91db0a3350fcd601c8332c2382e1f",
+                "reference": "6efbd9c472b91db0a3350fcd601c8332c2382e1f",
                 "shasum": ""
             },
             "require": {
@@ -1941,7 +1941,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-09-07T13:44:26+00:00"
+            "time": "2026-09-21T13:07:34+00:00"
         },
         {
             "name": "league/config",
@@ -2502,10 +2502,17 @@
         },
         {
             "name": "mrpunyapal/nativephp-plugin-impressions",
-            "version": "dev-main",
+            "version": "v0.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/MrPunyapal/nativephp-plugin-impressions.git",
+                "reference": "171d201794366c986db73664e910f03065a24925"
+            },
             "dist": {
-                "type": "path",
-                "url": "../../../packages/nativephp-plugin-impressions"
+                "type": "zip",
+                "url": "https://api.github.com/repos/MrPunyapal/nativephp-plugin-impressions/zipball/171d201794366c986db73664e910f03065a24925",
+                "reference": "171d201794366c986db73664e910f03065a24925",
+                "shasum": ""
             },
             "require": {
                 "illuminate/contracts": "^12.0|^13.0",
@@ -2586,10 +2593,13 @@
                 "issues": "https://github.com/mrpunyapal/nativephp-plugin-impressions/issues",
                 "source": "https://github.com/mrpunyapal/nativephp-plugin-impressions"
             },
-            "transport-options": {
-                "symlink": false,
-                "relative": true
-            }
+            "funding": [
+                {
+                    "type": "github",
+                    "url": "https://github.com/mrpunyapal"
+                }
+            ],
+            "time": "2026-10-03T10:51:29+00:00"
         },
         {
             "name": "nativephp/mobile",
@@ -11241,7 +11251,6 @@
     "aliases": [],
     "minimum-stability": "dev",
     "stability-flags": {
-        "mrpunyapal/nativephp-plugin-impressions": 20,
         "nativephp/web-ui": 15
     },
     "prefer-stable": true,
