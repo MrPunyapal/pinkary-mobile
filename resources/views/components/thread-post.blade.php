@@ -7,8 +7,6 @@
     ));
     $threadMore = (bool) data_get($post, 'thread.more', false);
     $threadMoreId = (string) data_get($post, 'thread.more_id', '');
-    // The "View more" divider follows the root post, like the web's
-    // x-thread — never a lone parent whose root is gone.
     $linkAfterFirst = $threadMore && $threadMoreId !== ''
         && ($threadPosts[0]['id'] ?? null) === data_get($post, 'thread.root_id');
 

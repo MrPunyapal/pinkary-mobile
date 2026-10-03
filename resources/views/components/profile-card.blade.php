@@ -7,7 +7,6 @@
     'linkError' => '',
 ])
 
-{{-- Web profile card (links/index). --}}
 @php
     $abbreviate = function (mixed $value): string {
         $number = (int) $value;
@@ -26,8 +25,6 @@
         return number_format($number / (10 ** ($tier * 3)), 1).$symbols[$tier];
     };
 
-    // The seal means "profile verified"; the company seal is the amber
-    // variant and only shows alongside it (links/index:143-147).
     $company = (bool) data_get($profile, 'verification.company', false);
     $verified = (bool) data_get($profile, 'verification.profile', false);
     $sealColor = $company ? '#EAB308' : '#EC4899';
@@ -41,7 +38,6 @@
         fn (mixed $link): bool => is_array($link) && ($link['url'] ?? '') !== ''
     ));
 
-    // Web only renders a stat pill when that count is above zero, except views.
     $statPills = [];
 
     if ($followers > 0) {
@@ -59,10 +55,6 @@
     $statPills[] = ['label' => $abbreviate($views).' '.($views === 1 ? 'View' : 'Views'), 'tap' => null, 'a11y' => null];
 @endphp
 
-{{-- Web profile card (links/index): share and QR sit on the left of the
-    card, follow or edit on the right, identity centered underneath.
-    Native stacks ignore absolute children, so the corners are an in-flow
-    row at the top of the same card. --}}
 <native:column class="w-full gap-0 p-4 rounded-md bg-theme-surface border border-theme-outline-variant">
     <native:row class="w-full items-center justify-between">
         <native:row class="items-center gap-2">
@@ -81,9 +73,6 @@
                 <native:pressable class="px-3 py-2 rounded-full border border-theme-primary" @tap="askUser" a11y-label="Ask {{ '@'.$username }}">
                     <native:text class="text-sm font-medium text-theme-primary">Ask {{ '@'.$username }}</native:text>
                 </native:pressable>
-                {{-- Follow Back needs `isFollower` (does this user follow me),
-                    which UserResource does not ship — so the pill uses the
-                    two states the payload can prove (follow-button.js:29). --}}
                 <native:pressable class="px-4 py-2 rounded-full bg-theme-primary {{ $followBusy ? 'opacity-40' : '' }}" @tap="toggleFollow" a11y-label="{{ $followed ? 'Unfollow' : 'Follow' }}">
                     <native:text class="text-sm font-medium text-white">{{ $followBusy ? '…' : ($followed ? 'Unfollow' : 'Follow') }}</native:text>
                 </native:pressable>
@@ -97,10 +86,6 @@
     </native:row>
 
     <native:column class="w-full items-center gap-0">
-        {{-- Web parity (links/index:105-124): tapping the avatar opens a
-            full-screen lightbox. Native shows it as a bottom sheet, the
-            same shape the QR sheet uses (native/profile.blade.php:68-76).
-            Size 24 is the largest box the avatar component ships. --}}
         <native:pressable @tap="showAvatar" a11y-label="Show {{ '@'.$username }}’s avatar">
             <x-avatar :user="$profile" :size="20" company-radius="3xl" :link="false" />
         </native:pressable>
@@ -149,17 +134,9 @@
             @foreach ($links as $link)
                 @php
                     $linkId = (int) data_get($link, 'id', 0);
-                    // Link shape is a stored setting (link_shape on the
-                    // payload); gradients cannot render on native, so the
-                    // pill keeps the solid theme colour.
                     $shape = (string) data_get($link, 'link_shape', data_get($profile, 'link_shape', 'rounded-lg'));
                     $linkRadius = in_array($shape, ['rounded-none', 'rounded-lg', 'rounded-full'], true) ? $shape : 'rounded-lg';
-                    // Click counts are the owner's business (links/index:
-                    // 332-342 shows other people's pills description-only).
                     $clicks = $isMe ? data_get($link, 'click_count') : null;
-                    // Web parity (links/index:285-298): the eye is the
-                    // owner's visibility toggle, and a hidden link reads
-                    // as the slashed eye.
                     $linkVisible = (bool) data_get($link, 'is_visible', true);
                     $linkBusy = (bool) data_get($link, '_busy', false);
                 @endphp
@@ -171,11 +148,6 @@
                         @endif
                     </native:pressable>
                     @if ($isMe)
-                        {{-- Owner actions stay flat (old clients drop nested
-                            slots). Drag-reorder has no native gesture to bind
-                            to — the renderer exposes no sortable list and no
-                            drag event, so links/sort has nothing to call and
-                            the web's drag handle is left off deliberately. --}}
                         <native:pressable class="w-9 h-9 items-center justify-center shrink-0 {{ $linkBusy ? 'opacity-40' : '' }}" @tap="toggleLinkVisibility({{ $linkId }})" a11y-label="{{ $linkVisible ? 'Hide link' : 'Show link' }}">
                             @if ($linkVisible)
                                 <native:icon :ios="\App\Icons\Ios::Eye" :android="\App\Icons\AndroidOutlined::Visibility" :size="18" color="#64748B" dark-color="#94A3B8" />
@@ -204,10 +176,6 @@
         </native:pressable>
     @endif
 
-    {{-- The web's lightbox is a full-screen overlay; the native idiom for
-        that is a bottom sheet, so the avatar zoom copies the QR sheet's
-        structure (native/profile.blade.php:68-76) — drag-down dismiss
-        and the Close button both land on toggleAvatar. --}}
     @if ($showAvatar)
         <native:bottom-sheet visible @dismiss="toggleAvatar">
             <native:column class="w-full gap-3 px-5 py-4 bg-theme-surface">

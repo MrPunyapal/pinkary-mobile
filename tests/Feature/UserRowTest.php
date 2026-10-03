@@ -34,8 +34,6 @@ function searchUserPayload(array $verification, array $extra = []): array
 it('shows the pink seal for a verified profile', function (): void {
     fakeUserSearch(searchUserPayload(['profile' => true, 'company' => false]));
 
-    // The seal is the only pink/amber icon on the row (the search and
-    // clear icons are slate), so its colour proves which branch ran.
     Native::test(Search::class)
         ->set('query', 'ada')
         ->assertSee('Ada Lovelace')
@@ -51,8 +49,6 @@ it('uses the amber company seal when both verifications are on', function (): vo
 });
 
 it('ignores the dead badge keys and a company-only account', function (): void {
-    // `verified` / `company_verified` are not UserResource keys, and a
-    // company badge alone is not a verification seal on the web.
     fakeUserSearch(searchUserPayload(['profile' => false, 'company' => true], [
         'verified' => true,
         'company_verified' => true,

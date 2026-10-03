@@ -3,14 +3,7 @@
     'class' => '',
 ])
 
-{{-- Web parity: the composer's staged-image strip (create.blade.php:58-84),
-    a wrap row of 56px thumbnails under the field.
-
-    The web overlays the remove control in the thumbnail's top-right corner,
-    but native stacks ignore absolute children (profile-card.blade.php:62-65),
-    so the two controls sit in flow instead. Tapping the thumbnail puts the
-    markdown back — the same escape the web's createMarkdownImage(index) offers
-    after a remove, which is what makes removing safe to try. --}}
+{{-- Native stacks ignore absolute children; keep remove controls in normal flow. --}}
 @if (count($images) > 0)
     <native:row class="w-full flex-wrap items-start gap-2 {{ $class }}">
         @foreach ($images as $index => $image)

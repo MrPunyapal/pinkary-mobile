@@ -16,8 +16,6 @@ final class FollowList extends NativeComponent
 {
     use UsesAppMenu;
 
-    // Other users' lists show a back arrow instead of the drawer
-    // hamburger (no overlap), like other users' profiles.
     public function hidesDrawer(): bool
     {
         return true;
@@ -25,10 +23,6 @@ final class FollowList extends NativeComponent
 
     public string $username = '';
 
-    /**
-     * followers or following — resolved from the route name, with a
-     * mode param override for tests (routes carry no extra param).
-     */
     public string $mode = 'followers';
 
     /** @var list<array<string, mixed>> */
@@ -49,14 +43,6 @@ final class FollowList extends NativeComponent
     /** @var list<string> */
     public array $busyUsernames = [];
 
-    /**
-     * Whether the signed-in user is the profile whose list this is.
-     *
-     * The web hides its "Follows you" badge on your own sheets
-     * (followers/index.blade.php:55): on your follower list every row follows
-     * you by definition, so the badge would be true of all of them and say
-     * nothing.
-     */
     public bool $isOwnProfile = false;
 
     public function navTitle(): string
@@ -75,9 +61,7 @@ final class FollowList extends NativeComponent
         if ($modeParam === 'following' || $modeParam === 'followers') {
             $this->mode = $modeParam;
         } else {
-            // Both routes render this screen — only the URI tells them
-            // apart (the HTTP request is never routed on native
-            // clients, so request()->route() is meaningless here).
+            // Native navigation does not route the HTTP request; distinguish screens by URI.
             $uri = $this->nativeRouter?->currentUri();
             $this->mode = is_string($uri) && str_ends_with($uri, '/following') ? 'following' : 'followers';
         }
@@ -113,9 +97,6 @@ final class FollowList extends NativeComponent
         $this->navigate($this->route('mobile.user', ['username' => $username]));
     }
 
-    /**
-     * Follow or unfollow a row inline, updating it in place.
-     */
     public function toggleFollow(string $username): void
     {
         if ($username === '' || in_array($username, $this->busyUsernames, true)) {

@@ -21,21 +21,15 @@ final class Compose extends NativeComponent
     use UsesAppMenu;
     use UsesCaptcha;
 
-    // Back arrow shows instead of the drawer hamburger (no overlap).
     protected bool $hidesDrawer = true;
 
     public const int MAX_CONTENT_LENGTH = 1000;
 
     public const int MAX_THREAD_POSTS = 9;
 
-    /**
-     * Asks are plain questions to another user — shorter than threads.
-     */
     public const int MAX_ASK_LENGTH = 255;
 
     /**
-     * Main-post poll durations, mirroring the web composer's dropdown.
-     *
      * @var array<int, string>
      */
     public const array POLL_DURATIONS = [
@@ -47,8 +41,6 @@ final class Compose extends NativeComponent
     ];
 
     /**
-     * Follow-up poll durations — the web thread dropdown omits 5 days.
-     *
      * @var array<int, string>
      */
     public const array THREAD_POLL_DURATIONS = [
@@ -75,9 +67,6 @@ final class Compose extends NativeComponent
     public array $posts = [];
 
     /**
-     * Per-follow-up poll state, kept index-aligned with $posts like the
-     * web composer's threadPolls.
-     *
      * @var list<array{isPoll: bool, options: list<string>, duration: int}>
      */
     public array $postPolls = [];
@@ -112,31 +101,15 @@ final class Compose extends NativeComponent
 
     public ?string $avatar = null;
 
-    /**
-     * Ask mode target — present when opened via /ask/{username}.
-     * Thread, poll, and channel UI hide while asking.
-     */
     public string $askUsername = '';
 
     public bool $anonymous = false;
 
     /**
-     * Images already uploaded for this post, in the order they were added.
-     *
-     * Uploaded as they are picked rather than at publish, matching the web
-     * (image-upload.js dispatches on image.uploaded). Storing the returned
-     * `url` and `name` is what lets removeImage() take the markdown back out
-     * again — the server keeps no record of which post an image was staged
-     * for, so the pairing only exists here.
-     *
      * @var list<array{url: string, path: string, name: string}>
      */
     public array $images = [];
 
-    /**
-     * True while picked files are being sent, which disables the button the
-     * way the web's `uploading` flag does.
-     */
     public bool $uploadingImages = false;
 
     public function navTitle(): string
@@ -170,9 +143,6 @@ final class Compose extends NativeComponent
         $this->searchChannels($token);
     }
 
-    /**
-     * Persist live text without performing a network search per keystroke.
-     */
     public function updatedContent(): void
     {
         $this->touchDraft();
@@ -273,11 +243,6 @@ final class Compose extends NativeComponent
         return mb_strlen($this->content) > $this->maxContentLength();
     }
 
-    /**
-     * Live publish gate: over-limit content/posts or an incomplete poll
-     * disable the button. Empty first post stays tappable so publish()
-     * can show the existing "write something first" copy.
-     */
     public function canPublish(): bool
     {
         if ($this->contentTooLong()) {
@@ -312,11 +277,6 @@ final class Compose extends NativeComponent
         $this->validationMessage = $this->overLimitMessage();
     }
 
-    /**
-     * A follow-up can only be added once the first post and every
-     * existing follow-up are non-empty — the web button disables itself
-     * until then too.
-     */
     public function canAddPost(): bool
     {
         if (trim($this->content) === '') {
@@ -453,10 +413,6 @@ final class Compose extends NativeComponent
         $this->searchChannels($token);
     }
 
-    /**
-     * A new channel can be staged when the query is at least 2 characters
-     * and matches nothing exactly — same rule as the web picker.
-     */
     public function canCreateChannel(): bool
     {
         $query = trim($this->channelQuery);
@@ -474,10 +430,6 @@ final class Compose extends NativeComponent
         return true;
     }
 
-    /**
-     * Select a channel by id only — names travel server-side so quotes
-     * in channel names cannot break the tap handler.
-     */
     public function selectChannel(int $id): void
     {
         $name = '';
@@ -500,10 +452,6 @@ final class Compose extends NativeComponent
         $this->persistDraft();
     }
 
-    /**
-     * Stage a new channel name for creation at publish, validating it
-     * with the web composer's rules.
-     */
     public function stageChannel(): void
     {
         $name = trim($this->channelQuery);
@@ -592,32 +540,16 @@ final class Compose extends NativeComponent
         $this->persistDraft();
     }
 
-    /**
-     * Images allowed in one post, matching the web composer's uploadLimit.
-     */
     public function maxImages(): int
     {
         return 3;
     }
 
-    /**
-     * Whether this build can open a picker at all.
-     *
-     * Camera.PickMedia is supplied by the camera-picker plugin, and
-     * nativephp_can() is the framework's own answer to whether a bridge
-     * function exists on the running build. Gating on it means a build
-     * compiled without the plugin simply has no photo button, rather than one
-     * that taps and does nothing.
-     */
     public function supportsImagePicker(): bool
     {
         return nativephp_can('Camera.PickMedia');
     }
 
-    /**
-     * The web disables its photo button while an upload is running or once the
-     * limit is reached (create.blade.php:96).
-     */
     public function canAddImage(): bool
     {
         return $this->supportsImagePicker()
@@ -625,14 +557,6 @@ final class Compose extends NativeComponent
             && count($this->images) < $this->maxImages();
     }
 
-    /**
-     * Open the system photo picker.
-     *
-     * The result arrives later, as its own request, so the handler is
-     * registered here and the framework calls it back against whichever
-     * component is live when the choice comes back. A cancel is not an error:
-     * the web says nothing either, so this says nothing.
-     */
     public function pickImages(): void
     {
         if ($this->busy || ! $this->canAddImage()) {
@@ -646,14 +570,7 @@ final class Compose extends NativeComponent
             ->start();
     }
 
-    /**
-     * Why a path the picker handed back could not be opened.
-     *
-     * Under native:jump the picked file is written to the phone's cache while
-     * PHP runs on the development machine via `php artisan serve`, so the
-     * device path is never openable here. JumpCommand exports JUMP_BRIDGE_PORT
-     * into that server's environment, which is the only signal the app gets.
-     */
+    /** Jump runs PHP on the host, so device-local picker paths are inaccessible. */
     private function unreadableImageMessage(): string
     {
         if (getenv('JUMP_BRIDGE_PORT') !== false) {
@@ -663,9 +580,6 @@ final class Compose extends NativeComponent
         return 'That image could not be read from this device.';
     }
 
-    /**
-     * Upload what the picker returned and drop each image into the post.
-     */
     public function onMediaSelected(MediaSelected $event): void
     {
         if ($event->cancelled) {
@@ -688,10 +602,6 @@ final class Compose extends NativeComponent
             return;
         }
 
-        // A path PHP cannot open is not an upload. Checked here rather than
-        // left to fopen() silently dropping it and posting an empty multipart
-        // body, which the server can only answer with "the images field is
-        // required" -- a complaint about a field the user never typed.
         $readable = array_values(array_filter($paths, 'is_readable'));
 
         if ($readable === []) {
@@ -706,8 +616,6 @@ final class Compose extends NativeComponent
             return;
         }
 
-        // The cap is enforced again here: the picker is told how many are
-        // left, but the user can add a second batch before this one lands.
         $room = $this->maxImages() - count($this->images);
 
         if ($room <= 0) {
@@ -756,20 +664,9 @@ final class Compose extends NativeComponent
         $this->touchDraft();
     }
 
-    /**
-     * Stage one uploaded image and write its markdown into the post.
-     *
-     * Mirrors image-upload.js: a leading newline when the post already has
-     * text, no second copy of a snippet already present, and an error rather
-     * than a silent truncation when the snippet would push the post over the
-     * limit — the image stays in the list so it can be removed.
-     */
     private function addImage(string $url, string $name, string $path = ''): void
     {
-        // The snippet carries `path`, not `url`. `content` is stored verbatim
-        // and rendered by the server, so a host in it could not survive a disk
-        // or CDN change, and the server's cleanup job matches references
-        // against stored paths.
+        // Store image paths, not URLs: server cleanup matches paths, and hosts can change.
         $snippet = '!['.$name.']('.($path !== '' ? $path : $url).')';
 
         if (str_contains($this->content, $snippet)) {
@@ -791,13 +688,6 @@ final class Compose extends NativeComponent
         $this->content .= $candidate;
     }
 
-    /**
-     * Take a staged image back out, removing its markdown from the post.
-     *
-     * The stored file itself is left alone: the API has no delete for an
-     * unposted image, and the web's equivalent only deletes once validation
-     * passes. An image removed here is simply never referenced.
-     */
     public function removeImage(int $index): void
     {
         if ($this->busy || ! isset($this->images[$index])) {
@@ -808,7 +698,6 @@ final class Compose extends NativeComponent
 
         $snippet = $this->imageSnippet($image);
 
-        // A trailing newline came in with the snippet, so it leaves with it.
         $this->content = str_replace($snippet."\n", '', $this->content);
         $this->content = str_replace($snippet, '', $this->content);
 
@@ -818,13 +707,6 @@ final class Compose extends NativeComponent
         $this->touchDraft();
     }
 
-    /**
-     * Put a staged image's markdown back into the post.
-     *
-     * The web offers this on the thumbnail (create.blade.php:70, bound to
-     * createMarkdownImage(index)) and it is what makes removeImage() safe to
-     * try: the file is still there, so the post is not ruined.
-     */
     public function reinsertImage(int $index): void
     {
         if ($this->busy || ! isset($this->images[$index])) {
@@ -838,11 +720,6 @@ final class Compose extends NativeComponent
     }
 
     /**
-     * The markdown reference for a staged image.
-     *
-     * `path` is what got written, so removal has to build the identical
-     * string or the snippet is orphaned in the post body.
-     *
      * @param  array{url: string, name: string, path: string}  $image
      */
     private function imageSnippet(array $image): string
@@ -885,9 +762,6 @@ final class Compose extends NativeComponent
             return;
         }
 
-        // Blank follow-ups are skipped like the web composer does, but an
-        // overlong one is a real error — never silently drop user input.
-        // Poll state travels index-aligned with its post.
         /** @var list<string> $threadPosts */
         $threadPosts = [];
         /** @var array<int, array{options: list<string>, duration: int}|null> $threadPolls */
@@ -1009,9 +883,6 @@ final class Compose extends NativeComponent
         $this->navigate($this->route('mobile.feed'));
     }
 
-    /**
-     * Send a plain question to another user, then open their profile.
-     */
     public function publishAsk(): void
     {
         if ($this->busy || $this->askUsername === '') {
@@ -1083,8 +954,6 @@ final class Compose extends NativeComponent
     }
 
     /**
-     * Validate one follow-up's staged poll, mirroring the web composer.
-     *
      * @return array{options: list<string>, duration: int}|null|false
      *                                                                The payload, null when no poll, or false (with error set) when invalid.
      */
@@ -1168,10 +1037,6 @@ final class Compose extends NativeComponent
         $this->avatar = is_string($avatar) && $avatar !== '' ? $avatar : null;
     }
 
-    /**
-     * Skip the profile round-trip when a stored avatar or name already
-     * exists, and never block unit tests on it.
-     */
     private function shouldFetchProfile(): bool
     {
         if ($this->avatar !== null) {

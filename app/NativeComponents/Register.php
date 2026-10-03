@@ -40,19 +40,12 @@ final class Register extends NativeComponent
     public string $errorMessage = '';
 
     /**
-     * First server/validation message per input, shown under the field.
-     * The summary banner stays as the fallback for older clients.
-     *
      * @var array<string, string>
      */
     public array $fieldErrors = [];
 
     public bool $busy = false;
 
-    /**
-     * Client-side only password visibility. Rendered through the
-     * existing `secure` input prop — no new APIs involved.
-     */
     public bool $showPassword = false;
 
     public function navTitle(): string
@@ -84,9 +77,6 @@ final class Register extends NativeComponent
             'terms' => ['accepted'],
         ]);
 
-        // Server keys map to inputs; the confirmation error reads best
-        // under the confirmation field, terms has no input so it lands
-        // in the summary banner.
         $fields = [
             'name' => 'name',
             'username' => 'username',
@@ -130,9 +120,6 @@ final class Register extends NativeComponent
             $userData = is_array($userData) ? $userData : [];
             $username = (string) ($userData['username'] ?? $this->username);
 
-            // Re-registration mints a fresh token: revoke the previous
-            // one for this username server-side so dead tokens never
-            // pile up.
             $previous = $username !== '' ? AccountStore::tokenForUsername($username) : null;
 
             if (is_string($previous) && $previous !== '' && $previous !== $token) {
@@ -182,11 +169,6 @@ final class Register extends NativeComponent
         $this->showPassword = ! $this->showPassword;
     }
 
-    /**
-     * The consent sentence links to the site's legal pages, which this
-     * app does not host — hand them to the in-app browser like the app
-     * menu's Source code row does.
-     */
     public function openTerms(): void
     {
         $this->openWebPage('/terms');
@@ -202,11 +184,6 @@ final class Register extends NativeComponent
         return view('native.register');
     }
 
-    /**
-     * Open a page of the Pinkary site in the in-app browser, dropped when
-     * the API host is missing or not http so nothing half-formed is ever
-     * handed to the browser.
-     */
     private function openWebPage(string $path): void
     {
         $url = rtrim((string) config('services.pinkary.url'), '/').$path;
@@ -219,10 +196,6 @@ final class Register extends NativeComponent
     }
 
     /**
-     * Split a Laravel errors bag into per-field messages (shown under
-     * each input) plus a summary for the banner: the first message from
-     * fields without their own input, else the first message overall.
-     *
      * @param  array<string, mixed>  $errors
      * @param  array<string, string>  $fields  server key => fieldErrors key
      */

@@ -15,23 +15,11 @@ use App\NativeComponents\Settings;
 use App\NativeLayout\MobileLayout;
 use Illuminate\Support\Facades\Route;
 
-/*
-|--------------------------------------------------------------------------
-| Super Stack routes
-|--------------------------------------------------------------------------
-|
-| Home is a SuperNative screen. On a phone NativePHP renders it natively;
-| in the browser nativephp/mobile-web (Web UI) renders the same Blade as HTML.
-|
-*/
-
 Route::native('/login', Login::class)->name('mobile.login');
 Route::native('/register', Register::class)->name('mobile.register');
 Route::native('/compose', Compose::class)->name('mobile.compose');
 
 Route::nativeGroup(MobileLayout::class, function (): void {
-    // The home page is the recent feed — readable without logging in,
-    // like the web's home page.
     Route::native('/', Home::class)->name('mobile.home');
     Route::native('/feed', Home::class)->name('mobile.feed');
     Route::native('/search', Search::class)->name('mobile.search');

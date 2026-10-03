@@ -18,9 +18,6 @@ use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Share;
 
 /**
- * Optimistic like/bookmark toggles, poll votes, and link opening
- * for any screen rendering feed posts.
- *
  * @mixin NativeComponent
  */
 trait TogglesPostReactions
@@ -76,13 +73,6 @@ trait TogglesPostReactions
     /** @var array<string, true> In-flight like/bookmark/vote locks per post+action. */
     private array $reactionLocks = [];
 
-    /**
-     * Owner-menu sheet state. One sheet per screen, driven by
-     * $menuPostId — never one sheet per row. Ownership follows the web
-     * QuestionPolicy: pin, edit, delete, and likes belong to the
-     * question's `to` user. A later 403 still hides that entry
-     * (see $menuDenied).
-     */
     public string $menuPostId = '';
 
     /** @var 'menu'|'confirm-delete'|'edit'|'likers' */
@@ -106,11 +96,7 @@ trait TogglesPostReactions
     /** @var array<string, true> postId:action entries hidden after a 403. */
     public array $menuDenied = [];
 
-    /**
-     * Double-tap guard: returns false when this post+action already has
-     * a request in flight. Release in a finally block — replace()
-     * redirects may throw past the call site.
-     */
+    /** Release action locks in finally; navigation redirects can throw. */
     private function acquireReactionLock(string $key): bool
     {
         if (isset($this->reactionLocks[$key])) {
@@ -128,9 +114,6 @@ trait TogglesPostReactions
     }
 
     /**
-     * Toggle the authenticated user's like on the given loaded post row,
-     * reconciling with the server response (reverting on failure).
-     *
      * @param  array<string, mixed>  $post
      */
     private function reactLike(array &$post, string $id, ?string $token): void
@@ -191,9 +174,6 @@ trait TogglesPostReactions
     }
 
     /**
-     * Toggle the authenticated user's bookmark on the given loaded post
-     * row, reverting on failure.
-     *
      * @param  array<string, mixed>  $post
      */
     private function reactBookmark(array &$post, string $id, ?string $token): void
@@ -244,9 +224,6 @@ trait TogglesPostReactions
     }
 
     /**
-     * Vote in the post's poll, replacing its poll state with the
-     * server's (votes are toggles server-side too).
-     *
      * @param  array<string, mixed>  $post
      */
     private function voteOnPoll(array &$post, string $id, int $optionId, ?string $token): void
@@ -292,9 +269,6 @@ trait TogglesPostReactions
     }
 
     /**
-     * Locate a post by id across a feed list, including nested thread
-     * ancestors. Returns [top-level index, nested key|null].
-     *
      * @param  list<array<string, mixed>>  $posts
      * @return array{0: int, 1: int|string|null}|null
      */
@@ -324,9 +298,6 @@ trait TogglesPostReactions
     }
 
     /**
-     * Read a loaded post (top-level or nested thread ancestor) by id.
-     * Returns a copy — mutations must go through the react/vote helpers.
-     *
      * @param  list<array<string, mixed>>  $posts
      * @return array<string, mixed>|null
      */
@@ -352,9 +323,6 @@ trait TogglesPostReactions
     }
 
     /**
-     * Route a like/bookmark tap to a feed list, reaching nested thread
-     * ancestors too (the web renders every chained post with live buttons).
-     *
      * @param  list<array<string, mixed>>  $posts
      */
     private function reactOnPostPayload(array &$posts, string $id, string $kind, ?string $token): bool
@@ -385,9 +353,6 @@ trait TogglesPostReactions
     }
 
     /**
-     * Route a poll vote to a feed list, reaching nested thread
-     * ancestors too.
-     *
      * @param  list<array<string, mixed>>  $posts
      */
     private function voteOnPostPayload(array &$posts, string $id, int $optionId, ?string $token): bool
@@ -409,10 +374,6 @@ trait TogglesPostReactions
         return true;
     }
 
-    /**
-     * Toggle an id in the screen's $expanded list (Show more/less),
-     * mirroring the web's showMore Alpine component.
-     */
     private function toggleExpandedId(string $id): void
     {
         if ($id === '') {
@@ -427,10 +388,6 @@ trait TogglesPostReactions
             : [...$expanded, $id];
     }
 
-    /**
-     * Share the post through the system sheet, mirroring the web's
-     * share menu (which copies/shares the question URL).
-     */
     private function shareQuestion(?string $username, string $id, ?string $html): void
     {
         $url = $this->questionUrl($username, $id);
@@ -444,10 +401,6 @@ trait TogglesPostReactions
         app(Share::class)->url('Pinkary post', $text === '' ? $url : mb_substr($text, 0, 140), $url);
     }
 
-    /**
-     * Open an external link in the in-app browser. Only http(s)
-     * URLs from loaded post data ever reach here.
-     */
     private function openExternalLink(string $url): void
     {
         if (! preg_match('#^https?://#i', $url)) {
@@ -457,15 +410,8 @@ trait TogglesPostReactions
         app(Browser::class)->inApp($url);
     }
 
-    /**
-     * Open Google Translate for the post's plain text, mirroring the
-     * web's per-question and per-answer translate actions.
-     */
     private function translateHtml(?string $html): void
     {
-        // A shared update has no content (PinkaryApi normalizes the
-        // legacy `__UPDATE__` marker to null), so an empty text is the
-        // only thing worth skipping here.
         $text = trim(html_entity_decode(strip_tags((string) $html), ENT_QUOTES, 'UTF-8'));
 
         if ($text === '') {
@@ -475,11 +421,6 @@ trait TogglesPostReactions
         $this->openExternalLink('https://translate.google.com/?sl=auto&tl=en&text='.urlencode($text));
     }
 
-    /**
-     * Open the owner-menu sheet for a loaded post. Guests are sent to
-     * login (every entry needs a token); unknown ids open nothing so
-     * no dead sheet ever renders.
-     */
     public function openMenu(string $id): void
     {
         if ($id === '' || $id === $this->menuPostId) {
@@ -524,19 +465,11 @@ trait TogglesPostReactions
         $this->menuError = '';
     }
 
-    /**
-     * Whether a menu entry survived capability checks. Blade gates
-     * every owner entry on this so a 403 hides it henceforth.
-     */
     public function menuDeniedFor(string $postId, string $action): bool
     {
         return isset($this->menuDenied[$postId.':'.$action]);
     }
 
-    /**
-     * Web parity (QuestionPolicy): only the recipient (`to`) may pin,
-     * edit, delete, or view likes. The API sends `to.username`.
-     */
     public function viewerOwnsMenuPost(): bool
     {
         return $this->viewerOwnsPost($this->menuPostData());
@@ -555,11 +488,6 @@ trait TogglesPostReactions
         return is_string($answer) && trim(strip_tags($answer)) !== '';
     }
 
-    /**
-     * Edit stays available when the payload has no answered_at — the
-     * API enforces the 24-hour window and returns the error. A known
-     * timestamp older than 24 hours hides the entry up front.
-     */
     public function canEditMenuPost(): bool
     {
         $post = $this->menuPostData();
@@ -608,8 +536,6 @@ trait TogglesPostReactions
     }
 
     /**
-     * The loaded menu post for sheet rendering. Returns a copy.
-     *
      * @return array<string, mixed>|null
      */
     public function menuPostData(): ?array
@@ -621,10 +547,6 @@ trait TogglesPostReactions
         return $this->findPostForMenu($this->menuPostId);
     }
 
-    /**
-     * Pin or unpin the menu post, reconciling the local row with the
-     * server response. A 403 hides the entry henceforth.
-     */
     public function togglePinMenu(): void
     {
         $id = $this->menuPostId;
@@ -697,10 +619,6 @@ trait TogglesPostReactions
         }
     }
 
-    /**
-     * Swap the sheet to its inline answer editor, seeded with the
-     * post's current plain-text answer.
-     */
     public function startEditMenu(): void
     {
         $post = $this->menuPostData();
@@ -714,10 +632,6 @@ trait TogglesPostReactions
         $this->menuStep = 'edit';
     }
 
-    /**
-     * Save the edited answer (answer only, like the web — the 24h
-     * window is enforced server-side and surfaces here as an error).
-     */
     public function saveAnswerMenu(): void
     {
         $id = $this->menuPostId;
@@ -780,9 +694,6 @@ trait TogglesPostReactions
                 return;
             }
 
-            // The endpoint returns the full QuestionResource, so take
-            // the saved answer (parsed HTML, like feed payloads) back
-            // into the local row.
             $saved = $response->json('data.answer');
 
             $this->updatePostForMenu($id, function (array &$row) use ($response, $saved): void {
@@ -800,10 +711,6 @@ trait TogglesPostReactions
         }
     }
 
-    /**
-     * Swap the sheet to its delete confirmation step. No dialog API
-     * exists, so confirmation lives inside the sheet.
-     */
     public function askDeleteMenu(): void
     {
         if ($this->menuPostId === '' || ! $this->viewerOwnsPost($this->menuPostData())) {
@@ -814,10 +721,6 @@ trait TogglesPostReactions
         $this->menuStep = 'confirm-delete';
     }
 
-    /**
-     * Delete the menu post through the ignore flow, exactly like the
-     * web's Delete confirmation (wire:click="ignore").
-     */
     public function ignoreMenuPost(): void
     {
         $id = $this->menuPostId;
@@ -873,10 +776,6 @@ trait TogglesPostReactions
         }
     }
 
-    /**
-     * Hard-delete the menu post (204 on success). The sheet's Delete
-     * confirmation uses the ignore flow instead, mirroring the web.
-     */
     public function deleteMenuPost(): void
     {
         $id = $this->menuPostId;
@@ -932,10 +831,6 @@ trait TogglesPostReactions
         }
     }
 
-    /**
-     * Load the menu post's likers into the sheet. Policy-gated
-     * server-side: a 403 hides the entry henceforth.
-     */
     public function openLikersMenu(): void
     {
         $id = $this->menuPostId;
@@ -1063,28 +958,12 @@ trait TogglesPostReactions
         }
     }
 
-    /**
-     * Follow or unfollow a liker row in the sheet, mirroring
-     * FollowList::toggleFollow: the row carries the in-flight lock (so a
-     * double tap cannot fire twice), your own row is skipped like the
-     * web's follow-button (components/follow-button.blade.php:7), and a
-     * 401 goes through the shared unauthorized path.
-     *
-     * The label follows the web (js/follow-button.js:29):
-     * 'Unfollow' once you follow them, 'Follow' otherwise. The web's
-     * third state, "Follow Back", needs `isFollower` — UserResource
-     * ships no such key, so it is not invented here.
-     */
     public function toggleFollow(string $username): void
     {
         $this->toggleUserFollow($this->likers, $username);
     }
 
     /**
-     * Route a follow tap to a loaded user list (the likers sheet, or
-     * your own rows on the profile screen), reconciling the row with the
-     * server's `followed` flag.
-     *
      * @param  list<array<string, mixed>>  $rows
      */
     private function toggleUserFollow(array &$rows, string $username): void
@@ -1143,10 +1022,6 @@ trait TogglesPostReactions
         data_set($rows[$index], 'followed_by_me', (bool) $response->json('data.followed', ! $following));
     }
 
-    /**
-     * Share the menu post through the system sheet, reusing the same
-     * question URL builder as the row-level share action.
-     */
     public function shareMenuPost(): void
     {
         $post = $this->menuPostData();
@@ -1162,10 +1037,6 @@ trait TogglesPostReactions
         );
     }
 
-    /**
-     * Post the menu post to X through a tweet intent in the in-app
-     * browser, next to the system share entry.
-     */
     public function shareToXMenu(): void
     {
         $post = $this->menuPostData();
@@ -1188,9 +1059,6 @@ trait TogglesPostReactions
     }
 
     /**
-     * QuestionPolicy::update/pin/ignore/viewLikes: the signed-in user
-     * must be the question's `to` account.
-     *
      * @param  array<string, mixed>|null  $post
      */
     private function viewerOwnsPost(?array $post): bool
@@ -1223,10 +1091,6 @@ trait TogglesPostReactions
     }
 
     /**
-     * Read any rendered row on the screen: feed/bookmark lists, the
-     * detail post (with ancestors), profile questions, or a detail
-     * comment. Returns a copy — mutations go through updatePostForMenu().
-     *
      * @return array<string, mixed>|null
      */
     private function findPostForMenu(string $id): ?array
@@ -1270,10 +1134,6 @@ trait TogglesPostReactions
         return null;
     }
 
-    /**
-     * Mutate a loaded menu post in place, wherever the screen stores
-     * it (feed list, detail post, or detail comment).
-     */
     private function updatePostForMenu(string $id, \Closure $mutate): bool
     {
         if ($id === '') {
@@ -1347,10 +1207,6 @@ trait TogglesPostReactions
         return false;
     }
 
-    /**
-     * Drop a removed post from the local list. The detail screen's own
-     * post navigates back to the feed instead (see afterMenuRemoval).
-     */
     private function removePostForMenu(string $id): void
     {
         if ($id === '') {
@@ -1426,11 +1282,6 @@ trait TogglesPostReactions
         }
     }
 
-    /**
-     * After a successful delete/ignore: the detail screen's own post
-     * navigates back to the feed (no flash mechanism exists, so plain
-     * navigate); list screens drop the row locally.
-     */
     private function afterMenuRemoval(string $id): void
     {
         $this->closeMenu();
@@ -1444,19 +1295,11 @@ trait TogglesPostReactions
         $this->removePostForMenu($id);
     }
 
-    /**
-     * Mark a menu entry as dead after a 403 so it never renders again
-     * for this post.
-     */
     private function hideMenuEntry(string $postId, string $action): void
     {
         $this->menuDenied[$postId.':'.$action] = true;
     }
 
-    /**
-     * Resolve the authenticated token for menu calls, sending guests
-     * to login like the row-level reaction actions do.
-     */
     private function menuToken(): ?string
     {
         $token = app(TokenStorage::class)->get();
@@ -1470,10 +1313,6 @@ trait TogglesPostReactions
         return $token;
     }
 
-    /**
-     * Canonical question URL shared by the system share and Post-to-X
-     * actions.
-     */
     private function questionUrl(?string $username, string $id): ?string
     {
         if ($username === null || $username === '' || $id === '') {
@@ -1485,19 +1324,11 @@ trait TogglesPostReactions
         return $base.'/@'.$username.'/questions/'.$id;
     }
 
-    /**
-     * Plain-text rendering of parsed-HTML post fields for share text
-     * and the answer editor seed.
-     */
     private function plainText(mixed $html): string
     {
         return trim(html_entity_decode(strip_tags((string) $html), ENT_QUOTES, 'UTF-8'));
     }
 
-    /**
-     * Keep the detail screen's detached thread mirror consistent after
-     * a menu mutation. List screens have no mirror to keep.
-     */
     private function syncMenuThreadMirror(): void
     {
         if (method_exists($this, 'syncThreadMirror')) {

@@ -1,9 +1,6 @@
 @php
     $isFollowing = ($mode ?? 'followers') === 'following';
 
-    // Web parity (pinkary/resources/views/livewire/followers/index.blade.php:4-12
-    // and following/index.blade.php:4-12): the heading itself carries the
-    // empty sentence, and the non-empty heading is "@user followers".
     $title = $username !== '' ? '@'.$username.($isFollowing ? ' following' : ' followers') : ($isFollowing ? 'Following' : 'Followers');
     $emptyTitle = $username !== ''
         ? '@'.$username.($isFollowing ? ' is not following anyone yet.' : ' does not have any followers')
@@ -39,11 +36,6 @@
         @elseif (count($users) === 0)
             <x-empty-state :title="$emptyTitle" :subtitle="$emptySubtitle" />
         @else
-            {{-- Web parity: the followers/following/likes lists are inset
-                CARDS, not full-bleed rows
-                (pinkary/resources/views/livewire/followers/index.blade.php:25,
-                following/index.blade.php:25, likes/index.blade.php:26 —
-                `rounded-xl border bg-slate-50/80 p-3` in a `gap-2` column). --}}
             <native:column class="w-full gap-2 px-4 py-3">
             @foreach ($users as $user)
                 @php
@@ -51,10 +43,6 @@
                     $rowFollowed = (bool) data_get($user, 'followed_by_me', false);
                     $rowIsMe = (bool) data_get($user, 'is_me', false);
                     $rowBusy = in_array($rowUsername, $busyUsernames ?? [], true);
-                    // The web shows this only on someone else's list: on your
-                    // own follower sheet every row follows you by definition,
-                    // so the badge would be true of all of them and mean
-                    // nothing (followers/index.blade.php:55).
                     $rowFollowsMe = (bool) data_get($user, 'follows_me', false) && ! $isOwnProfile;
                 @endphp
                 <native:row class="w-full items-center gap-3 p-3 rounded-xl bg-theme-surface border border-theme-outline-variant">
@@ -64,27 +52,10 @@
                             <native:column class="flex-1 gap-0.5 min-w-0">
                                 <native:row class="items-center gap-1.5">
                                     <native:text class="text-sm font-medium text-theme-on-surface" max-lines="1">{{ data_get($user, 'name') }}</native:text>
-                                    {{-- Web parity: the seal requires profile
-                                        verification; a company-only account gets
-                                        no seal (components/avatar-with-name.blade.php:19-23,
-                                        resources/views/livewire/questions/show.blade.php:124-133). --}}
                                     @if (data_get($user, 'verification.profile') || data_get($user, 'verified'))
                                         <native:icon :ios="\App\Icons\Ios::CheckmarkSealFill" :android="\App\Icons\Android::Verified" :size="14" color="#EC4899" />
                                     @endif
                                 </native:row>
-                                {{-- Web parity: the username line carries a
-                                    "Follows you" badge when the person on the
-                                    row also follows the profile's owner
-                                    (followers/index.blade.php:55-57, and the
-                                    same line in following/index.blade.php and
-                                    likes/index.blade.php). It sits on the
-                                    username's own line, not in a row of its
-                                    own. The web hardcodes the pill as
-                                    bg-slate-900 text-slate-50
-                                    (components/badge.blade.php:2) and never
-                                    flips it; this themes it with the
-                                    secondary pair instead, which is the same
-                                    dark-on-light inversion in both modes. --}}
                                 @if ($rowFollowsMe)
                                     <native:row class="items-center gap-1.5 min-w-0">
                                         <native:text class="text-sm text-theme-on-surface-variant shrink-0" max-lines="1">{{ '@'.$rowUsername }}</native:text>
@@ -97,14 +68,6 @@
                         </native:row>
                     </native:pressable>
                     @unless ($rowIsMe || $rowUsername === '')
-                        {{-- Web parity (components/follow-button.blade.php:9-16):
-                            ONE outlined pill for both states, and the label
-                            never changes width — busy dims the row instead
-                            of swapping in an ellipsis. The follow direction
-                            the button cannot express is carried by the
-                            "Follows you" badge beside the username, exactly
-                            as the web does; the web has no "Follow Back"
-                            state either. --}}
                         <native:pressable class="shrink-0 px-3 py-1.5 rounded-full border border-theme-outline-variant text-nowrap {{ $rowBusy ? 'opacity-40' : '' }}" @tap="toggleFollow('{{ $rowUsername }}')" a11y-label="{{ $rowFollowed ? 'Unfollow' : 'Follow' }}">
                             <native:text class="text-xs font-medium text-theme-on-surface-variant">{{ $rowFollowed ? 'Unfollow' : 'Follow' }}</native:text>
                         </native:pressable>

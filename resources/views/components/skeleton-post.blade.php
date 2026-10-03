@@ -1,7 +1,3 @@
-{{-- Web parity (livewire/questions/placeholder.blade.php): h-2 rounded bars
-    for the header (w-20 + w-16) and the body (w-10/12, full, w-32), then a
-    bottom action row — three h-4 w-4 dots on the left, a w-16 h-2 bar and a
-    dot on the right. --}}
 <native:column class="w-full gap-2.5 px-4 py-4 bg-theme-background border-b border-theme-outline-variant">
     <native:row class="w-full items-center gap-3">
         <native:column class="w-10 h-10 rounded-full bg-theme-surface-variant shrink-0" />

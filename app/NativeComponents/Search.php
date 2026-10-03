@@ -28,9 +28,6 @@ final class Search extends NativeComponent
     public string $errorMessage = '';
 
     /**
-     * Recent queries from this session only (local state, never sent to
-     * the API). Newest first, capped, shown when the query is empty.
-     *
      * @var list<string>
      */
     public array $recentSearches = [];
@@ -45,9 +42,6 @@ final class Search extends NativeComponent
         $this->search();
     }
 
-    /**
-     * Clear the query and its results (clear-button path).
-     */
     public function clearQuery(): void
     {
         $this->query = '';
@@ -57,11 +51,6 @@ final class Search extends NativeComponent
         $this->errorMessage = '';
     }
 
-    /**
-     * Re-run a recent search by list index (int arg, like the
-     * profile's openUserLink — user-typed queries are never
-     * interpolated into handler strings).
-     */
     public function selectRecent(int $index): void
     {
         $query = $this->recentSearches[$index] ?? null;
@@ -126,18 +115,6 @@ final class Search extends NativeComponent
         return view('native.search');
     }
 
-    /**
-     * Follow or unfollow a user result row in place, mirroring
-     * FollowList::toggleFollow: the row carries the in-flight lock (so a
-     * double tap cannot fire twice), your own row is skipped like the
-     * web's follow-button (components/follow-button.blade.php:7), and a
-     * 401 goes through the shared unauthorized path.
-     *
-     * The label follows the web (js/follow-button.js:29): 'Unfollow'
-     * once you follow them, 'Follow' otherwise. The web's third state,
-     * "Follow Back", needs `isFollower` — UserResource ships no such
-     * key, so it is not invented here.
-     */
     public function toggleFollow(string $username): void
     {
         if ($username === '') {
@@ -203,9 +180,6 @@ final class Search extends NativeComponent
         $this->navigate($this->route('mobile.user', ['username' => $username]));
     }
 
-    /**
-     * Re-run the search for a tapped hashtag.
-     */
     public function openHashtag(string $name): void
     {
         if ($name === '') {
@@ -216,10 +190,6 @@ final class Search extends NativeComponent
         $this->search();
     }
 
-    /**
-     * Remember a successful query for the recents list (newest
-     * first, deduped, capped at five).
-     */
     private function rememberRecent(string $query): void
     {
         $this->recentSearches = array_slice(

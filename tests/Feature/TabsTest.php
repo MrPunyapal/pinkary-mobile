@@ -221,11 +221,6 @@ it('resolves the tabbed routes', function (): void {
 it('keeps chrome off content-titled screens and titleless elsewhere', function (): void {
     $layout = new MobileLayout;
 
-    // Screens with an in-content top bar or page heading suppress the
-    // chrome bar entirely; every profile now carries its own top-bar
-    // (the old Jump app left-aligns chrome titles into the drawer
-    // hamburger, so chrome never carries text). Auth cards carry their
-    // own titles too.
     expect($layout->navBar(new Bookmarks))->toBeNull()
         ->and($layout->navBar(new Notifications))->toBeNull()
         ->and($layout->navBar(new Login))->toBeNull()
@@ -235,19 +230,12 @@ it('keeps chrome off content-titled screens and titleless elsewhere', function (
     $other->username = 'ada';
     expect($layout->navBar($other))->toBeNull();
 
-    // Your own profile also renders an in-content top-bar now, so its
-    // chrome is gone too (previously the titled bar overlapped the
-    // hamburger on old clients).
     expect($layout->navBar(new Profile))->toBeNull();
 
-    // Screens own their in-content headers; Settings carries an in-content
-    // heading so navBar returns null. Drawer is removed from all topbars,
-    // so drawer() returns null across all screens.
     expect($layout->navBar(new Search))->toBeNull()
         ->and($layout->navBar(new Home))->toBeNull()
         ->and($layout->navBar(new Settings))->toBeNull();
 
-    // Auth screens never get the tab bar. Drawer option is removed from all topbars.
     expect($layout->tabBar(new Login))->toBeNull()
         ->and($layout->drawer(new Login))->toBeNull()
         ->and($layout->floatingOverlay(new Login))->toBeNull()
@@ -256,16 +244,10 @@ it('keeps chrome off content-titled screens and titleless elsewhere', function (
         ->and($layout->floatingOverlay(new Register))->toBeNull()
         ->and($layout->drawer(new Home))->toBeNull();
 
-    // Guests get no tab bar actions that need a token, and the web
-    // renders the compose FAB inside @auth — so the overlay is null
-    // until a user is hydrated.
     expect($layout->tabBar(new Search))->not->toBeNull()
         ->and($layout->drawer(new Search))->toBeNull()
         ->and($layout->floatingOverlay(new Search))->toBeNull();
 
-    // TokenStorage::store() always writes the account, so a signed-in
-    // layout is seeded through AccountStore — the snapshot alone is a
-    // fixture that production never produces on its own.
     AccountStore::add('ada', 'test-token', ['name' => 'Ada Lovelace', 'username' => 'ada']);
     CurrentUser::store(['name' => 'Ada Lovelace', 'username' => 'ada', 'avatar' => null]);
 
@@ -384,8 +366,6 @@ it('shows every notification like the web instead of filtering read rows', funct
         ]),
     ]);
 
-    // Web parity (livewire/notifications/index.blade.php): the web
-    // renders every row whose subject exists with no read-state filter.
     Native::test(Notifications::class)
         ->assertSee('Unread snippet.')
         ->assertSee('Read snippet.')
@@ -441,10 +421,6 @@ it('keeps the bookmarks empty state text-only like the web', function (): void {
         'https://pinkary.test/api/v1/bookmarks*' => Http::response(['data' => []]),
     ]);
 
-    // The web's empty state is copy only
-    // (pinkary/resources/views/livewire/bookmarks/index.blade.php:11-18) —
-    // no "Back to Feed" pill, which was a mobile-only invention. The Feed
-    // tab is the way back.
     Native::test(Bookmarks::class)
         ->assertSee('No bookmarks yet.')
         ->assertDontSee('Back to Feed');
@@ -461,7 +437,6 @@ it('keeps the notifications empty state text-only like the web', function (): vo
         ]),
     ]);
 
-    // pinkary/resources/views/livewire/notifications/index.blade.php:57-68
     Native::test(Notifications::class)
         ->assertSee('No pending notifications.')
         ->assertDontSee('Back to Feed');
@@ -608,8 +583,6 @@ it('follows and unfollows inline from the list', function (): void {
     $test = Native::test(FollowList::class, ['username' => 'ada'])
         ->assertSee('Follow')
         ->call('toggleFollow', 'grace')
-        // The web's follow-button label is Unfollow/Follow, not "Following"
-        // (pinkary/resources/views/components/follow-button.blade.php:16).
         ->assertSee('Unfollow');
 
     expect($test->get('users')[0])->toMatchArray(['followed_by_me' => true]);
@@ -625,8 +598,6 @@ it('shows an empty follow list like the web', function (): void {
         'https://pinkary.test/api/v1/users/ada/followers*' => Http::response(['data' => []]),
     ]);
 
-    // The web's heading IS the empty sentence
-    // (pinkary/resources/views/livewire/followers/index.blade.php:4-12).
     Native::test(FollowList::class, ['username' => 'ada'])
         ->assertSee('@ada does not have any followers');
 });
@@ -693,7 +664,6 @@ it('adds and deletes profile links with a confirm tap', function (): void {
 
     expect($test->get('links'))->toHaveCount(2);
 
-    // The first delete tap only arms the confirm.
     $test->call('deleteLink', 9)->assertSee('Tap again to confirm');
 
     expect($test->get('links'))->toHaveCount(2);

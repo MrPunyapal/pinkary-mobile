@@ -7,19 +7,7 @@ namespace App\Support;
 use Illuminate\Support\Str;
 use Native\Mobile\Facades\SecureStorage;
 
-/**
- * Multi-account token store (web multi-login parity).
- *
- * Every account keeps its own Sanctum token in the native
- * keychain/keystore, which encrypts values at rest and only releases
- * them after a device unlock. The session merely mirrors the payload
- * when the native bridge is unavailable (tests, local preview) — on
- * device the session is never touched.
- *
- * Views must use list() (tokens stripped). Tokens leave this class only
- * through activeToken()/tokenFor()/tokenForUsername()/allTokens(),
- * straight into an API call — never into Blade.
- */
+/** Use list() in views; token-bearing payloads must never be rendered. */
 final class AccountStore
 {
     private const string ACCOUNTS_KEY = 'pinkary_accounts';
@@ -27,9 +15,6 @@ final class AccountStore
     private const string ACTIVE_KEY = 'pinkary_active_account';
 
     /**
-     * Accounts for the switcher UI, newest first. Tokens are stripped —
-     * safe to hand to Blade.
-     *
      * @return list<array{id: string, username: string, name: string, avatar: mixed}>
      */
     public static function list(): array
@@ -95,9 +80,6 @@ final class AccountStore
     }
 
     /**
-     * Every stored token (for logout-all revocation). Internal use only —
-     * never pass to Blade.
-     *
      * @return list<string>
      */
     public static function allTokens(): array
@@ -109,9 +91,6 @@ final class AccountStore
     }
 
     /**
-     * Insert or replace the account for a username (usernames match
-     * case-insensitively) and make it active. Returns the account id.
-     *
      * @param  array<string, mixed>  $profile
      */
     public static function add(string $username, string $token, array $profile): string
@@ -141,9 +120,6 @@ final class AccountStore
     }
 
     /**
-     * Refresh the stored profile snapshot (name/avatar) without moving
-     * the account or touching its token.
-     *
      * @param  array<string, mixed>  $profile
      */
     public static function refreshProfile(string $id, array $profile): void
@@ -186,11 +162,6 @@ final class AccountStore
         return true;
     }
 
-    /**
-     * Remove an account. When the active account goes away, the newest
-     * remaining one takes over (web parity: logout falls through to the
-     * next account instead of stranding the user).
-     */
     public static function remove(string $id): void
     {
         [$accounts, $activeId] = self::read();

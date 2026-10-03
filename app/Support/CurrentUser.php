@@ -29,7 +29,6 @@ final class CurrentUser
         try {
             SecureStorage::set(self::KEY, json_encode($data));
         } catch (Throwable) {
-            // Native bridge unavailable
         }
     }
 
@@ -56,7 +55,6 @@ final class CurrentUser
                 }
             }
         } catch (Throwable) {
-            // Native bridge unavailable
         }
 
         return null;
@@ -69,7 +67,6 @@ final class CurrentUser
         try {
             SecureStorage::delete(self::KEY);
         } catch (Throwable) {
-            // Native bridge unavailable
         }
     }
 }

@@ -10,13 +10,6 @@ use Native\Mobile\AsyncTask;
 use Native\Mobile\Events\Gallery\MediaSelected;
 use Native\Mobile\Testing\Native;
 
-/**
- * The composer's photo button: pick, upload, and the markdown it writes.
- *
- * Uploaded as each file is chosen rather than at publish, matching the web
- * (resources/js/image-upload.js dispatches on image.uploaded), so the post
- * body already carries the image markdown by the time the user presses Post.
- */
 function fakeImageUpload(array $images): void
 {
     Http::fake([
@@ -36,9 +29,6 @@ function pickedEvent(array $paths, bool $cancelled = false, ?string $error = nul
     );
 }
 
-/**
- * A real file on disk, because uploadImages() only attaches paths that exist.
- */
 function pickedFile(string $name = 'shot.png'): UploadedFile
 {
     $path = sys_get_temp_dir().'/pinkary-pick-'.uniqid().'.png';
@@ -63,9 +53,6 @@ it('uploads the image as multipart, not json', function (): void {
     Native::test(Compose::class)
         ->call('onMediaSelected', pickedEvent([$file->getPathname()]));
 
-    // The failure this pins: a multipart body still labelled
-    // `Content-Type: application/json` reaches PHP as no upload at all, and the
-    // server can only say "the images field is required".
     Http::assertSent(function ($request) use ($file): bool {
         if (! str_ends_with($request->url(), '/api/v1/images')) {
             return false;
@@ -89,8 +76,6 @@ it('says so plainly when the picked file cannot be read', function (): void {
     $test = Native::test(Compose::class)
         ->call('onMediaSelected', pickedEvent(['/data/user/0/com.pinkary/cache/native-media/gone.jpg']));
 
-    // Not an upload at all, so no request is made and the message names the
-    // real problem instead of a field the user never touched.
     expect($test->get('errorMessage'))->toBe('That image could not be read from this device.');
 
     Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/api/v1/images'));
@@ -100,8 +85,6 @@ it('blames the jump split rather than the device', function (): void {
     fakeImageUpload([]);
     AsyncTask::fake();
 
-    // JumpCommand exports this into the artisan serve process, which is how
-    // the app can tell the file is on the phone while PHP is on this machine.
     putenv('JUMP_BRIDGE_PORT=3002');
 
     try {
@@ -128,13 +111,9 @@ it('taps through to the Camera.PickMedia bridge function', function (): void {
     $bridge = Native::fakeBridge()
         ->respondTo('Camera.PickMedia', ['status' => 'success']);
 
-    // Tapped by its label, the way a user reaches it, rather than by
-    // calling the method directly.
     Native::test(Compose::class)
         ->tap('Upload an image');
 
-    // The payload is PendingMediaPicker's, not ours: nativephp_can and the
-    // mediaType/multiple/maxItems the framework reads.
     $bridge->assertCalled('Camera.PickMedia', fn (array $params): bool => $params['mediaType'] === 'image'
         && $params['multiple'] === true
         && $params['maxItems'] === 3);
@@ -143,7 +122,6 @@ it('taps through to the Camera.PickMedia bridge function', function (): void {
 it('hides the button on a build whose bridge cannot pick', function (): void {
     fakeImageUpload([]);
 
-    // What a build without the camera-picker plugin looks like.
     Native::fakeBridge()->withoutCapability('Camera.PickMedia');
 
     Native::test(Compose::class)
@@ -188,7 +166,6 @@ it('says nothing when the pick is cancelled', function (): void {
     $test = Native::test(Compose::class)
         ->call('onMediaSelected', pickedEvent([], cancelled: true));
 
-    // The web is silent on a cancel, so this is too: no error, no upload.
     expect($test->get('errorMessage'))->toBe('')
         ->and($test->get('images'))->toBe([]);
 
@@ -221,9 +198,6 @@ it('surfaces the API validation message', function (): void {
 });
 
 it('stops at three images, like the web composer', function (): void {
-    // Distinct URLs per pick: the web refuses to write the same snippet twice
-    // (image-upload.js checks includes() first), so reusing one URL would test
-    // the de-duplication rather than the cap.
     Http::fake([
         'https://pinkary.test/api/v1/images' => Http::sequence()
             ->push(['data' => [['url' => 'https://pinkary.test/storage/1.png', 'path' => 'images/1.png', 'original_name' => '1.png']]])
@@ -260,9 +234,6 @@ it('removes an image and takes its markdown with it', function (): void {
 });
 
 it('skips an image the API returned without a stored path', function (): void {
-    // The snippet is built from `path`. Without one there is nothing
-    // disk-relative to store, and silently falling back to the url would
-    // reintroduce a host into content.
     fakeImageUpload([[
         'url' => 'https://pinkary.test/storage/1/a.png',
         'original_name' => 'a.png',
@@ -288,8 +259,6 @@ it('puts a removed images markdown back on request', function (): void {
 
     $snippet = '![a.png](images/2026/a.png)';
 
-    // The user deleted the markdown by hand; the thumbnail is still staged, so
-    // tapping it puts the image back (the web's createMarkdownImage(index)).
     $test = $test->set('content', str_replace($snippet, '', (string) $test->get('content')))
         ->call('reinsertImage', 0);
 
@@ -324,7 +293,6 @@ it('refuses an image that would push the post over the limit', function (): void
         ->set('content', str_repeat('a', Compose::MAX_CONTENT_LENGTH - 5))
         ->call('onMediaSelected', pickedEvent([pickedFile()->getPathname()]));
 
-    // The markdown is not truncated into the post, and the user is told why.
     expect($test->get('errorMessage'))->toBe('Adding this image will exceed the maximum content length.')
         ->and($test->get('content'))->not->toContain('![');
 });
@@ -344,7 +312,6 @@ it('carries staged images through a draft', function (): void {
 
     $test = Native::test(Compose::class);
 
-    // A restored draft can still show the thumbnail and take the markdown out.
     expect($test->get('images'))->toHaveCount(1)
         ->and($test->get('content'))->toContain('![a.png]');
 

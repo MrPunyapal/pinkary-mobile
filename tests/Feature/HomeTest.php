@@ -279,9 +279,6 @@ it('abbreviates counts exactly like the web', function (): void {
         ]]]),
     ]);
 
-    // Web parity: likes and bookmarks abbreviate through the JS helper at
-    // precision 1 (1.5K, 2.5M) while views go through Number::abbreviate()
-    // at precision 0 (1K, not 1.0K).
     Native::test(Home::class)
         ->assertSee('1.5K')
         ->assertSee('1K')
@@ -500,8 +497,6 @@ it('abbreviates large metric counts', function (): void {
         ]),
     ]);
 
-    // Comments abbreviate at precision 0 like the web's
-    // Number::abbreviate(2300000) === '2M'; likes keep precision 1.
     Native::test(Home::class)
         ->assertSee('2M')
         ->assertSee('1.5K')
@@ -851,8 +846,6 @@ it('toggles likes on nested thread ancestors like the web', function (): void {
 it('clamps long answers with Show more and Show less like the web', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
-    // 60 repetitions is 1259 characters, past the 972-character clamp
-    // (27 lines x 36 chars = the web's 640px / 24px-per-line budget).
     $long = rtrim(str_repeat('Long answer sentence. ', 60));
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
@@ -890,17 +883,12 @@ it('opens post images fullscreen through the in-app browser link handler', funct
         ]]]),
     ]);
 
-    // press() fails when no element registered the expression, so this
-    // proves the image is wrapped in a tap handler wired to openLink.
     Native::test(Home::class)
         ->press("openLink('https://pinkary.test/storage/a.png')")
         ->assertSee('A post with an image.');
 });
 
 it('leaves the wordmark left with the search action trailing', function (): void {
-    // Web parity: ../pinkary/resources/views/layouts/app.blade.php:83-95 is
-    // a left-identity / right-action bar, and the web wordmark ink is
-    // #0F172A — not the brand pink. The old dead left slot is gone.
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
@@ -948,9 +936,6 @@ it('pushes the share action trailing with a spacer instead of ml-auto', function
     };
     $walk($tree);
 
-    // A plain post renders no poll-option spacer, so any spacer is the
-    // action-row one pushing share trailing (the post-poll-option
-    // flex-1 pattern, not ml-auto).
     expect($spacers)->toBeGreaterThanOrEqual(1);
 });
 
@@ -995,9 +980,6 @@ it('chains thread posts with the web rail connector', function (): void {
     $walk = function (array $node) use (&$walk, &$laneRails): void {
         $layout = $node['layout'] ?? [];
 
-        // Web parity: thread continuity draws a 2px lane rail coming down
-        // from the top avatar, and a 2px lane rail going up into the bottom
-        // avatar, seamlessly connecting both avatars across the post boundary.
         if (($layout['width'] ?? null) == 2) {
             $laneRails++;
         }
@@ -1092,8 +1074,6 @@ it('pins a feed post and shows the pinned chip', function (): void {
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [
-            // Pinning labels a received question, so the chip rides the
-            // asker box — a shared update has no asked question at all.
             homeFeedPost('q1', 'Pinnable answer.', [
                 'content' => 'What are you building?',
                 'from' => ['name' => 'Grace Hopper', 'username' => 'grace'],
@@ -1102,9 +1082,6 @@ it('pins a feed post and shows the pinned chip', function (): void {
         'https://pinkary.test/api/v1/questions/q1/pin' => Http::response(['data' => ['pinned' => true]]),
     ]);
 
-    // press() fails when no element registered the expression, so this
-    // proves the ••• row button opens the screen menu and the Pin
-    // entry fires the pin call.
     $test = Native::test(Home::class)
         ->press("openMenu('q1')")
         ->press('togglePinMenu')
@@ -1247,15 +1224,10 @@ it('keeps the feed cache TTL short enough that a cold start cannot paint stale d
         ], 'links' => ['next' => null]]),
     ]);
 
-    // A spy records the call and still runs it, so the load behaves
-    // exactly as it would in production.
     Cache::spy();
 
     Native::test(Home::class)->assertSee('Short TTL.');
 
-    // The cache only paints before the network answers, so a long TTL
-    // would show a minutes-old list on every cold start. 600s was the
-    // bug: it looked like "the feed is out of date".
     Cache::shouldHaveReceived('put')
         ->with(Mockery::any(), Mockery::any(), Mockery::on(
             fn (mixed $seconds): bool => is_int($seconds) && $seconds <= 90
@@ -1378,8 +1350,6 @@ it('shows the unread count on the notifications tab', function (): void {
     AsyncTask::fake();
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
-    // The bell only exists on the signed-in bar, so the current user
-    // must be hydrated for the tab bar to carry the badge.
     CurrentUser::store(['name' => 'Ada Lovelace', 'username' => 'ada', 'avatar' => null]);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => []]),

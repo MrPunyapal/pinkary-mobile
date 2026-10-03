@@ -9,12 +9,6 @@ use App\Support\AccountStore;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\Native;
 
-/**
- * Every read the public web serves to guests: a post with its comments,
- * a profile, a search, a followers list. Each fake below answers without
- * an Authorization header, which is exactly what a guest request sends —
- * a stray bearer token would be a bug, so assert it is absent.
- */
 function guestReadFakes(): array
 {
     return [
@@ -97,11 +91,6 @@ function asGuest(): void
     Http::fake(guestReadFakes());
 }
 
-/**
- * A guest request carries no Authorization header at all — the API's
- * optional.sanctum read paths answer exactly like this, so a stray
- * bearer token would mean the screen never reached its guest path.
- */
 function assertSentWithoutAuthorization(string $urlFragment): void
 {
     Http::assertSent(fn ($request) => str_contains($request->url(), $urlFragment));
@@ -137,8 +126,6 @@ it('opens a post tapped in the guest recent feed', function (): void {
         ]]]),
     ]));
 
-    // The regression this guards: tapping any post in the guest Recent
-    // feed must land on the post, not bounce to the login screen.
     Native::test(Home::class)
         ->press("openDetail('q1')")
         ->assertNavigatedTo('/question/q1');
@@ -162,8 +149,6 @@ it('sends a guest comment submit to login', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     asGuest();
 
-    // Like the web question page the composer still renders — tapping
-    // Reply only asks for a session.
     Native::test(Detail::class, ['id' => 'q1'])
         ->assertSee('Reply')
         ->set('comment', 'Nice work.')
@@ -224,7 +209,6 @@ it('searches for guests without an Authorization header', function (): void {
     asGuest();
 
     Native::test(Search::class)
-        // The web's discovery blurb (pinkary/resources/views/livewire/home/users.blade.php:8-10).
         ->assertSee('Discover new profiles to follow')
         ->set('query', 'ada')
         ->assertSee('Ada Lovelace')
@@ -260,8 +244,6 @@ it('never renders the legacy shared-update marker', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::clear();
     Http::fake([
-        // An API server that still sends the literal marker, and a new
-        // one that sends the flag — both must render the same post.
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q1',
             'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],

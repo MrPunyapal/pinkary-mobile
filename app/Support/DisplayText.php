@@ -10,29 +10,14 @@ use DOMNode;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
-/**
- * Text helpers for the native views.
- *
- * Converts API HTML into plain text or tappable native runs, and formats
- * timestamps consistently across the feed, profiles, and detail screens.
- */
 final class DisplayText
 {
-    /**
-     * Flatten the API's parsed HTML to the words a native:text can show.
-     *
-     * strip_tags removes the markup (a mention's <a> wrapper, an embed's
-     * <iframe>) but keeps its text, so "@ada" and "#laravel" still read the
-     * way the web shows them.
-     */
     public static function plain(mixed $html): string
     {
         return implode('', array_column(self::runs($html), 'text'));
     }
 
     /**
-     * Preserve link targets while producing text safe for native rendering.
-     *
      * @return list<array{text: string, type: string, target: string}>
      */
     public static function runs(mixed $html, ?int $limit = null): array
@@ -254,10 +239,6 @@ final class DisplayText
         return null;
     }
 
-    /**
-     * Phrase a timestamp the way the web feed does: short diffForHumans,
-     * empty string when there is no usable date.
-     */
     public static function relativeTime(?string $iso): string
     {
         if ($iso === null || $iso === '') {

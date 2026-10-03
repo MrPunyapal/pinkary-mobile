@@ -1,6 +1,5 @@
 <?php
 
-use App\NativeComponents\Bookmarks;
 use App\NativeComponents\Home;
 use App\Support\AccountStore;
 use Illuminate\Support\Facades\Http;
@@ -11,12 +10,6 @@ use Native\Mobile\Edge\NativeElementCollector;
 use Native\Mobile\Edge\TailwindParser;
 use Native\Mobile\Testing\Native;
 
-/**
- * Render a Blade component through the real element collector and return the
- * resulting element, so a component's layout and props can be asserted on in
- * isolation without standing up a whole screen. An empty slot is supplied
- * because the component body always echoes `$slot`.
- */
 function renderTree(string $component, array $data): Element
 {
     NativeElementCollector::reset();
@@ -31,7 +24,6 @@ function renderTree(string $component, array $data): Element
     return $element;
 }
 
-/** Find the first node of a given type in a rendered tree. */
 function findNode(Element $node, string $type, ?string $text = null): ?Element
 {
     if ($node->getType() === $type
@@ -48,17 +40,10 @@ function findNode(Element $node, string $type, ?string $text = null): ?Element
     return null;
 }
 
-/**
- * A component's markup with Blade comments and PHPDoc stripped, so an
- * assertion about a class name can never accidentally match the prose
- * explaining why that class was chosen.
- */
 function markupOf(string $component): string
 {
     $source = (string) file_get_contents(resource_path("views/{$component}.blade.php"));
 
-    // Strip Blade {{-- --}} block comments, then /* *-style docblocks, then
-    // whole-line `//` comments.
     $source = (string) preg_replace('/\{\{--.*?--\}\}/s', '', $source);
     $source = (string) preg_replace('#/\*.*?\*/#s', '', $source);
     $source = implode("\n", array_filter(
@@ -69,10 +54,6 @@ function markupOf(string $component): string
     return $source;
 }
 
-/**
- * Web parity for the shared feed components: the poll, the action row, the
- * empty state, the infinite-scroll footer and the skeleton placeholder.
- */
 function parityPollPost(array $overrides = []): array
 {
     return array_merge([
@@ -114,8 +95,6 @@ it('offers a guest the web sign-in link and never a tappable option', function (
         ->assertSee('Laravel')
         ->assertSee('3 votes')
         ->assertSee('Sign in to vote')
-        // The sign-in link replaces the poll option's tap: a guest must
-        // never see a control that silently does nothing.
         ->assertDontSee('Vote for Laravel');
 
     expect($test->tree())->toBeArray();
@@ -139,7 +118,6 @@ it('sends a guest poll tap to login before any api call', function (): void {
         ->call('votePoll', 'q1', 1)
         ->assertNavigatedTo('/login');
 
-    // The redirect is the whole behaviour — no poll/vote request was made.
     Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/poll/vote'));
 });
 
@@ -150,10 +128,6 @@ it('abbreviates comments and views at precision 0 and likes at precision 1', fun
         'views' => 1000,
     ]));
 
-    // Web truth: comments/views go through Number::abbreviate() (precision 0)
-    // and likes/bookmarks through the JS helper (precision 1). A stray
-    // thousands separator would show up as '2,300,000' — the '.', '' args in
-    // the closure exist to prevent exactly that.
     Native::test(Home::class)
         ->assertSee('2M')
         ->assertSee('1K')
@@ -167,13 +141,9 @@ it('matches the web on the action-row metric size and the 20px ellipsis', functi
     $markup = markupOf('components/post-action');
 
     expect($markup)
-        // livewire/questions/show.blade.php:74 uses text-[0.82rem], which this
-        // renderer takes as a bare point value.
         ->toContain('text-[13.1px]')
         ->not->toContain('text-xs')
-        // livewire/questions/show.blade.php:363 is an h-5 w-5 (20px) icon.
         ->toContain(':size="20"')
-        // #31: the web uses x-heroicon-o-language, a globe.
         ->toContain('Ios::Globe')
         ->toContain('AndroidOutlined::Language')
         ->not->toContain('CharacterBubble');
@@ -189,27 +159,21 @@ it('renders the on-body token pair used for body copy', function (): void {
 it('shows the web poll expired tone and the mt-4 poll top pad', function (): void {
     $markup = markupOf('components/post-poll');
 
-    // livewire/questions/poll-voting.blade.php:66 is text-red-500, not the
-    // dull theme destructive red.
     expect($markup)
         ->toContain('text-red-500')
         ->toContain('dark-color="#F87171"')
         ->not->toContain('text-theme-destructive')
-        // line 1 is `mt-4 space-y-2`.
         ->toContain('pt-2.5');
 });
 
 it('puts the poll check beside the percentage and fills mine at 90 percent', function (): void {
     $markup = markupOf('components/post-poll-option');
 
-    // poll-voting.blade.php:44-55 groups check + percent on the right of the
-    // label; line 31 fills the voted bar with pink at 90%.
     expect($markup)
         ->toContain('bg-theme-primary/90')
         ->not->toContain('bg-theme-poll-fill" style="width')
         ->toContain('text-theme-on-body');
 
-    // The check icon must come after the label text in document order.
     expect(strpos($markup, 'CheckmarkCircleFill'))
         ->toBeGreaterThan(strpos($markup, '{{ $text }}'));
 });
@@ -217,8 +181,6 @@ it('puts the poll check beside the percentage and fills mine at 90 percent', fun
 it('gates the author badge on verified alone like the web', function (): void {
     $markup = markupOf('components/post-author');
 
-    // avatar-with-name.blade.php:19-23 — company_verified only changes the
-    // badge art, it never grants the badge.
     expect($markup)
         ->toContain("@if (data_get(\$author, 'verified'))")
         ->not->toContain('company_verified');
@@ -227,8 +189,6 @@ it('gates the author badge on verified alone like the web', function (): void {
 it('draws the divider rails at the web heights', function (): void {
     $markup = markupOf('components/post-divider');
 
-    // components/post-divider.blade.php:7 min-h-12 dotted rail spanning 48px,
-    // and :22-25 the plain h-8 solid rail.
     expect($markup)
         ->toContain('h-1.5 bg-theme-outline shrink-0 my-1')
         ->toContain('h-2 bg-theme-outline shrink-0 -mt-1')
@@ -241,7 +201,6 @@ it('keeps the list footer paging state a bare indicator with no loading label', 
     expect($markup)
         ->toContain('native:activity-indicator')
         ->not->toContain('Loading')
-        // The end-of-list copy carries no size class on the web, so it is 16px.
         ->toContain('text-base text-center text-theme-on-surface-variant');
 });
 
@@ -253,16 +212,9 @@ it('renders the web empty state without a card, border or background', function 
         ->not->toContain('rounded-md')
         ->not->toContain('bg-theme-surface')
         ->not->toContain('border')
-        // The `border-dashed` class never parsed, so the old markup shipped a
-        // solid box the web never shows.
         ->not->toContain('border-dashed');
 });
 
-/**
- * Render an anonymous Blade component with an explicit (possibly empty) slot.
- * The collector buffers native:text into the wire tree rather than echoing it,
- * so assertions read the rendered markup, not the collector's stream.
- */
 function renderComponent(string $component, array $data, string $slot = ''): string
 {
     return view($component, $data + ['slot' => new ComponentSlot($slot)])->render();
@@ -274,7 +226,6 @@ it('renders the empty state with a default py-5 and an overridable padding prop'
         'subtitle' => 'Try another tab.',
     ]);
 
-    // py-5 / px-4 land as [top, right, bottom, left] in points.
     expect($default->getLayout()['padding'])->toEqual([20, 16, 20, 16]);
 
     $title = findNode($default, 'text', 'Nothing here.');
@@ -282,8 +233,6 @@ it('renders the empty state with a default py-5 and an overridable padding prop'
     expect($title)->toBeInstanceOf(Element::class)
         ->and($title?->getResolvedProps(new CallbackRegistry)['text_align'])->toBe(1);
 
-    // The following/trending tabs sit at py-8 on the web, so those screens
-    // can pass the web's own spacing without editing this component.
     expect(renderTree('components.empty-state', [
         'title' => 'Your following feed is empty.',
         'padding' => 'py-8',
@@ -296,8 +245,6 @@ it('renders the empty state without a card surface, border or fill', function ()
         'subtitle' => 'Posts you save for later will show up here.',
     ])->getLayout();
 
-    // The old markup was a rounded, filled, solid-bordered card (the
-    // border-dashed class never parsed). The web shows plain centred copy.
     expect($layout)
         ->not->toHaveKey('background')
         ->not->toHaveKey('border_width')
@@ -323,27 +270,22 @@ it('rebuilds the skeleton placeholder to the web shape', function (): void {
     $markup = markupOf('components/skeleton-post');
 
     expect($markup)
-        // The action row of three dots on the left, a bar and a dot on the right.
         ->toContain('w-4 h-4 rounded-full')
         ->toContain('w-16 h-2')
-        // h-2 bars, not the old h-3.
         ->toContain('w-20 h-2')
         ->toContain('w-32 h-2')
         ->not->toContain('h-3');
 
-    // Three action dots plus the trailing right-hand dot.
     expect(substr_count($markup, 'w-4 h-4 rounded-full'))->toBe(4);
 });
 
 it('parses every utility the parity components rely on', function (): void {
-    // Guards the renderer contract the markup depends on: no dropped class.
     expect(TailwindParser::parse('w-0.5 h-8 bg-theme-outline'))
         ->toHaveKey('width', 2)
         ->and(TailwindParser::parse('min-h-12'))->toHaveKey('minHeight', 48)
         ->and(TailwindParser::parse('pt-2.5'))->toHaveKey('paddingTop', 10)
         ->and(TailwindParser::parse('opacity-60'))->toHaveKey('opacity', 0.6)
         ->and(TailwindParser::parse('w-5/6'))->toHaveKey('width', '83%')
-        // Arbitrary text size takes a bare point value, so 0.82rem → 13.12.
         ->and(TailwindParser::parse('text-[13.1px]'))->toHaveKey('fontSize', 13.1)
         ->and(TailwindParser::parse('text-red-500'))->toHaveKey('color', '#EF4444')
         ->and(TailwindParser::parse('bg-theme-primary/90'))->toHaveKey('bg')

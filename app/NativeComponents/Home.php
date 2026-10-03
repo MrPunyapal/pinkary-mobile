@@ -48,12 +48,6 @@ final class Home extends NativeComponent
 
     private int $feedRevision = 0;
 
-    /**
-     * Last detail screen pushed from the feed. Repeat taps on the same
-     * post while its detail is still on top are ignored, so a
-     * double-tap cannot stack duplicate detail screens. Cleared when
-     * the user navigates back to the feed.
-     */
     public string $openedDetailId = '';
 
     /** @var list<string> */
@@ -64,11 +58,6 @@ final class Home extends NativeComponent
         return 'Feed';
     }
 
-    /**
-     * Whether a signed-in account is available. Web parity
-     * (livewire/questions/show.blade.php:359): the ••• owner menu renders
-     * only for a signed-in viewer who owns the post — guests never see it.
-     */
     public function signedIn(): bool
     {
         return $this->token() !== null;
@@ -87,10 +76,6 @@ final class Home extends NativeComponent
         $this->refreshUnreadBadge($token);
     }
 
-    /**
-     * Explicit per-tab handlers (no callback args) so every pill tap
-     * resolves to a plain method call on the device.
-     */
     public function showRecent(): void
     {
         $this->switchTab(0);
@@ -106,10 +91,6 @@ final class Home extends NativeComponent
         $this->switchTab(2);
     }
 
-    /**
-     * Toggle Show more/less for a long answer, like the web's
-     * showMore component (600px clamp with a pink toggle button).
-     */
     public function toggleShowMore(string $id): void
     {
         $this->toggleExpandedId($id);
@@ -120,10 +101,6 @@ final class Home extends NativeComponent
         $this->loadFeed($this->token());
     }
 
-    /**
-     * Pull-to-refresh from the feed (native refreshable wrapper),
-     * resetting pagination like a fresh tab visit.
-     */
     public function refreshFeed(): void
     {
         $this->page = 1;
@@ -180,12 +157,6 @@ final class Home extends NativeComponent
         $this->translateHtml(data_get($post, $field));
     }
 
-    /**
-     * Vote in a post's poll. Web parity
-     * (livewire/questions/poll-voting.blade.php:13): guests cannot vote at
-     * all, so a guest tap redirects to login BEFORE any request is made —
-     * never a 401 round-trip.
-     */
     public function votePoll(string $id, int $optionId): void
     {
         $token = $this->token();
@@ -199,30 +170,16 @@ final class Home extends NativeComponent
         $this->voteOnPostPayload($this->posts, $id, $optionId, $token);
     }
 
-    /**
-     * Toggle the authenticated user's like, updating the row optimistically
-     * and reconciling with the server response (reverting on failure).
-     * Nested thread ancestors resolve too.
-     */
     public function toggleLike(string $id): void
     {
         $this->reactOnPostPayload($this->posts, $id, 'like', $this->token());
     }
 
-    /**
-     * Toggle the authenticated user's bookmark, updating the row
-     * optimistically and reverting on failure. Nested thread
-     * ancestors resolve too.
-     */
     public function toggleBookmark(string $id): void
     {
         $this->reactOnPostPayload($this->posts, $id, 'bookmark', $this->token());
     }
 
-    /**
-     * Share the post through the system sheet, mirroring the web's
-     * share menu (which copies/shares the question URL).
-     */
     public function sharePost(string $id): void
     {
         $post = $this->readPostPayload($this->posts, $id);
@@ -238,9 +195,6 @@ final class Home extends NativeComponent
         );
     }
 
-    /**
-     * Append the next feed page to the current list.
-     */
     public function prefetchMore(): void
     {
         if ($this->loadMoreError === '') {
@@ -315,9 +269,6 @@ final class Home extends NativeComponent
         $this->tab = self::TABS[$index];
         $this->loadMoreError = '';
 
-        // Drop the previous tab's posts so a cache miss cannot keep
-        // showing the wrong tab. hydrateFromCache restores this tab
-        // when it was cached; otherwise the cold-start spinner shows.
         $this->posts = [];
         $this->page = 1;
         $this->hasMore = false;
@@ -362,10 +313,6 @@ final class Home extends NativeComponent
         $this->rememberFeed();
     }
 
-    /**
-     * Serve a cached page immediately. `$loading` stays false when the
-     * list already has rows so skeletons never flash over content.
-     */
     private function hydrateFromCache(): void
     {
         $payload = FeedCache::get(FeedCache::feedKey($this->cacheUsername(), $this->tab));
@@ -428,11 +375,6 @@ final class Home extends NativeComponent
         return is_string($username) && $username !== '' ? $username : null;
     }
 
-    /**
-     * Refresh the tab-bar notification badge. One tiny request
-     * (per_page=1 — only meta.unread_count is read); failures leave
-     * the last known count in place.
-     */
     private function refreshUnreadBadge(?string $token): void
     {
         if ($token === null) {

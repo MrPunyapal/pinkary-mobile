@@ -30,11 +30,6 @@ function commentRow(string $id, string $content): array
         'id' => $id,
         'from' => ['name' => 'Grace Hopper', 'username' => 'grace'],
         'to' => ['name' => 'Grace Hopper', 'username' => 'grace'],
-        // A comment is a shared update: the text is the answer and content
-        // is null, because the web's reply composer rewrites the payload to
-        // the __UPDATE__ sentinel before saving
-        // (pinkary/app/Livewire/Questions/Create.php:471-475). The API
-        // mirrors that, so a client must read answer, not content.
         'content' => null,
         'answer' => $content,
         'is_update' => true,
@@ -193,8 +188,6 @@ it('shows just the composer without comments', function (): void {
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake(detailFakes());
 
-    // Like the web question page, no comments box renders at all —
-    // only the reply composer under the post.
     $test = Native::test(Detail::class, ['id' => 'q1'])
         ->assertSee('A thoughtful mobile experience.')
         ->assertSee('Reply');
@@ -265,8 +258,6 @@ it('posts a comment and appends it last', function (): void {
         ]),
     ]);
 
-    // The API lists comments oldest first, so the new row lands at the
-    // end — never prepended out of order.
     $test = Native::test(Detail::class, ['id' => 'q1'])
         ->set('comment', 'Brand new comment.')
         ->call('postComment')
@@ -338,8 +329,6 @@ it('toggles likes on the answered post', function (): void {
         'https://pinkary.test/api/v1/questions/q1/like' => Http::response(['data' => ['liked' => true, 'likes' => 6]]),
     ]));
 
-    // Comments carry no answer, so like the web they render as plain
-    // bubbles with no action row — reactions live on the answered post.
     $test = Native::test(Detail::class, ['id' => 'q1'])
         ->assertSee('Likable comment.')
         ->press("toggleLike('q1')");
@@ -401,9 +390,6 @@ it('opens another post without self-linking the open one', function (): void {
         commentRow('c1', 'Plain bubble comment.'),
     ]));
 
-    // Answer-less comments are plain bubbles on the web too. Tapping the
-    // answered post's text would open it — tapping the open post itself
-    // is a no-op, so the screen stays put.
     Native::test(Detail::class, ['id' => 'q1'])
         ->assertSee('Plain bubble comment.')
         ->press("openDetail('q1')")
@@ -425,8 +411,6 @@ it('hides the reply composer on unanswered questions', function (): void {
         'https://pinkary.test/api/v1/questions/q1/comments*' => Http::response(['data' => []]),
     ]);
 
-    // Like the web question page, an unanswered question takes an
-    // answer — not a comment — so no reply composer renders.
     $test = Native::test(Detail::class, ['id' => 'q1'])
         ->assertSee('What are you building?')
         ->assertDontSee('Reply')
@@ -443,9 +427,7 @@ it('hides the reply composer on unanswered questions', function (): void {
 it('does not duplicate a new comment when the next page replays it', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
-    // One ordered sequence for every comments request: Laravel
-    // evaluates all matching stubs eagerly, so an exact POST stub next
-    // to a wildcard sequence would silently drain the sequence.
+    // A single sequence avoids matching HTTP fakes eagerly consuming each other's responses.
     Http::fake([
         'https://pinkary.test/api/v1/questions/q1' => Http::response(['data' => [
             'id' => 'q1',
@@ -589,9 +571,6 @@ function menuFakes(array $post, array $extra = []): array
 }
 
 /**
- * Pinning labels a received question, so the chip rides the asker box
- * — a shared update carries no asked question and shows no chip.
- *
  * @return array<string, mixed>
  */
 function pinQuestionOverrides(): array

@@ -1,28 +1,11 @@
 @props(['user'])
 
-{{-- UserResource ships the badge under `verification` (profile / company)
-     — never `verified` / `company_verified`, which is why the old keys never
-     matched. Web parity (livewire/links/index:143-147): the seal means
-     "profile verified"; the company seal is the amber variant and only
-     appears alongside it. --}}
 @php
     $verified = (bool) data_get($user, 'verification.profile', false);
     $company = (bool) data_get($user, 'verification.company', false);
     $sealColor = $company ? '#EAB308' : '#EC4899';
     $username = (string) data_get($user, 'username', '');
 
-    // Web parity (livewire/home/users.blade.php:71-77 and
-    // livewire/likes/index.blade.php:61-67): this row carries the web's
-    // follow button, and components/follow-button.blade.php:7 drops it on
-    // your own row. Both hosts — Search results and the post likers sheet
-    // (through TogglesPostReactions) — own toggleFollow($username), so the
-    // pill is live on either.
-    //
-    // The state is `followed_by_me` (App\Http\Resources\UserResource:37);
-    // the `followed` key the search endpoint sends is a different field
-    // (the follow response's own flag) and never renders a row state.
-    // `_busy` is written by that method: the label stays put while the
-    // request is in flight, so the row never reflows.
     $isMe = (bool) data_get($user, 'is_me', false);
     $following = (bool) data_get($user, 'followed_by_me', false);
     $followBusy = (bool) data_get($user, '_busy', false);

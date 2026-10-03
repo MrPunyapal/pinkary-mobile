@@ -30,9 +30,6 @@
     $avatar = data_get($user, 'avatar');
     $initial = strtoupper(substr($name !== '' ? $name : '?', 0, 1));
     $openProfile = $link && ! $anonymous && $username !== '';
-    // The asker bubble on the web draws no ring at all
-    // (pinkary/resources/views/components/avatar-with-name.blade.php:8-13),
-    // so `border: false` is a real state rather than a fudge.
     $ring = match (true) {
         ! $border => '',
         in_array((int) $size, [20, 24], true) => 'border-4 border-white',
@@ -41,11 +38,7 @@
 @endphp
 
 @if ($anonymous)
-    {{-- The web's anonymous ring is genuinely dashed
-        (livewire/questions/show.blade.php:25), but border-dashed does NOT
-        parse in this renderer — it silently rendered as a solid ring. A
-        solid hairline is the honest equivalent; do not reintroduce
-        border-dashed here. --}}
+    {{-- The native renderer does not support dashed borders. --}}
     <native:column class="{{ $box }} items-center justify-center rounded-full {{ $ring !== '' ? $ring : 'border border-theme-outline-variant' }}">
         <native:text class="{{ $initialSize }} text-theme-on-surface-variant">?</native:text>
     </native:column>

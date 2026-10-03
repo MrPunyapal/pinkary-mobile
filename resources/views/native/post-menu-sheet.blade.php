@@ -1,6 +1,5 @@
 <native:bottom-sheet native:key="post-menu-sheet" :visible="$menuPostId !== ''" @dismiss="closeMenu">
     @if ($menuPostId !== '')
-        {{-- The hairline mirrors the web sheet edge (border-slate-200/80). --}}
         <native:column class="w-full gap-1 px-5 py-4 bg-theme-surface border-t border-theme-outline-variant">
             @if ($menuError !== '')
                 <native:text class="text-sm text-theme-destructive">{{ $menuError }}</native:text>
@@ -30,8 +29,6 @@
                     </native:row>
                 </native:column>
             @elseif ($menuStep === 'likers')
-                {{-- Web parity: livewire/likes/index.blade.php:7-13 titles the
-                    sheet "Liked by", or states the empty case outright. --}}
                 <native:column class="w-full gap-1 py-2">
                     <native:row class="w-full items-center gap-3">
                         <native:pressable class="py-1" @tap="menuBack" a11y-label="Back to menu">
@@ -45,8 +42,7 @@
                     @foreach ($likers as $liker)
                         <x-user-row :user="$liker" />
                     @endforeach
-                    {{-- x-load-more, not a native:list: a bottom sheet cannot host
-                        one, and the project rule allows it here. --}}
+                    {{-- Native lists cannot be nested inside a bottom sheet. --}}
                     @if ($likersHasMore)
                         <x-load-more tap="loadMoreLikers" :error="$likersError" />
                     @endif
@@ -61,9 +57,6 @@
                     </native:pressable>
                 @endif
                 @if ($canEditMenu)
-                    {{-- The web menu item is a bare "Edit"
-                        (../pinkary/resources/views/livewire/questions/show.blade.php:394);
-                        its modal heading is the one that says "Edit Answer". --}}
                     <native:pressable class="w-full py-3" @tap="startEditMenu" a11y-label="Edit answer">
                         <native:row class="w-full items-center gap-3">
                             <native:icon :ios="\App\Icons\Ios::Pencil" :android="\App\Icons\AndroidOutlined::Edit" :size="20" color="#64748B" dark-color="#94A3B8" />
@@ -87,10 +80,6 @@
                         </native:row>
                     </native:pressable>
                 @endif
-                {{-- No Share row: the post action row already carries a share
-                    control (components/post.blade.php:220). No Copy link row
-                    either — the platform has no clipboard, so it would be a
-                    dead control. --}}
             @endif
         </native:column>
     @endif

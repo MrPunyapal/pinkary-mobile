@@ -29,8 +29,6 @@
                 </native:column>
             @endif
 
-            {{-- Avatar is read-only: no file picker exists on native
-                clients, so photos stay web-only for now. --}}
             <native:row class="w-full items-center gap-3 p-4 rounded-md bg-theme-surface border border-theme-outline-variant">
                 <x-avatar :user="['avatar' => $avatar, 'name' => $name]" :size="12" :link="false" />
                 <native:column class="flex-1 gap-0.5 min-w-0">
@@ -40,9 +38,6 @@
                 </native:column>
             </native:row>
 
-            {{-- Web parity (profile/partials/update-profile-information-form):
-                the heading and its sub-line, the same field order, the
-                three preference selects, and the Save button. --}}
             <native:column class="w-full gap-4 p-4 rounded-md bg-theme-surface border border-theme-outline-variant">
                 <native:column class="w-full gap-1">
                     <native:text class="text-lg font-medium text-theme-on-surface-variant">Profile Information</native:text>
@@ -69,7 +64,6 @@
                     <native:select label="How would you like to do questions by default?" :options="$questionVisibilityOptions" native:model="questionVisibility" />
                 </native:column>
 
-                {{-- Busy rides on :disabled so the label never reflows. --}}
                 <native:button variant="primary" :disabled="$busy" @tap="save">Save</native:button>
             </native:column>
 
@@ -120,9 +114,6 @@
                     @endforeach
                 @endif
 
-                {{-- Link shape (web link-settings/edit): a profile setting on
-                    the API, so it keeps its own Save. Gradients stay web-only
-                    — native clients cannot render them. --}}
                 <native:column class="w-full gap-2 pt-3 border-t border-theme-outline-variant">
                     <native:text class="text-base font-semibold text-theme-on-surface-variant">Link Shape</native:text>
                     <native:text class="text-sm text-theme-on-surface-variant">In what shape do you want to present your links?</native:text>
@@ -149,7 +140,4 @@
     </native:column>
 </native:scroll-view>
 
-{{-- This screen keeps the Menu tab in the bottom bar, so the sheet has to
-    be reachable here too — EditProfile uses UsesAppMenu, so $appMenuOpen is
-    live and tapping Menu would otherwise do nothing. --}}
 @include('native.app-menu-sheet')

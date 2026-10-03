@@ -1,9 +1,5 @@
 @props(['text' => '', 'percent' => 0, 'mine' => false, 'disabled' => false])
 
-{{-- Web parity (livewire/questions/poll-voting.blade.php:27-57): the track
-    sits behind the whole row, the label takes the left, and the check +
-    percentage are grouped on the right. The voted fill is pink at 90%
-    (bg-pink-500/90), not solid. --}}
 <native:stack class="w-full rounded-lg bg-theme-poll-track {{ $disabled ? 'opacity-60' : '' }}">
     <native:row class="w-full min-h-10">
         <native:column class="min-h-10 rounded-lg {{ $mine ? 'bg-theme-primary/90' : 'bg-theme-poll-fill' }}" style="width: {{ (int) $percent }}%" />

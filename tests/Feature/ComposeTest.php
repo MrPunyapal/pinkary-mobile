@@ -14,10 +14,6 @@ function assertQuestionNotPublished(): void
         && str_ends_with($request->url(), '/api/v1/questions'));
 }
 
-/**
- * Walk a published wire tree for a pressable (node-level or prop-level
- * on_press) whose subtree shows the given text.
- */
 function treeHasPressableFor(array $node, string $text): bool
 {
     $pressId = $node['on_press'] ?? $node['props']['on_press'] ?? null;
@@ -36,8 +32,6 @@ function treeHasPressableFor(array $node, string $text): bool
 }
 
 /**
- * Every node in the tree matching $match, depth first.
- *
  * @return list<array<string, mixed>>
  */
 function composeParityFindAll(array $node, callable $match): array
@@ -101,7 +95,6 @@ it('adds and removes thread posts up to the limit', function (): void {
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake();
 
-    // Like the web, follow-ups unlock only once the first post is written.
     $test = Native::test(Compose::class)
         ->call('addPost');
 
@@ -408,8 +401,6 @@ it('only makes add-post tappable once a follow-up is allowed', function (): void
     $test = Native::test(Compose::class)
         ->assertSee('Add another post');
 
-    // Empty composer: the hint text renders dimmed with no tap target,
-    // so it can never silently swallow a tap.
     expect(treeHasPressableFor($test->tree(), 'Add another post'))->toBeFalse();
 
     $test->set('content', 'First post.');
@@ -426,8 +417,6 @@ it('renders ask mode for another user without thread UI', function (): void {
 
     Native::test(Compose::class, ['username' => 'ada'])
         ->assertSee('Ask @ada')
-        // The web's footer toggle reads "Anonymously"
-        // (livewire/questions/create.blade.php:428), not "Ask anonymously".
         ->assertSee('Anonymously')
         ->assertSee('Ask')
         ->assertDontSee('Add another post')
@@ -441,21 +430,12 @@ it('stitches thread posts onto one avatar rail, like the web composer', function
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake();
 
-    // A draft left behind by another test would silently add posts and
-    // change the rail count asserted below.
     DraftStore::clear(null);
 
     $test = Native::test(Compose::class)
         ->set('content', 'Opening post.')
         ->set('posts', ['Opening post.', 'Second post.', 'Third post.']);
 
-    // The web's thread composer is identified by a hairline down the avatar
-    // column with every post hung off it
-    // (livewire/questions/create.blade.php:37-41, :203-212, :389-393). This
-    // is what makes a thread read as one unit; labelled rows do not. The
-    // hairline is w-px, which TailwindParser resolves to a 1pt-wide column.
-    //
-    // 1 below the opening post + 2 per follow-up + 1 on the add row = 8.
     $rail = composeParityFindAll(
         $test->tree(),
         fn (array $node): bool => ($node['type'] ?? '') === 'column'
@@ -465,8 +445,6 @@ it('stitches thread posts onto one avatar rail, like the web composer', function
 
     expect($rail)->toHaveCount(8);
 
-    // Thread fields are borderless on the web (create.blade.php:8): the
-    // opening post plus one per follow-up, with no floating labels.
     $bare = composeParityFindAll(
         $test->tree(),
         fn (array $node): bool => ($node['type'] ?? '') === 'bare_text_input'
@@ -474,8 +452,6 @@ it('stitches thread posts onto one avatar rail, like the web composer', function
 
     expect($bare)->toHaveCount(4);
 
-    // Poll options live under the field they belong to, not in a panel at
-    // the bottom of the screen, so nothing shows until one is added.
     $test->assertSee('Say more...')
         ->assertSee('Post thread')
         ->assertDontSee('Add another option');

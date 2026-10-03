@@ -1,8 +1,4 @@
 @php
-    // Web parity (layouts/navigation:342): Settings on the web IS the
-    // profile editor, so the row leads there. The logout label follows the
-    // account rule — name the account when others are stored, plain
-    // "Log Out" otherwise.
     $accountCount = \App\Support\AccountStore::count();
     $username = (string) data_get($profile, 'username', '');
     $logoutLabel = $accountCount > 1 && $username !== '' ? 'Log out of @'.$username : 'Log Out';
@@ -48,7 +44,6 @@
                 <native:text class="text-sm font-medium text-theme-on-surface">View profile</native:text>
             </native:pressable>
 
-            {{-- Source code stays in the app menu sheet only. --}}
 
             <native:pressable class="w-full p-4 rounded-md bg-theme-surface border border-theme-destructive" @tap="logout" a11y-label="{{ $logoutLabel }}">
                 <native:text class="text-sm font-semibold text-theme-destructive">{{ $logoutLabel }}</native:text>

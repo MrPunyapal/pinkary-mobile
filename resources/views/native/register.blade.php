@@ -1,6 +1,5 @@
 <native:scroll-view class="w-full h-full bg-theme-background">
     <native:column class="w-full items-center px-5 py-6 gap-6 safe-area">
-        {{-- Web guest card: the wordmark sits above the card at h-12. --}}
         <x-pinkary-logo height="12" />
 
         <native:column class="w-full p-5 gap-5 rounded-md bg-theme-surface border border-theme-outline-variant">
@@ -22,10 +21,7 @@
                 <x-auth-field label="Password" model="password" :password="true" :show-password="$showPassword" :error="$fieldErrors['password'] ?? ''" />
                 <x-auth-field label="Confirm password" model="passwordConfirmation" :password="true" :show-password="$showPassword" :error="$fieldErrors['passwordConfirmation'] ?? ''" />
 
-                {{-- Web parity (auth/register:101-124): the 18+ consent with
-                    both legal pages as links. Native text cannot hold a
-                    pressable, so the sentence and its two links sit in a
-                    column — flat, no nested slots. --}}
+                {{-- Native text cannot contain pressable children; render legal links separately. --}}
                 <native:row class="w-full items-start gap-2">
                     <native:checkbox a11y-label="I agree to the Pinkary terms of service and privacy policy" native:model="terms" />
                     <native:column class="flex-1 gap-1 min-w-0">

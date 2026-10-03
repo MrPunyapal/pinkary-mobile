@@ -23,49 +23,23 @@ final class Login extends NativeComponent
 
     public string $errorMessage = '';
 
-    /**
-     * Whether the password was accepted and a second factor is pending.
-     */
     public bool $needsTwoFactor = false;
 
-    /**
-     * The short-lived challenge the server issued for this sign in attempt.
-     */
     public string $twoFactorChallenge = '';
 
-    /**
-     * The one-time password or recovery code the user typed.
-     */
     public string $twoFactorCode = '';
 
     /**
-     * First server/validation message per input, shown under the field.
-     * The summary banner stays as the fallback for older clients.
-     *
      * @var array<string, string>
      */
     public array $fieldErrors = [];
 
     public bool $busy = false;
 
-    /**
-     * Client-side only password visibility. Rendered through the
-     * existing `secure` input prop — no new APIs involved.
-     */
     public bool $showPassword = false;
 
-    /**
-     * Add-another-account mode: the app menu sets the session flag before
-     * routing here, and the card switches to the web's signed-in-as copy.
-     * A stored account is required — the flag alone would leave a guest
-     * looking at an "Add Account" form with nobody signed in.
-     */
     public bool $addingAccount = false;
 
-    /**
-     * Username of the account being kept signed in while another one is
-     * added. Read from AccountStore (never a token) for the card.
-     */
     public string $activeAccountUsername = '';
 
     public function mount(): void
@@ -116,8 +90,6 @@ final class Login extends NativeComponent
             return;
         }
 
-        // A 2FA account is not a failed login: the password was right and the
-        // server is holding the second step for a challenge token.
         if ($response->json('code') === 'two_factor_required' && is_string($challenge = $response->json('challenge'))) {
             $this->busy = false;
             $this->twoFactorChallenge = $challenge;
@@ -134,13 +106,6 @@ final class Login extends NativeComponent
         ], (string) ($response->json('message') ?? 'We could not log you in. Please check your details and try again.'));
     }
 
-    /**
-     * Answer a pending two factor challenge.
-     *
-     * Recovery codes go in the same box: the server accepts either and the
-     * field is one line, where a separate recovery screen would be more UI
-     * than the case deserves.
-     */
     public function submitTwoFactor(): void
     {
         $this->errorMessage = '';
@@ -167,9 +132,6 @@ final class Login extends NativeComponent
         $this->errorMessage = (string) ($response->json('message') ?? 'That code was not accepted. Check it and try again.');
     }
 
-    /**
-     * Abandon a pending challenge and go back to the password form.
-     */
     public function cancelTwoFactor(): void
     {
         $this->needsTwoFactor = false;
@@ -179,16 +141,12 @@ final class Login extends NativeComponent
     }
 
     /**
-     * Store a freshly minted token and go to the feed.
-     *
      * @param  array<string, mixed>  $userData
      */
     private function acceptToken(string $token, array $userData): void
     {
         $username = (string) ($userData['username'] ?? '');
 
-        // Re-login mints a fresh token: revoke the previous one for
-        // this username server-side so dead tokens never pile up.
         $previous = $username !== '' ? AccountStore::tokenForUsername($username) : null;
 
         if (is_string($previous) && $previous !== '' && $previous !== $token) {
@@ -235,10 +193,6 @@ final class Login extends NativeComponent
         $this->showPassword = ! $this->showPassword;
     }
 
-    /**
-     * Password reset lives on the site (Fortify's guest route), so the
-     * link hands the web page to the in-app browser like Source code does.
-     */
     public function forgotPassword(): void
     {
         $this->openWebPage('/forgot-password');
@@ -249,12 +203,6 @@ final class Login extends NativeComponent
         return view('native.login');
     }
 
-    /**
-     * Open a page of the Pinkary site in the in-app browser. The site is
-     * the only place these pages exist — this app has no such routes — so
-     * the URL is built from the API host and dropped when it is not
-     * configured (or not http), never handed over half-formed.
-     */
     private function openWebPage(string $path): void
     {
         $url = rtrim((string) config('services.pinkary.url'), '/').$path;
@@ -267,10 +215,6 @@ final class Login extends NativeComponent
     }
 
     /**
-     * Split a Laravel errors bag into per-field messages (shown under
-     * each input) plus a summary for the banner: the first message from
-     * fields without their own input, else the first message overall.
-     *
      * @param  array<string, mixed>  $errors
      * @param  array<string, string>  $fields  server key => fieldErrors key
      */

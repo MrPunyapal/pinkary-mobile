@@ -1,9 +1,5 @@
 @php $viewerUsername = (string) data_get(\App\Support\AccountStore::active(), 'username', ''); @endphp
 <native:column class="w-full h-full bg-theme-surface">
-        {{-- App header: wordmark left, search action trailing (web parity:
-            ../pinkary/resources/views/layouts/app.blade.php:83-95 is a
-            left-identity / right-action row; the web wordmark ink is
-            #0F172A, not the brand pink). --}}
         <native:column class="w-full bg-theme-surface justify-center">
             <native:row class="w-full items-center gap-3 px-4 py-4 min-h-14">
                 <native:text class="flex-1 text-xl font-bold text-theme-on-surface" max-lines="1">Pinkary</native:text>
@@ -21,8 +17,7 @@
             <x-refresh-bar />
         @endif
 
-    {{-- Only posts belong in the scrolling list: the native three-row
-        threshold must count posts, not the header, tabs, or a bottom spacer. --}}
+    {{-- Only post rows belong in this list; native pagination counts child views. --}}
     <native:list native:key="feed-list" on-refresh="refreshFeed" on-end-reached="prefetchMore" class="w-full flex-1 bg-theme-surface">
         @if ($loading)
             <x-skeleton-feed />
@@ -35,12 +30,6 @@
             </native:column>
         @elseif (count($posts) === 0)
             @php
-                // Guests get a sign-in card on Following, not "your feed is
-                // empty": pinkary/resources/views/home/following.blade.php:20-38.
-                // AccountStore is the auth source of truth; the web's card is
-                // dashed-bordered, but border-dashed does not parse in this
-                // renderer, so the fill carries the card instead of a solid
-                // border the web never draws.
                 $guestFollowing = $tab === 'following' && \App\Support\AccountStore::activeId() === null;
 
                 $emptyTitle = match ($tab) {

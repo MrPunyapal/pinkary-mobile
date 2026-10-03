@@ -7,14 +7,6 @@ namespace App\Support;
 use Native\Mobile\Facades\SecureStorage;
 use Throwable;
 
-/**
- * Persist composer state so leaving and reopening restores work.
- *
- * Thread drafts and ask-target drafts use separate keys so a half-written
- * thread is never restored into Ask @user (or the reverse). Storage follows
- * CurrentUser: session first, SecureStorage best-effort (the native bridge
- * may be missing in tests and local preview). Arrays only.
- */
 final class DraftStore
 {
     private const string PREFIX = 'pinkary_compose_draft_';
@@ -65,7 +57,6 @@ final class DraftStore
         try {
             SecureStorage::delete($key);
         } catch (Throwable) {
-            // Native bridge unavailable
         }
     }
 
@@ -170,9 +161,6 @@ final class DraftStore
     }
 
     /**
-     * Images already uploaded for the post, kept so a restored draft can still
-     * show a thumbnail and take the markdown back out again.
-     *
      * @return list<array{url: string, path: string, name: string}>
      */
     private static function imageList(mixed $values): array
@@ -191,8 +179,6 @@ final class DraftStore
             $url = $image['url'] ?? null;
             $name = $image['name'] ?? null;
 
-            // Both are needed to rebuild the markdown, so an entry missing
-            // either is dropped rather than restored half-formed.
             if (! is_string($url) || $url === '' || ! is_string($name) || $name === '') {
                 continue;
             }
@@ -317,7 +303,6 @@ final class DraftStore
                 }
             }
         } catch (Throwable) {
-            // Native bridge unavailable
         }
 
         return null;
@@ -333,7 +318,6 @@ final class DraftStore
         try {
             SecureStorage::set($key, json_encode($draft));
         } catch (Throwable) {
-            // Native bridge unavailable
         }
     }
 }

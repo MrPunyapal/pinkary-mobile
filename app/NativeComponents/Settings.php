@@ -49,10 +49,6 @@ final class Settings extends NativeComponent
         $this->load($token);
     }
 
-    /**
-     * Open the profile editor: Settings on the web is the profile/edit
-     * page (layouts/navigation:342), so the screen leads there.
-     */
     public function editProfile(): void
     {
         $this->appMenuOpen = false;

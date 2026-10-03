@@ -2,11 +2,6 @@
     <native:column class="w-full gap-0">
         <x-search-bar :query="$query" />
 
-        {{-- Search.php's navTitle never renders — the screen's header is
-            in content, so the title needs an in-content band. Hidden once
-            a query is running, where the result bands speak for
-            themselves. Styled like the People/Hashtags bands below. No
-            back arrow: the web has none. --}}
         @if ($query === '')
             <native:column class="w-full px-4 py-3 bg-theme-surface border-b border-theme-outline-variant">
                 <native:text class="text-lg font-semibold text-theme-on-surface">Search</native:text>
@@ -70,7 +65,6 @@
                 @endforeach
             @endif
 
-            {{-- Web copy (../pinkary/resources/views/livewire/home/users.blade.php:29-32 and :8-10). --}}
             @if ($searched && count($users) === 0 && count($hashtags) === 0)
                 <x-empty-state title="No users found." subtitle="Try another search or clear the query to return to the discovery list." />
             @endif

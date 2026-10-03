@@ -67,7 +67,6 @@ it('follows and unfollows from the card', function (): void {
             ->push(['data' => ['followed' => false, 'followers' => 0]]),
     ]);
 
-    // Web follow-button copy: Unfollow once you follow them.
     $test = Native::test(Profile::class, ['username' => 'ada'])
         ->press('toggleFollow')
         ->assertSee('Unfollow');
@@ -102,14 +101,12 @@ it('records link visits for guests too', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::clear();
 
-    // otherProfile() ships without links, so inline one that has some.
     $guest = array_merge(otherProfile(), ['links' => [
         ['id' => 7, 'description' => 'Website', 'url' => 'https://example.com?ref=pinkary', 'click_count' => 3],
     ]]);
 
     Http::fake([
-        // questions first: Http::fake matches in registration order, and
-        // the bare username glob would otherwise swallow it.
+        // Register the specific questions fake before the broader username pattern.
         'https://pinkary.test/api/v1/users/pinkaryuser/questions*' => Http::response(['data' => []]),
         'https://pinkary.test/api/v1/users/pinkaryuser*' => Http::response(['data' => $guest]),
         'https://pinkary.test/api/v1/links/7/click' => Http::response(['data' => ['clicked' => true]]),
@@ -118,9 +115,6 @@ it('records link visits for guests too', function (): void {
     Native::test(Profile::class, ['username' => 'pinkaryuser'])
         ->call('openUserLink', 7);
 
-    // The endpoint reads the user id optionally and the web counts
-    // anonymous clicks, so a guest tap must still be reported. (The API
-    // still ignores the link's own owner and repeat IP clicks.)
     Http::assertSent(fn ($request) => $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/v1/links/7/click'));
 });
@@ -181,8 +175,6 @@ it('renders other users with a single in-content top bar title', function (): vo
         'https://pinkary.test/api/v1/users/ada/questions*' => Http::response(['data' => []]),
     ]);
 
-    // Bookmarks pattern: centered in-content page heading (vertically
-    // centered, no chrome top_bar hoist).
     Native::test(Profile::class, ['username' => 'ada'])
         ->assertSee('@ada')
         ->assertMissingElement('top_bar');
@@ -315,8 +307,6 @@ it('hides link click counts on other people cards', function (): void {
         'https://pinkary.test/api/v1/users/ada/questions*' => Http::response(['data' => []]),
     ]);
 
-    // Web parity (links/index:332-342): other people's pills carry the
-    // description only — clicks are the owner's business.
     Native::test(Profile::class, ['username' => 'ada'])
         ->assertSee('Website')
         ->assertDontSee('12 clicks');
@@ -361,8 +351,6 @@ it('offers the web add-link button and an empty bio shortcut', function (): void
 });
 
 /**
- * The first node carrying an a11y label, searched depth-first.
- *
  * @param  array<string, mixed>  $node
  * @return array<string, mixed>|null
  */

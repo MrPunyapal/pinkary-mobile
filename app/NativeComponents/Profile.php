@@ -32,16 +32,8 @@ final class Profile extends NativeComponent
 
     public bool $showQr = false;
 
-    /**
-     * The tap-to-zoom avatar lightbox (links/index:105-124).
-     */
     public bool $showAvatar = false;
 
-    /**
-     * Why the last owner link action failed, shown on the card itself —
-     * a card-level action must not blow away the whole screen the way
-     * $errorMessage (the load-failure banner) does.
-     */
     public string $linkError = '';
 
     /** @var list<array<string, mixed>> */
@@ -67,8 +59,6 @@ final class Profile extends NativeComponent
         return $this->username !== '' ? '@'.$this->username : 'Profile';
     }
 
-    // Other users' profiles show a back arrow instead of the drawer
-    // hamburger (no overlap); own profile keeps the drawer.
     public function hidesDrawer(): bool
     {
         return $this->username !== '';
@@ -86,17 +76,11 @@ final class Profile extends NativeComponent
         $this->load($this->token());
     }
 
-    /**
-     * Retry the posts list without reloading the profile card.
-     */
     public function retryQuestions(): void
     {
         $this->loadQuestions($this->token(), $this->questionsUsername());
     }
 
-    /**
-     * Open this profile's followers list.
-     */
     public function openFollowers(): void
     {
         $username = $this->questionsUsername();
@@ -108,9 +92,6 @@ final class Profile extends NativeComponent
         $this->navigate($this->route('mobile.followers', ['username' => $username]));
     }
 
-    /**
-     * Open this profile's following list.
-     */
     public function openFollowing(): void
     {
         $username = $this->questionsUsername();
@@ -122,9 +103,6 @@ final class Profile extends NativeComponent
         $this->navigate($this->route('mobile.following', ['username' => $username]));
     }
 
-    /**
-     * Ask this user a question (other users' profiles only).
-     */
     public function askUser(): void
     {
         $username = (string) data_get($this->profile, 'username', '');
@@ -136,9 +114,6 @@ final class Profile extends NativeComponent
         $this->navigate($this->route('mobile.ask', ['username' => $username]));
     }
 
-    /**
-     * Edit your own profile (own profile only).
-     */
     public function editProfile(): void
     {
         if (! (bool) data_get($this->profile, 'is_me', false)) {
@@ -217,9 +192,6 @@ final class Profile extends NativeComponent
         $this->voteOnPostPayload($this->questions, $id, $optionId, $this->token());
     }
 
-    /**
-     * Append the next page of this profile's posts.
-     */
     public function loadMoreQuestions(): void
     {
         if ($this->loadingMoreQuestions || ! $this->hasMoreQuestions) {
@@ -265,16 +237,6 @@ final class Profile extends NativeComponent
         $this->hasMoreQuestions = $response->json('links.next') !== null;
     }
 
-    /**
-     * Follow or unfollow the shown user, reconciling the card with the
-     * server's follower count.
-     *
-     * The same name serves the card pill (no argument) and the follow
-     * button on a liker row inside this screen's post menu sheet (a
-     * username) — the shared TogglesPostReactions implementation is
-     * shadowed by this class, so the row case is routed explicitly
-     * instead of silently falling through to the card.
-     */
     public function toggleFollow(string $username = ''): void
     {
         if ($username !== '') {
@@ -331,12 +293,6 @@ final class Profile extends NativeComponent
         }
     }
 
-    /**
-     * Open a profile link, recording the visit like the web does.
-     * Looks the URL up from the loaded profile so markup never
-     * carries (HTML-escapable) URLs. Guests open the link too, and
-     * their taps are recorded as well.
-     */
     public function openUserLink(int $id): void
     {
         $url = null;
@@ -357,19 +313,12 @@ final class Profile extends NativeComponent
             return;
         }
 
-        // Always record the click, signed in or not: the API accepts an
-        // anonymous click and the web counts those. The counter still
-        // ignores the link's own owner and repeat clicks from the same
-        // IP within a day (Actions/Links/UpdateLinkClicks).
         $api = app(PinkaryApi::class);
         $api->attempt(fn () => $api->clickLink($this->token(), $id));
 
         app(Browser::class)->inApp($url);
     }
 
-    /**
-     * Share this profile through the system sheet (web share menu parity).
-     */
     public function shareProfile(): void
     {
         $username = (string) data_get($this->profile, 'username', '');
@@ -383,18 +332,11 @@ final class Profile extends NativeComponent
         app(Share::class)->url('Pinkary profile', '@'.$username.' on Pinkary', $base.'/@'.$username);
     }
 
-    /**
-     * Toggle the QR code section showing this profile's URL.
-     */
     public function toggleQr(): void
     {
         $this->showQr = ! $this->showQr;
     }
 
-    /**
-     * Open the large-avatar sheet (links/index:105-124). Only a loaded
-     * card can show one, so an empty profile opens nothing.
-     */
     public function showAvatar(): void
     {
         if ($this->profile === null) {
@@ -404,26 +346,13 @@ final class Profile extends NativeComponent
         $this->showAvatar = true;
     }
 
-    /**
-     * Flip the large-avatar sheet — the tap target, the drag-down
-     * dismiss and the Close button all land here.
-     */
     public function toggleAvatar(): void
     {
         $this->showAvatar = ! $this->showAvatar;
     }
 
-    /**
-     * Show or hide one of your own links (the web's eye toggle,
-     * links/index:285-298). Flips the cached row optimistically, then
-     * reconciles with the server's LinkResource; a failure puts the row
-     * back and surfaces a message on the card.
-     */
     public function toggleLinkVisibility(int|string $id): void
     {
-        // The web only ever renders the eye on your own rows, and the
-        // endpoint is owner-gated (LinkPolicy) — refuse anything else so
-        // a stray tap cannot fire a write.
         if ($this->profile === null || ! (bool) data_get($this->profile, 'is_me', false)) {
             return;
         }
@@ -490,9 +419,6 @@ final class Profile extends NativeComponent
 
     public function render(): View
     {
-        // The card is a Blade component, so it cannot read this screen's
-        // public properties — its transient state (the avatar sheet, the
-        // link error) is passed down as real view data by the screen.
         return view('native.profile', [
             'showAvatar' => $this->showAvatar,
             'linkError' => $this->linkError,
@@ -501,8 +427,6 @@ final class Profile extends NativeComponent
 
     private function load(?string $token): void
     {
-        // Your own profile is signed-in only; someone else's is public
-        // on the web, so guests read it with a null token.
         if ($this->username === '') {
             $token = $this->requireToken(replaceScreen: true);
 
@@ -555,10 +479,6 @@ final class Profile extends NativeComponent
         $this->loadQuestions($token, $this->questionsUsername());
     }
 
-    /**
-     * The username owning the shown card — the route param for other
-     * users, the loaded card for your own profile.
-     */
     private function questionsUsername(): string
     {
         if ($this->username !== '') {
@@ -570,18 +490,11 @@ final class Profile extends NativeComponent
         return is_string($username) ? $username : '';
     }
 
-    /**
-     * Put a link row's visibility back after a failed write, so the eye
-     * never lies about what the server holds.
-     */
     private function restoreLinkVisibility(int $key, bool $visible): void
     {
         data_set($this->profile, 'links.'.$key.'.is_visible', $visible);
     }
 
-    /**
-     * Load the profile's answered posts, pinned first (server-side).
-     */
     private function loadQuestions(?string $token, string $username): void
     {
         $this->questionsLoading = true;

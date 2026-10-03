@@ -1,17 +1,5 @@
 <?php
 
-/**
- * Native UI — Theme Tokens
- *
- * Published via `php artisan vendor:publish --tag=native-ui-config`.
- * Edit to customize your app's visual identity in one place.
- *
- * For dynamic per-tenant theming, use Native\Mobile\UI\Theme::merge([...])
- * from a service provider. Runtime merges deep-merge on top of these values.
- *
- * Decision log: /docs/NATIVE-UI-REWRITE-PLAN.md (D — theme layer)
- */
-
 return [
 
     /*
@@ -48,64 +36,46 @@ return [
     'theme' => [
 
         'light' => [
-            // Primary brand color — Pinkary pink, used for filled buttons, active states, key accents.
             'primary' => '#EC4899',
             'link' => '#2563EB',
             'on-primary' => '#FFFFFF',
 
-            // Secondary / muted action color.
             'secondary' => '#475569',
             'on-secondary' => '#FFFFFF',
 
-            // Surface = cards, sheets, dialogs. Background = page root.
             'surface' => '#FFFFFF',
             'on-surface' => '#0F172A',
             'background' => '#F1F5F9',
             'on-background' => '#0F172A',
-            // on-body = body copy on the page background (slate-700 /
-            // slate-200 on web) — answers, question text, poll labels.
             'on-body' => '#334155',
 
-            // Surface variant = filled text fields, muted tonal surfaces.
-            // on-surface-variant = muted label/hint text on those surfaces.
             'surface-variant' => '#F1F5F9',
             'on-surface-variant' => '#475569',
 
-            // Question bubble = asked-question card (slate-50 on web).
             'bubble' => '#F8FAFC',
             'on-bubble' => '#0F172A',
 
-            // Avatar fallback fill (slate-100 on web).
             'avatar' => '#F1F5F9',
             'on-avatar' => '#475569',
 
-            // Poll bar: track (slate-200 / slate-800) and idle fill (slate-400 / slate-600).
-            // The voted fill reuses primary; text on it is white in both modes.
             'poll-track' => '#E2E8F0',
             'poll-fill' => '#94A3B8',
 
-            // Outline = neutral borders (text fields, dividers, cards).
-            // outline-variant = softer edges: hairline dividers, card seams.
             'outline' => '#CBD5E1',
             'outline-variant' => '#EDF1F7',
 
-            // Destructive actions — maps to `variant="destructive"` on components.
             'destructive' => '#B91C1C',
             'on-destructive' => '#FFFFFF',
 
-            // Success / "safe to proceed" — confirmations, verified badges.
             'success' => '#15803D',
             'on-success' => '#FFFFFF',
 
-            // Tertiary accent — for highlights, badges, emphasis not covered by primary.
             'accent' => '#EC4899',
             'on-accent' => '#FFFFFF',
         ],
 
         'dark' => [
-            // Leave empty or partial to auto-derive from `light` (luminance inversion).
-            // Specify any token here to override the derived value.
-            // Pink stays identical in both modes on web.
+            // Unspecified dark tokens are derived from the light palette.
             'primary' => '#EC4899',
             'link' => '#3B82F6',
             'on-primary' => '#FFFFFF',

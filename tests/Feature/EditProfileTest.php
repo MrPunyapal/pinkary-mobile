@@ -26,8 +26,6 @@ function editedProfilePayload(array $overrides = []): array
 }
 
 /**
- * Input/select labels in document order, for field-order assertions.
- *
  * @return list<string>
  */
 function inputLabelsOf(array $node): array
@@ -60,8 +58,6 @@ it('uses the web profile information heading and field order', function (): void
         $labels = array_merge($labels, inputLabelsOf($child));
     }
 
-    // Name, Username, Email, Bio — then the three preference selects,
-    // then the links card (shape picker + the create form).
     expect($labels)->toBe([
         'Name',
         'Username',
@@ -98,8 +94,6 @@ it('sends the three preference fields the web owns', function (): void {
 });
 
 it('never sends a preference the user did not touch', function (): void {
-    // UserResource does not ship the preference fields, so an untouched
-    // form must not guess and overwrite a preference set on the web.
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => editedProfilePayload()]),
     ]);

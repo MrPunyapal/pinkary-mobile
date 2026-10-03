@@ -1,15 +1,9 @@
 @php
-    // Shared with the post renderer so both screens phrase timestamps
-    // exactly as the web feed does.
     $shortTime = fn (?string $iso): string => \App\Support\DisplayText::relativeTime($iso);
 @endphp
 
 <native:list on-end-reached="loadMore" class="w-full h-full bg-theme-background">
     <native:column class="w-full gap-0">
-        {{-- No in-page unread pill: the web carries the count on the nav
-            bell, and the mobile tab bar bell badges it
-            (MobileLayout::tabBar). Duplicating it here would be a third
-            place to read it. --}}
         <x-page-heading title="Notifications">
             @if (! $loading && $errorMessage === '' && count($items) > 0)
                 <native:pressable class="shrink-0 px-3 py-1 rounded-full border border-theme-outline-variant {{ $markingRead ? 'opacity-40' : '' }}" @tap="markAllRead" a11y-label="Ignore all">

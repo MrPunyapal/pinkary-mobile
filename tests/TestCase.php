@@ -14,10 +14,7 @@ abstract class TestCase extends BaseTestCase
         parent::setUp();
         Http::preventStrayRequests();
 
-        // Pin the bridge to its in-test fake so secure-storage calls
-        // resolve deterministically instead of reaching the live Jump
-        // bridge over TCP (which would share real device storage across
-        // tests when previewing on device).
+        // Keep tests isolated from secure storage on a connected device.
         FakeBridge::enable();
     }
 

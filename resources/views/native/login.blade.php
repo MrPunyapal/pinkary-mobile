@@ -1,6 +1,5 @@
 <native:scroll-view class="w-full h-full bg-theme-background">
     <native:column class="w-full items-center px-5 py-6 gap-6 safe-area">
-        {{-- Web guest card: the wordmark sits above the card at h-12. --}}
         <x-pinkary-logo height="12" />
 
         <native:column class="w-full p-5 gap-5 rounded-md bg-theme-surface border border-theme-outline-variant">
@@ -10,8 +9,6 @@
             </native:column>
 
             @if ($addingAccount && $activeAccountUsername !== '')
-                {{-- Web parity (auth/login:15-29): who stays signed in while
-                    the next account is added. Flat — no nested slots. --}}
                 <native:row class="w-full items-center gap-3 p-3 rounded-md bg-theme-surface-variant border border-theme-outline-variant">
                     <x-avatar :user="['username' => $activeAccountUsername, 'name' => $activeAccountUsername]" :size="8" :link="false" />
                     <native:column class="flex-1 gap-0.5 min-w-0">
@@ -40,9 +37,6 @@
                     <x-auth-field label="Email" model="email" keyboard="email" :error="$fieldErrors['email'] ?? ''" />
                     <x-auth-field label="Password" model="password" :password="true" :show-password="$showPassword" :error="$fieldErrors['password'] ?? ''" />
 
-                    {{-- Web parity (auth/login:63-82), minus "Remember me":
-                         TokenStorage already keeps the session in the device
-                         keychain, so a checkbox here could not do anything. --}}
                     <native:row class="w-full items-center justify-end">
                         <native:pressable class="py-1" @tap="forgotPassword" a11y-label="Forgot password?">
                             <native:text class="text-sm font-medium text-theme-primary">Forgot password?</native:text>

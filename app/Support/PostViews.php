@@ -31,7 +31,6 @@ final class PostViews
         return $viewer;
     }
 
-    /** Queue a visible post and report whether a full batch is ready. */
     public static function enqueue(string $id, ?string $token, string $viewer): bool
     {
         $key = self::queueKey($token, $viewer);

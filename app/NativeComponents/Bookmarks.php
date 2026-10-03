@@ -98,10 +98,6 @@ final class Bookmarks extends NativeComponent
         $this->translateHtml(data_get($post, $field));
     }
 
-    /**
-     * Toggle Show more/less for a long answer, like the web's
-     * showMore component.
-     */
     public function toggleShowMore(string $id): void
     {
         $this->toggleExpandedId($id);
@@ -117,10 +113,6 @@ final class Bookmarks extends NativeComponent
         $this->reactOnPostPayload($this->posts, $id, 'bookmark', $this->token());
     }
 
-    /**
-     * Share the post through the system sheet, mirroring the web's
-     * share menu (which copies/shares the question URL).
-     */
     public function sharePost(string $id): void
     {
         $post = $this->readPostPayload($this->posts, $id);
@@ -225,10 +217,6 @@ final class Bookmarks extends NativeComponent
         $this->rememberBookmarks();
     }
 
-    /**
-     * Serve a cached page immediately. `$loading` stays false when the
-     * list already has rows so skeletons never flash over content.
-     */
     private function hydrateFromCache(): void
     {
         $payload = FeedCache::get(FeedCache::bookmarksKey($this->cacheUsername()));

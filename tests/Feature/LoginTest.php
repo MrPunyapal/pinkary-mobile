@@ -9,13 +9,11 @@ it('renders the wordmark over http and tints it per theme', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
 
     try {
-        // Light: the white wordmark tinted to the web's slate-950 fill.
         System::rememberAppearance('light');
         Native::test(Login::class)
             ->assertElement('image', fn (array $node): bool => ($node['props']['src'] ?? '') === 'https://pinkary.test/img/logo-text.png'
                 && ($node['props']['tint_color'] ?? '') === '#0F172A');
 
-        // Dark: the wordmark as shipped.
         System::rememberAppearance('dark');
         Native::test(Login::class)
             ->assertElement('image', fn (array $node): bool => ($node['props']['src'] ?? '') === 'https://pinkary.test/img/logo-text.png'

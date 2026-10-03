@@ -13,9 +13,6 @@ beforeEach(function (): void {
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
 });
 
-/**
- * The card under test, with one visible link the owner can toggle.
- */
 function ownerCardProfile(array $linkOverrides = []): array
 {
     return [
@@ -73,7 +70,6 @@ it('hides a link from the world with the owner eye toggle', function (): void {
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => ownerCardProfile()]),
         'https://pinkary.test/api/v1/users/*/questions*' => Http::response(['data' => []]),
-        // The endpoint answers with the whole LinkResource (LinkController:45).
         'https://pinkary.test/api/v1/links/7' => Http::sequence()
             ->push(['data' => ['id' => 7, 'is_visible' => false]])
             ->push(['data' => ['id' => 7, 'is_visible' => true]]),
@@ -98,9 +94,6 @@ it('hides a link from the world with the owner eye toggle', function (): void {
 it('keeps the visibility eye off other people cards', function (): void {
     fakeCardResponses('users/ada', otherCardProfile());
 
-    // Web parity (links/index:227): the owner action strip — and with it
-    // the eye — is inside the auth()->user()->is($user) branch, so a
-    // visitor's card carries the link pill and nothing else.
     Native::test(Profile::class, ['username' => 'ada'])
         ->assertSee('Notes')
         ->assertMissingElement('pressable', fn (array $node): bool => in_array(
@@ -118,7 +111,6 @@ it('refuses to toggle a link that is not yours', function (): void {
 
     expect($test->get('linkError'))->toBe('');
 
-    // The endpoint is owner-gated, so the tap must not even reach it.
     Http::assertNotSent(fn ($request) => $request->method() === 'PATCH');
 });
 
@@ -134,7 +126,6 @@ it('puts the eye back and explains a failed visibility toggle', function (): voi
         ->assertSee('Hide link')
         ->assertSee('Nope.');
 
-    // The optimistic flip is rolled back so the eye never lies.
     expect($test->get('profile')['links'][0]['is_visible'])->toBeTrue()
         ->and($test->get('linkError'))->toBe('Nope.');
 });
@@ -169,8 +160,6 @@ it('opens the avatar sheet from the card and closes it again', function (): void
 it('closes the avatar sheet on drag-down', function (): void {
     fakeCardResponses('profile', ownerCardProfile());
 
-    // The dismiss binding only exists while the sheet is up, so the
-    // sheet has to be open before the drag-down handler is registered.
     Native::test(Profile::class)
         ->call('toggleAvatar')
         ->assertElement('bottom_sheet', fn (array $node): bool => ($node['props']['visible'] ?? false) === true)
@@ -192,9 +181,6 @@ it('shows the follow pill on search result rows like the web', function (): void
         'https://pinkary.test/api/v1/users/ada/follow' => Http::response(['data' => ['followed' => false, 'followers' => 2]]),
     ]);
 
-    // Web parity (home/users.blade.php:71-77): the People rows carry the
-    // follow button, and js/follow-button.js:29 reads "Unfollow" once you
-    // follow them.
     $test = Native::test(Search::class)
         ->set('query', 'ada')
         ->assertSee('Unfollow')
@@ -220,8 +206,6 @@ it('hides the follow pill on your own row', function (): void {
         ]], 'hashtags' => []]]),
     ]);
 
-    // Web parity (follow-button.blade.php:7): the button is dropped when
-    // auth()->id() === the row's id, so your own row shows no pill.
     Native::test(Search::class)
         ->set('query', 'pinkaryuser')
         ->assertSee('Pinkary User')
@@ -276,8 +260,6 @@ it('follows and unfollows a liker row in the post sheet', function (): void {
         'https://pinkary.test/api/v1/users/ada/follow' => Http::response(['data' => ['followed' => true, 'followers' => 4]]),
     ]);
 
-    // Web parity (livewire/likes/index.blade.php:61-67): the likers rows
-    // carry the follow button too.
     $test = Native::test(Home::class)
         ->press("openMenu('q1')")
         ->press('openLikersMenu')
@@ -312,8 +294,6 @@ it('routes the profile card follow and the liker row follow apart', function ():
         'https://pinkary.test/api/v1/users/grace/follow' => Http::response(['data' => ['followed' => true, 'followers' => 1]]),
     ]);
 
-    // A username argument is a liker row; no argument is the card pill.
-    // The card must not answer a row tap with its own action.
     $test->call('toggleFollow', 'grace');
 
     expect($test->get('likers')[0]['followed_by_me'])->toBeTrue()

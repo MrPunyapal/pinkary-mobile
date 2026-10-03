@@ -158,9 +158,6 @@ return [
     */
 
     'permissions' => [
-        // 'NSCameraUsageDescription' => 'Used to take a profile photo.',
-        // 'NSMicrophoneUsageDescription' => 'Used to record audio with your videos.',
-        // 'NSPhotoLibraryUsageDescription' => 'Used to select photos for your post.',
     ],
 
     /*
@@ -183,14 +180,6 @@ return [
     */
 
     'permission_localizations' => [
-        // 'nl' => [
-        //     'NSCameraUsageDescription' => 'Gebruikt om een profielfoto te maken.',
-        //     'NSMicrophoneUsageDescription' => 'Gebruikt om audio op te nemen bij je video\'s.',
-        //     'NSPhotoLibraryUsageDescription' => 'Gebruikt om foto\'s voor je bericht te selecteren.',
-        // ],
-        // 'fr' => [
-        //     'NSCameraUsageDescription' => 'Utilisé pour prendre une photo de profil.',
-        // ],
     ],
 
     /*
@@ -247,13 +236,11 @@ return [
     */
 
     'cleanup_exclude_files' => [
-        // Runtime temp / logs (defaults)
         'storage/framework/sessions',
         'storage/framework/cache',
         'storage/framework/testing',
         'storage/logs/laravel.log',
 
-        // Repo / docs / CI — not needed on device
         'docs',
         '.github',
         '.junie',
@@ -265,7 +252,6 @@ return [
         'AGENTS.md',
         'CLAUDE.md',
 
-        // MCP + Sanctum API surface (web-only for this kit)
         'app/Mcp',
         'routes/ai.php',
         'config/sanctum.php',
@@ -358,22 +344,18 @@ return [
         |
         */
         'build' => [
-            // R8/ProGuard Configuration - currently disabled
             'minify_enabled' => env('NATIVEPHP_ANDROID_MINIFY_ENABLED', false),
             'shrink_resources' => env('NATIVEPHP_ANDROID_SHRINK_RESOURCES', false),
             'obfuscate' => env('NATIVEPHP_ANDROID_OBFUSCATE', false),
 
-            // Debug Symbol Configuration - currently enabled
             'debug_symbols' => env('NATIVEPHP_ANDROID_DEBUG_SYMBOLS', 'FULL'),
             'generate_mapping_files' => env('NATIVEPHP_ANDROID_MAPPING_FILES', false),
             'mapping_file_path' => env('NATIVEPHP_ANDROID_MAPPING_PATH', 'build/outputs/mapping/release/'),
 
-            // ProGuard Rules - currently disabled
             'keep_line_numbers' => env('NATIVEPHP_ANDROID_KEEP_LINE_NUMBERS', false),
             'keep_source_file' => env('NATIVEPHP_ANDROID_KEEP_SOURCE_FILE', false),
             'custom_proguard_rules' => env('NATIVEPHP_ANDROID_CUSTOM_PROGUARD_RULES', []),
 
-            // Build Performance - using Gradle defaults
             'parallel_builds' => env('NATIVEPHP_ANDROID_PARALLEL_BUILDS', true),
             'incremental_builds' => env('NATIVEPHP_ANDROID_INCREMENTAL_BUILDS', true),
         ],
@@ -390,30 +372,20 @@ return [
     */
 
     'server' => [
-        // HTTP server port for serving the app
         'http_port' => env('NATIVEPHP_HTTP_PORT', 3000),
 
-        // WebSocket server port for hot reload communication
         'ws_port' => env('NATIVEPHP_WS_PORT', 8081),
 
-        // Service name advertised on the network
         'service_name' => env('NATIVEPHP_SERVICE_NAME', 'NativePHP Server'),
 
-        // Service type for mDNS advertisement
         'service_type' => '_http._tcp',
 
-        // Public directory to serve (relative to Laravel root)
         'public_path' => env('NATIVEPHP_PUBLIC_PATH', 'public'),
 
-        // Build output directory (where the ZIP will be created)
         'build_path' => env('NATIVEPHP_BUILD_PATH', 'storage/app/native-build'),
 
-        // Automatically open browser with QR code when server starts.
-        // Default off — the terminal renders a scannable QR. Pass --browser
-        // to native:jump (or set NATIVEPHP_OPEN_BROWSER=true) to opt in.
         'open_browser' => env('NATIVEPHP_OPEN_BROWSER', false),
 
-        // Watch these directories for changes
         'watch_paths' => [
             'app',
             'resources',
@@ -421,7 +393,6 @@ return [
             'public/build',
         ],
 
-        // File extensions to watch for changes
         'watch_extensions' => ['php', 'blade.php', 'js', 'css', 'ts', 'vue', 'json'],
     ],
 

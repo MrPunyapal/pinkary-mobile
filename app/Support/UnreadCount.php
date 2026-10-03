@@ -7,14 +7,7 @@ namespace App\Support;
 use Native\Mobile\Facades\SecureStorage;
 use Throwable;
 
-/**
- * Pending notification count for the tab-bar bell.
- *
- * The session mirrors the value for the current request. On device the
- * session is not durable, so the count is also written to secure storage
- * — the same split CurrentUser uses — otherwise the badge is always empty
- * after the first screen.
- */
+/** Native sessions are not durable across screens; secure storage persists the badge count. */
 final class UnreadCount
 {
     private const string KEY = 'pinkary_unread_count';
@@ -28,7 +21,6 @@ final class UnreadCount
         try {
             SecureStorage::set(self::KEY, (string) $count);
         } catch (Throwable) {
-            // Native bridge unavailable
         }
     }
 
@@ -53,7 +45,6 @@ final class UnreadCount
                 }
             }
         } catch (Throwable) {
-            // Native bridge unavailable
         }
 
         return null;
@@ -66,7 +57,6 @@ final class UnreadCount
         try {
             SecureStorage::delete(self::KEY);
         } catch (Throwable) {
-            // Native bridge unavailable
         }
     }
 

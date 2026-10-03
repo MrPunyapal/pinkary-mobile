@@ -21,7 +21,6 @@ final class Detail extends NativeComponent
     use UsesAppMenu;
     use UsesCaptcha;
 
-    // Back arrow shows instead of the drawer hamburger (no overlap).
     protected bool $hidesDrawer = true;
 
     public string $id = '';
@@ -75,7 +74,6 @@ final class Detail extends NativeComponent
             return;
         }
 
-        // Reading a post is public on the web, so guests load it too.
         $this->load($this->token());
         if (($token = $this->token()) !== null) {
             $this->loadCaptcha('comment', $token);
@@ -93,10 +91,6 @@ final class Detail extends NativeComponent
         $this->load($this->token());
     }
 
-    /**
-     * Drill into another post's detail. Tapping the open post does
-     * nothing — the web question page never links a post to itself.
-     */
     public function openDetail(string $id): void
     {
         if ($id === '' || $id === $this->id) {
@@ -116,10 +110,6 @@ final class Detail extends NativeComponent
         $this->reactOnLoadedPost($id, 'bookmark');
     }
 
-    /**
-     * Share the post through the system sheet, mirroring the web's
-     * share menu (which copies/shares the question URL).
-     */
     public function sharePost(string $id): void
     {
         $post = $this->readDetailPost($id);
@@ -160,10 +150,6 @@ final class Detail extends NativeComponent
         $this->translateHtml(data_get($post, $field));
     }
 
-    /**
-     * Toggle Show more/less for a long answer, like the web's
-     * showMore component.
-     */
     public function toggleShowMore(string $id): void
     {
         $this->toggleExpandedId($id);
@@ -183,9 +169,6 @@ final class Detail extends NativeComponent
             return;
         }
 
-        // The shared trait swallows vote failures silently; the detail
-        // screen votes with feedback instead so a failed tap explains
-        // itself instead of looking ignored.
         if (! $this->acquireReactionLock('vote:'.$id)) {
             return;
         }
@@ -232,11 +215,6 @@ final class Detail extends NativeComponent
         }
     }
 
-    /**
-     * Like the web question page, the reply composer only renders for
-     * answered questions — an unanswered question takes an answer,
-     * not a comment.
-     */
     public function canComment(): bool
     {
         return DisplayText::plain(data_get($this->post, 'answer', '')) !== '';
@@ -303,9 +281,6 @@ final class Detail extends NativeComponent
             return;
         }
 
-        // Append oldest-first like the API lists comments, so the new
-        // row stays in order and a later page cannot replay it out of
-        // place (loadMoreComments dedupes by id as well).
         /** @var array<string, mixed> $created */
         $created = $response->json('data', []);
 
@@ -359,8 +334,6 @@ final class Detail extends NativeComponent
             $seen[(string) data_get($row, 'id', '')] = true;
         }
 
-        // A freshly posted comment may reappear inside the next page;
-        // skip rows already on screen so none render twice.
         $next = array_values(array_filter(
             $next,
             fn (mixed $row): bool => is_array($row) && ! isset($seen[(string) data_get($row, 'id', '')])
@@ -377,9 +350,6 @@ final class Detail extends NativeComponent
     }
 
     /**
-     * Vote in the target row's poll, replacing its poll state with the
-     * server's — and saying so when the vote does not go through.
-     *
      * @param  array<string, mixed>  $post
      */
     private function voteWithFeedback(array &$post, string $id, int $optionId, ?string $token): void
@@ -417,11 +387,6 @@ final class Detail extends NativeComponent
         }
     }
 
-    /**
-     * Route a like/bookmark tap to the rendered post payload, its
-     * rendered ancestors, or the matching comment (including a
-     * comment's own nested ancestors).
-     */
     private function reactOnLoadedPost(string $id, string $kind): void
     {
         if ($id === '') {
@@ -451,9 +416,6 @@ final class Detail extends NativeComponent
     }
 
     /**
-     * Read any rendered row on the screen: the post, its ancestors,
-     * or a comment (including a comment's nested ancestors).
-     *
      * @return array<string, mixed>|null
      */
     private function readDetailPost(string $id): ?array
@@ -475,10 +437,6 @@ final class Detail extends NativeComponent
         return null;
     }
 
-    /**
-     * Keep the detached thread mirror consistent with the rendered
-     * ancestors after a mutation (the blade renders post.thread.posts).
-     */
     private function syncThreadMirror(): void
     {
         $rendered = array_values(array_filter(
@@ -525,9 +483,6 @@ final class Detail extends NativeComponent
         $thread = $api->normalizeQuestions($response->json('thread', []));
         $this->thread = $thread;
 
-        // The thread renders through the shared thread-post component,
-        // which reads ancestors from the post's own thread payload.
-        // The detail endpoint returns the full chain, never truncated.
         data_set($this->post, 'thread.posts', $this->thread);
         data_set($this->post, 'thread.more', false);
 

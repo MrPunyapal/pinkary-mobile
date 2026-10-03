@@ -8,10 +8,6 @@ use Illuminate\Http\Client\Response;
 
 final class ApiErrors
 {
-    /**
-     * Surface the most useful server message: the first validation error
-     * for a 422, the rate-limit message for a 429, else a safe fallback.
-     */
     public static function first(Response $response, string $fallback): string
     {
         /** @var array<string, list<string>> $errors */
@@ -32,10 +28,6 @@ final class ApiErrors
     }
 
     /**
-     * Split a Laravel errors bag into per-field messages (shown under
-     * each input) plus a banner summary: the first message from fields
-     * without their own input, else the first message overall.
-     *
      * @param  array<string, mixed>  $errors
      * @param  array<string, string>  $fields  server key => fieldErrors key
      * @return array{fieldErrors: array<string, string>, message: string}

@@ -5,8 +5,6 @@ use App\Support\AccountStore;
 use Native\Mobile\Testing\FakeBridge;
 
 beforeEach(function (): void {
-    // Pin the bridge to its in-test fake so secure-storage calls resolve
-    // deterministically instead of reaching the live Jump bridge over TCP.
     FakeBridge::enable();
     AccountStore::clear();
 });

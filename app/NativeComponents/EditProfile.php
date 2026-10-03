@@ -17,16 +17,10 @@ final class EditProfile extends NativeComponent
     use UsesAppMenu;
 
     /**
-     * The API's link_shape values (UpdateProfileRequest). Client state is
-     * not trusted, so the picker is validated against this list rather
-     * than the (public, client-writable) label map.
-     *
      * @var list<string>
      */
     private const array LINK_SHAPES = ['rounded-none', 'rounded-lg', 'rounded-full'];
 
-    // The in-content top bar carries its own back arrow instead of the
-    // drawer hamburger (no overlap), like other pushed screens.
     public function hidesDrawer(): bool
     {
         return true;
@@ -48,38 +42,22 @@ final class EditProfile extends NativeComponent
 
     public ?string $avatar = null;
 
-    /**
-     * Account preferences the profile form owns (web parity with
-     * update-profile-information-form). The API accepts them on
-     * PATCH /profile; UserResource does not ship them yet, so they start
-     * at the account defaults and are only sent when they differ from
-     * the values this screen loaded — otherwise saving a name would
-     * silently reset a preference the user set on the web.
-     */
     public string $mailPreferenceTime = 'daily';
 
     public string $defaultFeed = 'following';
 
-    /** 'true' = Anonymously, 'false' = Publicly — a select speaks strings. */
     public string $questionVisibility = 'true';
 
     /**
-     * Values the screen loaded, keyed the way the API names them. Public
-     * because the component is restored from its serialized state.
-     *
      * @var array<string, string>
      */
     public array $loadedPreferences = [];
 
-    /** Link pill shape (link-settings/edit): the web's Square / Round / Extra Round. */
     public string $linkShape = 'rounded-lg';
 
-    /** The edited URL changed, so the click-reset warning applies. */
     public bool $editUrlTouched = false;
 
     /**
-     * First server/validation message per input, shown under the field.
-     *
      * @var array<string, string>
      */
     public array $fieldErrors = [];
@@ -106,10 +84,6 @@ final class EditProfile extends NativeComponent
     public ?int $confirmingDeleteId = null;
 
     /**
-     * Option lists mirroring the web's selects (UserMailPreference,
-     * UserDefaultFeed, the anonymous-questions pair, and the link-shape
-     * radios). The web is the source of truth for these labels.
-     *
      * @var array<string, string>
      */
     public array $mailPreferenceOptions = [
@@ -165,10 +139,6 @@ final class EditProfile extends NativeComponent
         $this->load($token);
     }
 
-    /**
-     * Save the text fields, then refresh the cached card so the drawer
-     * and profile show the new values.
-     */
     public function save(): void
     {
         if ($this->busy) {
@@ -255,11 +225,6 @@ final class EditProfile extends NativeComponent
         $this->successMessage = 'Your profile has been saved.';
     }
 
-    /**
-     * Save the link shape (web link-settings/edit). It is a profile
-     * setting on the API — PATCH /profile — not a link attribute, so it
-     * has its own button like the web's link settings form.
-     */
     public function saveLinkShape(): void
     {
         if ($this->linkBusy) {
@@ -313,9 +278,6 @@ final class EditProfile extends NativeComponent
         $this->linkMessage = 'Link shape saved.';
     }
 
-    /**
-     * Add a profile link (description + https URL).
-     */
     public function addLink(): void
     {
         if ($this->linkBusy) {
@@ -369,8 +331,6 @@ final class EditProfile extends NativeComponent
         }
 
         if (! $response->successful()) {
-            // Limit responses (10 links, 20 for verified) arrive as 422
-            // messages — surface them as-is.
             $this->linkMessage = ApiErrors::first($response, 'This link could not be added. Please try again.');
 
             return;
@@ -388,9 +348,6 @@ final class EditProfile extends NativeComponent
         $this->linkMessage = 'Link added.';
     }
 
-    /**
-     * Stage a link for inline editing.
-     */
     public function startEdit(int $id): void
     {
         foreach ($this->links as $link) {
@@ -415,19 +372,11 @@ final class EditProfile extends NativeComponent
         $this->editUrlTouched = false;
     }
 
-    /**
-     * The API really does zero the click counter when the URL changes, so
-     * the web's warning appears once the edited URL is touched
-     * (links/edit:24-26, shown on `wire:dirty` for the url field).
-     */
     public function updatingEditUrl(mixed $value, ?string $key = null): void
     {
         $this->editUrlTouched = true;
     }
 
-    /**
-     * Save the staged link edit.
-     */
     public function saveEdit(int $id): void
     {
         if ($this->linkBusy) {
@@ -501,10 +450,6 @@ final class EditProfile extends NativeComponent
         $this->linkMessage = 'Link saved.';
     }
 
-    /**
-     * Delete a link with a two-tap confirm (no dialog API): the first
-     * tap arms the row, the second tap deletes it.
-     */
     public function deleteLink(int $id): void
     {
         if ($this->linkBusy) {
@@ -533,7 +478,6 @@ final class EditProfile extends NativeComponent
         $this->linkBusy = false;
         $this->confirmingDeleteId = null;
 
-        // A missing link is already gone — treat it as deleted.
         if ($response !== null && ($response->successful() || $response->notFound())) {
             $this->links = array_values(array_filter(
                 $this->links,
@@ -619,9 +563,6 @@ final class EditProfile extends NativeComponent
         $linkShape = (string) data_get($profile, 'link_shape', '');
         $this->linkShape = in_array($linkShape, self::LINK_SHAPES, true) ? $linkShape : 'rounded-lg';
 
-        // Preferences are only known when the payload ships them; the
-        // loaded snapshot then freezes whatever the form is showing, so
-        // an untouched field is never sent.
         $anonymous = data_get($profile, 'prefers_anonymous_questions');
         $preferences = [
             'mail_preference_time' => $this->optionOr(data_get($profile, 'mail_preference_time'), $this->mailPreferenceOptions, $this->mailPreferenceTime),
@@ -645,11 +586,6 @@ final class EditProfile extends NativeComponent
     }
 
     /**
-     * The preference fields the user actually changed, keyed the way the
-     * API names them. Nothing is sent while the value still matches what
-     * the screen loaded (the API does not report these yet, so an
-     * untouched field must never overwrite a real preference).
-     *
      * @return array<string, bool|string>
      */
     private function changedPreferences(): array
@@ -672,8 +608,6 @@ final class EditProfile extends NativeComponent
     }
 
     /**
-     * A payload value that names a real option, else the current one.
-     *
      * @param  array<string, string>  $options
      */
     private function optionOr(mixed $value, array $options, string $fallback): string
@@ -683,10 +617,6 @@ final class EditProfile extends NativeComponent
         return array_key_exists($candidate, $options) ? $candidate : $fallback;
     }
 
-    /**
-     * Links must be https URLs (the API requires https and rejects the
-     * rest with a 422 — catch the obvious cases up front).
-     */
     private function isLinkUrl(string $url): bool
     {
         if ($url === '' || mb_strlen($url) > 100) {
@@ -700,10 +630,6 @@ final class EditProfile extends NativeComponent
         return (bool) filter_var($url, FILTER_VALIDATE_URL);
     }
 
-    /**
-     * Show the stored URL without the ?ref=pinkary marker the API
-     * appends, so edits start from what the user typed.
-     */
     private function bareUrl(string $url): string
     {
         $position = strpos($url, '?ref=pinkary');
@@ -716,10 +642,6 @@ final class EditProfile extends NativeComponent
     }
 
     /**
-     * Split a Laravel errors bag into per-field messages (shown under
-     * each input) plus a summary: the first message from fields
-     * without their own input, else the first message overall.
-     *
      * @param  array<string, mixed>  $errors
      * @param  array<string, string>  $fields  server key => fieldErrors key
      */

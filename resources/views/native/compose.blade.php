@@ -10,25 +10,10 @@
         @endif
 
         @php
-            // The web composer draws one hairline down the avatar column and
-            // threads every post onto it, so a thread reads as a single unit
-            // (livewire/questions/create.blade.php:37-41 for the opening post,
-            // :203-212 for each follow-up, :389-393 for the add row). That
-            // rail is the composer's signature, so it is reproduced here
-            // rather than approximated with labelled rows.
-            //
-            // The hairline's class is written out literally at each use on
-            // purpose: TailwindParser reads the raw class attribute, so a
-            // class supplied through a Blade variable parses to nothing and
-            // the line renders invisible.
+            // Use literal classes: TailwindParser cannot resolve Blade class variables.
             $me = ['avatar' => $avatar, 'name' => 'You'];
             $limit = \App\NativeComponents\Compose::MAX_CONTENT_LENGTH;
 
-            // The web's counter is a progress ring that turns into a red pill
-            // showing the overage (components/character-counter.blade.php:13-16).
-            // An arc cannot be drawn natively, so keep the behaviour that
-            // carries meaning: silent at zero, a muted count while there is
-            // room, a red pill once over.
             $counter = function (?string $value) use ($limit): array {
                 $length = mb_strlen((string) $value);
 
@@ -37,12 +22,6 @@
         @endphp
 
         @if ($askUsername !== '')
-            {{-- Ask mode is a single short question to another user: no
-                thread, so no rail and no borderless field. The web draws a
-                bordered box for exactly this case
-                (create.blade.php:9 -- canThread is false) and puts the
-                Anonymously toggle in the footer beside the submit button
-                (:423-430), not in a card of its own. --}}
             <native:row class="w-full items-start gap-3">
                 <native:column class="w-10 items-center shrink-0">
                     <x-avatar :user="$me" :link="false" />
@@ -66,9 +45,6 @@
                 </native:column>
             </native:row>
 
-            {{-- The web's ask footer: submit and the Anonymously toggle on
-                one row (create.blade.php:423-430 shows Anonymously whenever
-                the composer is not sharing an update). --}}
             <x-captcha-check :required="$captchaRequired" :loading="$captchaLoading" :completed="$captchaCompleted" :url="$captchaUrl" :error="$captchaError" />
 
             <native:row class="w-full items-center justify-between gap-2 mt-4 pt-3 border-t border-theme-outline-variant">
@@ -96,13 +72,6 @@
                     <x-mention-suggestions :users="$mentionResults" />
                 @endif
 
-                {{-- The web's secondary controls sit under the field: a photo
-                    button, a poll toggle and the counter pushed right
-                    (create.blade.php:85-119).
-
-                    The photo button is gated on the bridge function existing:
-                    a build without the camera-picker plugin shows no button at
-                    all rather than one that taps and does nothing. --}}
                 <native:column class="w-full">
                     <x-image-preview :images="$this->images" class="mt-2 flex flex-wrap gap-2" />
                     <native:row class="w-full items-center gap-1 pl-3.5 mt-1">
@@ -134,9 +103,6 @@
                 @endif
 
                 @if ($isPoll)
-                    {{-- Poll options belong directly under the post they
-                        belong to; the web never detaches them into a panel
-                        (create.blade.php:121-180). --}}
                     <native:column class="w-full gap-2 mt-1 pl-3.5">
                         @foreach ($pollOptions as $index => $option)
                             <native:row class="w-full items-center gap-2">
@@ -252,12 +218,6 @@
         @endforeach
 
         @if (count($posts) < \App\NativeComponents\Compose::MAX_THREAD_POSTS)
-            {{-- The web hangs this off the same rail: a hairline, then a
-                dashed circle with a plus, then the label -- and dims it with
-                a tooltip when the current post is still empty
-                (create.blade.php:374-398). The row only becomes a tap target
-                once a follow-up is allowed; otherwise it is a dimmed hint,
-                never a silent no-op. --}}
             <native:row class="w-full items-center gap-3 {{ $this->canAddPost() ? '' : 'opacity-40' }}">
                 <native:column class="items-center shrink-0 w-10">
                     <native:column class="w-px flex-1 bg-theme-outline-variant" />
@@ -277,9 +237,6 @@
             <native:text class="text-sm text-center text-theme-on-surface-variant">A thread can have a maximum of 10 posts.</native:text>
         @endif
 
-        {{-- The web's footer is one row: submit on the left with the channel
-            picker beside it, and Anonymously on the right, split by a top
-            border in the modal composer (create.blade.php:405-431). --}}
         <native:column class="w-full gap-3 mt-4 pt-3 border-t border-theme-outline-variant">
             <x-captcha-check :required="$captchaRequired" :loading="$captchaLoading" :completed="$captchaCompleted" :url="$captchaUrl" :error="$captchaError" />
 
