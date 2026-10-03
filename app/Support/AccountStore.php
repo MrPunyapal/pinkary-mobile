@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace App\Support;
 
+use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use JsonException;
 use Native\Mobile\Facades\SecureStorage;
 
 /** Use list() in views; token-bearing payloads must never be rendered. */
@@ -13,6 +18,8 @@ final class AccountStore
     private const string ACCOUNTS_KEY = 'pinkary_accounts';
 
     private const string ACTIVE_KEY = 'pinkary_active_account';
+
+    private const string FILE = 'pinkary-accounts.enc';
 
     /**
      * @return list<array{id: string, username: string, name: string, avatar: mixed}>
@@ -55,10 +62,9 @@ final class AccountStore
      */
     public static function active(): ?array
     {
-        [$accounts] = self::read();
-        $activeId = self::activeId();
+        [$accounts, $activeId] = self::read();
 
-        return $activeId === null ? null : self::find($accounts, $activeId);
+        return ($activeId === null ? null : self::find($accounts, $activeId)) ?? ($accounts[0] ?? null);
     }
 
     public static function tokenFor(string $id): ?string
@@ -189,12 +195,9 @@ final class AccountStore
 
     public static function clear(): void
     {
-        $accountsDeleted = SecureStorage::delete(self::ACCOUNTS_KEY);
-        $activeDeleted = SecureStorage::delete(self::ACTIVE_KEY);
-
-        if (! $accountsDeleted || ! $activeDeleted) {
-            session()->forget([self::ACCOUNTS_KEY, self::ACTIVE_KEY]);
-        }
+        self::write([], null);
+        SecureStorage::delete(self::ACCOUNTS_KEY);
+        SecureStorage::delete(self::ACTIVE_KEY);
     }
 
     /**
@@ -217,6 +220,20 @@ final class AccountStore
      */
     private static function read(): array
     {
+        $path = self::path();
+
+        if (File::exists($path)) {
+            try {
+                $decoded = json_decode(Crypt::decryptString(File::get($path)), true, flags: JSON_THROW_ON_ERROR);
+            } catch (DecryptException|JsonException) {
+                return [[], null];
+            }
+
+            return is_array($decoded)
+                ? [self::sanitize($decoded['accounts'] ?? []), self::stringOrNull($decoded['active'] ?? null)]
+                : [[], null];
+        }
+
         $result = SecureStorage::read(self::ACCOUNTS_KEY);
 
         if ($result->found() && is_string($result->value)) {
@@ -224,24 +241,25 @@ final class AccountStore
 
             if (is_array($decoded)) {
                 $activeResult = SecureStorage::read(self::ACTIVE_KEY);
-                $activeId = $activeResult->found() && is_string($activeResult->value) && $activeResult->value !== ''
-                    ? $activeResult->value
-                    : null;
+                $activeId = self::stringOrNull($decoded['active'] ?? $activeResult->value);
+                $accounts = self::sanitize($decoded['accounts'] ?? []);
+                self::write($accounts, $activeId);
+                SecureStorage::delete(self::ACCOUNTS_KEY);
+                SecureStorage::delete(self::ACTIVE_KEY);
 
-                return [self::sanitize($decoded['accounts'] ?? []), $activeId];
+                return [$accounts, $activeId];
             }
         }
 
-        if ($result->failed()) {
-            $fallback = session(self::ACCOUNTS_KEY, []);
+        $fallback = session(self::ACCOUNTS_KEY, []);
+        $accounts = self::sanitize($fallback);
+        $activeId = self::stringOrNull(session(self::ACTIVE_KEY));
 
-            return [
-                self::sanitize(is_array($fallback) ? $fallback : []),
-                self::stringOrNull(session(self::ACTIVE_KEY)),
-            ];
+        if ($accounts !== []) {
+            self::write($accounts, $activeId);
         }
 
-        return [[], null];
+        return [$accounts, $activeId];
     }
 
     /** @return list<array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, token: string}> */
@@ -255,15 +273,17 @@ final class AccountStore
      */
     private static function write(array $accounts, ?string $activeId): void
     {
-        $payload = json_encode(['accounts' => array_values($accounts), 'active' => $activeId]);
+        $payload = json_encode(['accounts' => array_values($accounts), 'active' => $activeId], JSON_THROW_ON_ERROR);
+        $path = self::path();
 
-        if (! SecureStorage::set(self::ACCOUNTS_KEY, (string) $payload)) {
-            session([self::ACCOUNTS_KEY => $accounts, self::ACTIVE_KEY => $activeId]);
-        } elseif ($activeId !== null) {
-            SecureStorage::set(self::ACTIVE_KEY, $activeId);
-        } else {
-            SecureStorage::delete(self::ACTIVE_KEY);
-        }
+        File::ensureDirectoryExists(dirname($path), 0700);
+        File::replace($path, Crypt::encryptString($payload), 0600);
+        session()->forget([self::ACCOUNTS_KEY, self::ACTIVE_KEY]);
+    }
+
+    private static function path(): string
+    {
+        return Storage::disk('local')->path(self::FILE);
     }
 
     /**

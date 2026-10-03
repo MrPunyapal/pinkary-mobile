@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace App\Support;
 
-use Native\Mobile\Facades\SecureStorage;
-use Throwable;
+use Illuminate\Support\Arr;
 
 final class CurrentUser
 {
@@ -26,9 +25,10 @@ final class CurrentUser
 
         session([self::KEY => $data]);
 
-        try {
-            SecureStorage::set(self::KEY, json_encode($data));
-        } catch (Throwable) {
+        $account = AccountStore::active();
+
+        if ($account !== null && $account['username'] === $data['username']) {
+            AccountStore::refreshProfile($account['id'], $profile);
         }
     }
 
@@ -43,30 +43,13 @@ final class CurrentUser
             return $user;
         }
 
-        try {
-            $result = SecureStorage::read(self::KEY);
+        $account = AccountStore::active();
 
-            if ($result->found() && is_string($result->value)) {
-                $decoded = json_decode($result->value, true);
-                if (is_array($decoded)) {
-                    session([self::KEY => $decoded]);
-
-                    return $decoded;
-                }
-            }
-        } catch (Throwable) {
-        }
-
-        return null;
+        return $account === null ? null : Arr::only($account, ['name', 'username', 'avatar', 'email', 'member_since']);
     }
 
     public static function clear(): void
     {
         session()->forget(self::KEY);
-
-        try {
-            SecureStorage::delete(self::KEY);
-        } catch (Throwable) {
-        }
     }
 }

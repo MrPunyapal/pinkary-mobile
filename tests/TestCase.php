@@ -4,6 +4,7 @@ namespace Tests;
 
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Native\Mobile\AsyncTask;
 use Native\Mobile\Testing\FakeBridge;
 
@@ -13,6 +14,7 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
         Http::preventStrayRequests();
+        Storage::fake('local');
 
         // Keep tests isolated from secure storage on a connected device.
         FakeBridge::enable();
