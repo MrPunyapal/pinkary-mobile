@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "623f35519aa41e71cb85f21b52b1e615",
+    "content-hash": "9437bd845925cf9ddab0be7884950037",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -2502,16 +2502,16 @@
         },
         {
             "name": "mrpunyapal/nativephp-plugin-impressions",
-            "version": "v0.1.0",
+            "version": "dev-main",
             "source": {
                 "type": "git",
                 "url": "https://github.com/MrPunyapal/nativephp-plugin-impressions.git",
-                "reference": "171d201794366c986db73664e910f03065a24925"
+                "reference": "c5a3771124c204feb377f53e0f716aa6189b993a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/MrPunyapal/nativephp-plugin-impressions/zipball/171d201794366c986db73664e910f03065a24925",
-                "reference": "171d201794366c986db73664e910f03065a24925",
+                "url": "https://api.github.com/repos/MrPunyapal/nativephp-plugin-impressions/zipball/c5a3771124c204feb377f53e0f716aa6189b993a",
+                "reference": "c5a3771124c204feb377f53e0f716aa6189b993a",
                 "shasum": ""
             },
             "require": {
@@ -2530,15 +2530,16 @@
                 "phpstan/phpstan-deprecation-rules": "^2.0",
                 "rector/rector": "^2.1"
             },
+            "default-branch": true,
             "type": "nativephp-plugin",
             "extra": {
                 "laravel": {
-                    "providers": [
-                        "MrPunyapal\\Impressions\\Providers\\ImpressionsServiceProvider"
-                    ],
                     "aliases": {
                         "Impressions": "MrPunyapal\\Impressions\\Facades\\Impressions"
-                    }
+                    },
+                    "providers": [
+                        "MrPunyapal\\Impressions\\Providers\\ImpressionsServiceProvider"
+                    ]
                 },
                 "nativephp": {
                     "manifest": "nativephp.json"
@@ -2549,41 +2550,14 @@
                     "MrPunyapal\\Impressions\\": "src/"
                 }
             },
-            "autoload-dev": {
-                "psr-4": {
-                    "MrPunyapal\\Impressions\\Tests\\": "tests/"
-                }
-            },
-            "scripts": {
-                "test": [
-                    "pest"
-                ],
-                "test:coverage": [
-                    "pest --coverage"
-                ],
-                "lint": [
-                    "composer validate --strict && pint --test && phpstan analyse && rector process --dry-run"
-                ],
-                "format": [
-                    "pint"
-                ],
-                "analyse": [
-                    "phpstan analyse"
-                ],
-                "rector": [
-                    "rector process"
-                ],
-                "rector:test": [
-                    "rector process --dry-run"
-                ]
-            },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
             "description": "Native visibility impressions for NativePHP Mobile EDGE components",
             "homepage": "https://github.com/mrpunyapal/nativephp-plugin-impressions",
             "keywords": [
-                "Impressions",
+                "impressions",
                 "nativephp",
                 "nativephp-mobile",
                 "nativephp-plugin",
@@ -2595,11 +2569,11 @@
             },
             "funding": [
                 {
-                    "type": "github",
-                    "url": "https://github.com/mrpunyapal"
+                    "url": "https://github.com/mrpunyapal",
+                    "type": "github"
                 }
             ],
-            "time": "2026-10-03T10:51:29+00:00"
+            "time": "2026-10-03T12:01:16+00:00"
         },
         {
             "name": "nativephp/mobile",
@@ -11251,6 +11225,7 @@
     "aliases": [],
     "minimum-stability": "dev",
     "stability-flags": {
+        "mrpunyapal/nativephp-plugin-impressions": 20,
         "nativephp/web-ui": 15
     },
     "prefer-stable": true,
