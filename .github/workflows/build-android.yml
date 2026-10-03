@@ -52,6 +52,13 @@ jobs:
           key-alias: ${{ secrets.ANDROID_KEY_ALIAS }}
           key-password: ${{ secrets.ANDROID_KEY_PASSWORD }}
 
+      - name: Show native compiler errors if packaging produced no APK
+        if: failure()
+        run: |
+          if [ -f nativephp/android-build.log ]; then
+            tail -n 250 nativephp/android-build.log
+          fi
+
       - name: Upload Android artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
