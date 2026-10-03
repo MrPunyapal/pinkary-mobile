@@ -4,7 +4,7 @@
     $viewerUsername = (string) data_get(\App\Support\AccountStore::active(), 'username', '');
 @endphp
 
-<native:list native:key="profile-list" on-end-reached="loadMoreQuestions" class="w-full h-full bg-theme-background">
+<native:list native:key="profile-list" on-end-reached="loadMoreQuestions" :end-reached-buffer="5" class="w-full h-full bg-theme-background">
         @if ($username !== '')
             <x-page-heading :title="'@'.(data_get($profile, 'username', $username) ?: $username)" :back="true" />
         @else

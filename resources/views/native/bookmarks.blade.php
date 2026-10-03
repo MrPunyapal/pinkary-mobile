@@ -1,5 +1,5 @@
 @php $viewerUsername = (string) data_get(\App\Support\AccountStore::active(), 'username', ''); @endphp
-<native:list native:key="bookmarks-list" on-end-reached="loadMore" class="w-full h-full bg-theme-background">
+<native:list native:key="bookmarks-list" on-end-reached="loadMore" :end-reached-buffer="5" class="w-full h-full bg-theme-background">
         <x-page-heading title="Bookmarks" size="3xl" />
 
         @if ($refreshing ?? false)

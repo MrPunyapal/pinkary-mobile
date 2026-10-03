@@ -18,7 +18,7 @@
         @endif
 
     {{-- Only post rows belong in this list; native pagination counts child views. --}}
-    <native:list native:key="feed-list" on-refresh="refreshFeed" on-end-reached="prefetchMore" class="w-full flex-1 bg-theme-surface">
+    <native:list native:key="feed-list" on-refresh="refreshFeed" on-end-reached="prefetchMore" :end-reached-buffer="5" class="w-full flex-1 bg-theme-surface">
         @if ($loading)
             <x-skeleton-feed />
         @elseif ($errorMessage !== '')

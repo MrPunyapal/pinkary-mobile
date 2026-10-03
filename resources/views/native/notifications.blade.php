@@ -2,7 +2,7 @@
     $shortTime = fn (?string $iso): string => \App\Support\DisplayText::relativeTime($iso);
 @endphp
 
-<native:list on-end-reached="loadMore" class="w-full h-full bg-theme-background">
+<native:list on-end-reached="loadMore" :end-reached-buffer="5" class="w-full h-full bg-theme-background">
     <native:column class="w-full gap-0">
         <x-page-heading title="Notifications">
             @if (! $loading && $errorMessage === '' && count($items) > 0)

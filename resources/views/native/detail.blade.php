@@ -1,5 +1,5 @@
 @php $viewerUsername = (string) data_get(\App\Support\AccountStore::active(), 'username', ''); @endphp
-<native:list native:key="detail-list" on-end-reached="loadMoreComments" class="w-full h-full bg-theme-background">
+<native:list native:key="detail-list" on-end-reached="loadMoreComments" :end-reached-buffer="5" class="w-full h-full bg-theme-background">
         <x-page-heading title="Post" :back="true" />
 
         @if ($refreshing ?? false)
