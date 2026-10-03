@@ -64,7 +64,7 @@ it('shows a loader without replacing posts while a single next page is in flight
     Http::assertSentCount(1);
 });
 
-it('offers manual loading when another page exists and removes it after the final page', function (): void {
+it('loads the next page when the list reaches the end and shows the end state after the final page', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::clear();
     $tasks = AsyncTask::fake();
@@ -74,7 +74,7 @@ it('offers manual loading when another page exists and removes it after the fina
         ->push(['data' => [pagingPost('q2')], 'links' => ['next' => null]]),
     ]);
 
-    Native::test(Home::class)->assertSee('Load more')->tap('Load more')
+    Native::test(Home::class)->assertDontSee('Load more')->call('prefetchMore')
         ->assertSet('page', 2)->assertSee('Post q1')->assertSee('Post q2')
         ->assertDontSee('Load more')->assertSee("You're all caught up.");
 

@@ -680,7 +680,7 @@ it('appends the next page when loading more', function (): void {
 
     Native::test(Home::class)
         ->assertSee('First page answer.')
-        ->assertSee('Load more')
+        ->assertDontSee('Load more')
         ->call('loadMore')
         ->assertSee('Second page answer.')
         ->assertSee("You're all caught up.")
