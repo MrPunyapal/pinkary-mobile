@@ -69,6 +69,8 @@
             {{-- The web's ask footer: submit and the Anonymously toggle on
                 one row (create.blade.php:423-430 shows Anonymously whenever
                 the composer is not sharing an update). --}}
+            <x-captcha-check :required="$captchaRequired" :loading="$captchaLoading" :completed="$captchaCompleted" :url="$captchaUrl" :error="$captchaError" />
+
             <native:row class="w-full items-center justify-between gap-2 mt-4 pt-3 border-t border-theme-outline-variant">
                 <native:button variant="primary" :disabled="$busy || ! $this->canPublish()" @tap="publish">{{ $busy ? 'Sending…' : 'Ask' }}</native:button>
 
@@ -279,6 +281,8 @@
             picker beside it, and Anonymously on the right, split by a top
             border in the modal composer (create.blade.php:405-431). --}}
         <native:column class="w-full gap-3 mt-4 pt-3 border-t border-theme-outline-variant">
+            <x-captcha-check :required="$captchaRequired" :loading="$captchaLoading" :completed="$captchaCompleted" :url="$captchaUrl" :error="$captchaError" />
+
             <native:row class="w-full items-center justify-between gap-2">
                 <native:row class="items-center gap-2">
                     <native:button variant="primary" :disabled="$busy || ! $this->canPublish()" @tap="publish">{{ $busy ? 'Publishing…' : (count($posts) > 0 ? 'Post thread' : 'Post') }}</native:button>

@@ -26,7 +26,7 @@
     "repositories": [
         {
             "type": "path",
-            "url": "../nativephp-plugin-impressions",
+            "url": "../../../packages/nativephp-plugin-impressions",
             "options": { "symlink": false, "reference": "none" }
         }
     ],

@@ -439,12 +439,15 @@ final class Home extends NativeComponent
             return;
         }
 
-        $api = app(PinkaryApi::class);
-        $response = $api->attempt(fn () => $api->notifications($token, 1, 1));
+        $this->async(static function () use ($token): array {
+            $response = app(PinkaryApi::class)->notifications($token, 1, 1);
 
-        if ($response?->successful()) {
-            UnreadCount::store((int) $response->json('meta.unread_count', 0));
-        }
+            return ['success' => $response->successful(), 'count' => (int) $response->json('meta.unread_count', 0)];
+        })->finished(static function (array $result) use ($token): void {
+            if ($result['success'] && AccountStore::activeToken() === $token) {
+                UnreadCount::store($result['count']);
+            }
+        })->failed(static function (\Throwable $exception): void {});
     }
 
     private function refreshCurrentUser(?string $token): void

@@ -615,6 +615,7 @@ it('uses the 255 character ask limit and does not restore thread drafts', functi
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
+        'https://pinkary.test/api/v1/channels*' => Http::response(['data' => []]),
     ]);
 
     Native::test(Compose::class)

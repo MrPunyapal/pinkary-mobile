@@ -1,0 +1,229 @@
+<?php
+
+declare(strict_types=1);
+
+use App\NativeComponents\Compose;
+use App\NativeComponents\Detail;
+use App\NativeComponents\Register;
+use App\Support\AccountStore;
+use App\Support\DraftStore;
+use GuzzleHttp\Promise\PromiseInterface;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
+use Native\Mobile\AsyncTask;
+use Native\Mobile\Testing\Native;
+use Native\Mobile\Testing\TestableComponent;
+
+beforeEach(function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::clear();
+    DraftStore::clear();
+    AsyncTask::fake();
+    Http::preventStrayRequests();
+});
+
+/** @return array<string, mixed> */
+function mobileCaptchaMetadata(bool $required = true): array
+{
+    return ['data' => ['required' => $required, 'widget_path' => '/api/v1/captcha/widget', 'return_path' => '/api/v1/captcha/result']];
+}
+
+function completedCaptchaUrl(TestableComponent $screen, string $token = 'captcha-token', string $status = 'success'): string
+{
+    return 'https://pinkary.test/api/v1/captcha/result?'.http_build_query([
+        'state' => $screen->get('captchaState'), 'status' => $status,
+    ]).'#'.rawurlencode($token);
+}
+
+function captchaRegisterForm(): TestableComponent
+{
+    return Native::test(Register::class)
+        ->set('name', 'Pinkary User')->set('username', 'pinkaryuser')->set('email', 'pinkary@example.com')
+        ->set('password', 'password')->set('passwordConfirmation', 'password')->set('terms', true);
+}
+
+it('renders a loading indicator without waiting for captcha metadata', function (): void {
+    AsyncTask::clearFake();
+    Native::fakeBridge()->respondTo('AsyncTask.Dispatch', ['success' => true]);
+
+    Native::test(Register::class)->assertSet('captchaLoading', true)->assertSee('Loading security check');
+
+    Http::assertNothingSent();
+});
+
+it('embeds only the hosted security challenge with JavaScript and storage enabled', function (): void {
+    Http::fake(['https://pinkary.test/api/v1/captcha*' => Http::response(mobileCaptchaMetadata())]);
+
+    $screen = Native::test(Register::class)->assertSet('captchaRequired', true)->assertSet('captchaLoading', false);
+
+    expect($screen->get('captchaUrl'))->toStartWith('https://pinkary.test/api/v1/captcha/widget?action=register&state=');
+    $nodes = collect(captchaTreeNodes($screen->tree()))->where('type', 'webview')->values();
+    expect($nodes)->toHaveCount(1);
+    expect($nodes[0]['props'])->toMatchArray(['javascript' => true, 'dom_storage' => true]);
+});
+
+/** @return list<array<string, mixed>> */
+function captchaTreeNodes(array $node): array
+{
+    $nodes = [$node];
+    foreach ($node['children'] ?? [] as $child) {
+        $nodes = [...$nodes, ...captchaTreeNodes($child)];
+    }
+
+    return $nodes;
+}
+
+it('keeps the registration form when the security check is not completed', function (): void {
+    Http::fake(['https://pinkary.test/api/v1/captcha*' => Http::response(mobileCaptchaMetadata())]);
+
+    captchaRegisterForm()->call('createAccount')->assertSet('name', 'Pinkary User')
+        ->assertSet('busy', false)->assertSee('Please complete the security check before submitting.');
+
+    Http::assertNotSent(fn (Request $request): bool => $request->method() === 'POST');
+});
+
+it('submits the verified token and state without putting the token in a request URL', function (): void {
+    Http::fake([
+        'https://pinkary.test/api/v1/captcha*' => Http::response(mobileCaptchaMetadata()),
+        'https://pinkary.test/api/v1/auth/register' => Http::response(['token' => 'account-token', 'data' => ['username' => 'pinkaryuser']], 201),
+    ]);
+    $screen = captchaRegisterForm();
+    $state = $screen->get('captchaState');
+
+    $screen->call('captchaNavigated', completedCaptchaUrl($screen))
+        ->assertSet('captchaCompleted', true)->assertSet('captchaUrl', '')
+        ->call('createAccount')->assertReplacedWith('/feed');
+
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'POST' && $request['cf-turnstile-response'] === 'captcha-token'
+        && $request['captcha_state'] === $state && ! str_contains($request->url(), 'captcha-token'));
+    expect(AccountStore::activeToken())->toBe('account-token');
+});
+
+it('ignores callbacks from an untrusted origin or stale challenge', function (string $template): void {
+    Http::fake(['https://pinkary.test/api/v1/captcha*' => Http::response(mobileCaptchaMetadata())]);
+    $screen = captchaRegisterForm();
+    $url = str_replace('{state}', $screen->get('captchaState'), $template);
+
+    $screen->call('captchaNavigated', $url)->assertSet('captchaCompleted', false)->call('createAccount');
+
+    Http::assertNotSent(fn (Request $request): bool => $request->method() === 'POST');
+})->with([
+    'wrong hostname' => 'https://evil.test/api/v1/captcha/result?state={state}&status=success#token',
+    'wrong scheme' => 'http://pinkary.test/api/v1/captcha/result?state={state}&status=success#token',
+    'wrong port' => 'https://pinkary.test:8443/api/v1/captcha/result?state={state}&status=success#token',
+    'wrong path' => 'https://pinkary.test/elsewhere?state={state}&status=success#token',
+    'wrong state' => 'https://pinkary.test/api/v1/captcha/result?state=stale&status=success#token',
+    'missing token' => 'https://pinkary.test/api/v1/captcha/result?state={state}&status=success',
+    'control characters' => 'https://pinkary.test/api/v1/captcha/result?state={state}&status=success#bad%0atoken',
+    'oversized token' => 'https://pinkary.test/api/v1/captcha/result?state={state}&status=success#'.str_repeat('a', 2049),
+]);
+
+it('refreshes failed challenges without losing entered fields', function (string $status): void {
+    Http::fake(['https://pinkary.test/api/v1/captcha*' => Http::response(mobileCaptchaMetadata())]);
+    $screen = captchaRegisterForm();
+    $state = $screen->get('captchaState');
+
+    $screen->call('captchaNavigated', completedCaptchaUrl($screen, status: $status))
+        ->assertSet('captchaCompleted', false)->assertSet('username', 'pinkaryuser')->assertSee('expired or failed');
+
+    expect($screen->get('captchaState'))->not->toBe($state);
+})->with(['expired', 'error', 'timeout']);
+
+it('expires solved tokens before reuse and preserves the form', function (): void {
+    Http::fake(['https://pinkary.test/api/v1/captcha*' => Http::response(mobileCaptchaMetadata())]);
+    $screen = captchaRegisterForm();
+    $screen->call('captchaNavigated', completedCaptchaUrl($screen));
+    $this->travel(241)->seconds();
+
+    $screen->call('createAccount')->assertSet('captchaCompleted', false)->assertSet('email', 'pinkary@example.com');
+
+    Http::assertNotSent(fn (Request $request): bool => $request->method() === 'POST');
+});
+
+it('replaces a consumed challenge after server rejection or network failure', function (bool $networkFailure): void {
+    Http::fake([
+        'https://pinkary.test/api/v1/captcha*' => Http::response(mobileCaptchaMetadata()),
+        'https://pinkary.test/api/v1/auth/register' => $networkFailure ? Http::failedConnection() : Http::response([
+            'errors' => ['cf-turnstile-response' => ['Security check rejected.']],
+        ], 422),
+    ]);
+    $screen = captchaRegisterForm();
+    $state = $screen->get('captchaState');
+
+    $screen->call('captchaNavigated', completedCaptchaUrl($screen))->call('createAccount')
+        ->assertSet('captchaCompleted', false)->assertSet('busy', false)->assertSet('name', 'Pinkary User');
+
+    expect($screen->get('captchaState'))->not->toBe($state);
+    expect(AccountStore::activeToken())->toBeNull();
+})->with(['server rejection' => false, 'offline' => true]);
+
+it('does not display a challenge when the API does not require it', function (): void {
+    Http::fake(['https://pinkary.test/api/v1/captcha*' => Http::response(mobileCaptchaMetadata(false))]);
+
+    Native::test(Register::class)->assertSet('captchaRequired', false)->assertSet('captchaUrl', '')
+        ->assertDontSee('Security check')->assertDontSee('Loading security check');
+});
+
+it('offers retry after metadata errors and rejects unsafe widget URLs', function (mixed $response): void {
+    Http::fake(['https://pinkary.test/api/v1/captcha*' => Http::response($response, 200)]);
+
+    Native::test(Register::class)->assertSet('captchaUrl', '')->assertSet('captchaLoading', false)->assertSee('Retry security check');
+})->with([
+    'missing metadata' => [[]],
+    'cross-origin widget' => [['data' => ['required' => true, 'widget_path' => '//evil.test/widget', 'return_path' => '/api/v1/captcha/result']]],
+]);
+
+it('requires a captcha token for threads and sends it with the draft', function (): void {
+    AccountStore::add('ada', 'account-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/captcha*' => Http::response(mobileCaptchaMetadata()),
+        'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
+        'https://pinkary.test/api/v1/channels*' => Http::response(['data' => []]),
+        'https://pinkary.test/api/v1/questions' => Http::response(['data' => []], 201),
+    ]);
+    $screen = Native::test(Compose::class)->set('content', 'Protected thread.');
+    $screen->call('publish')->assertSee('Please complete the security check');
+    Http::assertNotSent(fn (Request $request): bool => $request->method() === 'POST');
+
+    $screen->call('captchaNavigated', completedCaptchaUrl($screen))->call('publish')->assertNavigatedTo('/feed');
+
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'POST' && $request['content'] === 'Protected thread.'
+        && $request['cf-turnstile-response'] === 'captcha-token' && $request->hasHeader('Authorization', 'Bearer account-token'));
+});
+
+it('also sends the challenge with anonymous questions', function (): void {
+    AccountStore::add('ada', 'account-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/captcha*' => Http::response(mobileCaptchaMetadata()),
+        'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
+        'https://pinkary.test/api/v1/questions' => Http::response(['data' => []], 201),
+    ]);
+    $screen = Native::test(Compose::class, ['username' => 'grace'])->set('content', 'Protected question.')->set('anonymous', true);
+
+    $screen->call('captchaNavigated', completedCaptchaUrl($screen))->call('publish')->assertNavigatedTo('/user/grace');
+
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'POST' && $request['to_username'] === 'grace'
+        && $request['anonymously'] === true && $request['cf-turnstile-response'] === 'captcha-token');
+});
+
+it('sends a comment challenge and keeps the reply when it is rejected', function (): void {
+    AccountStore::add('ada', 'account-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/captcha*' => Http::response(mobileCaptchaMetadata()),
+        'https://pinkary.test/api/v1/questions/q1' => Http::response(['data' => [
+            'id' => 'q1', 'from' => ['username' => 'ada'], 'to' => ['username' => 'ada'],
+            'answer' => 'Public post.', 'content' => null, 'is_update' => true,
+        ]]),
+        'https://pinkary.test/api/v1/questions/q1/comments*' => fn (Request $request): PromiseInterface => $request->method() === 'GET'
+            ? Http::response(['data' => [], 'links' => ['next' => null]])
+            : Http::response(['errors' => ['cf-turnstile-response' => ['Security check rejected.']]], 422),
+        'https://pinkary.test/api/v1/questions/q1/views' => Http::response([], 204),
+    ]);
+    $screen = Native::test(Detail::class, ['id' => 'q1'])->set('comment', 'Protected reply.');
+
+    $screen->call('captchaNavigated', completedCaptchaUrl($screen))->call('postComment')
+        ->assertSet('comment', 'Protected reply.')->assertSet('captchaCompleted', false)->assertSee('Security check rejected.');
+
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'POST' && $request['content'] === 'Protected reply.'
+        && $request['cf-turnstile-response'] === 'captcha-token');
+});

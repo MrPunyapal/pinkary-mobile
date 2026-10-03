@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\NativeComponents;
 
 use App\NativeComponents\Concerns\UsesAppMenu;
+use App\NativeComponents\Concerns\UsesCaptcha;
 use App\Services\PinkaryApi;
 use App\Support\AccountStore;
 use App\Support\ApiErrors;
@@ -18,6 +19,7 @@ use Native\Mobile\Facades\Camera;
 final class Compose extends NativeComponent
 {
     use UsesAppMenu;
+    use UsesCaptcha;
 
     // Back arrow shows instead of the drawer hamburger (no overlap).
     protected bool $hidesDrawer = true;
@@ -153,6 +155,7 @@ final class Compose extends NativeComponent
         }
 
         $this->hydrateAvatar();
+        $this->loadCaptcha('post', $token);
         $this->restoreDraft();
         $this->validateState();
 
@@ -948,6 +951,10 @@ final class Compose extends NativeComponent
             }
         }
 
+        if (! $this->captchaReadyForSubmission()) {
+            return;
+        }
+
         $this->busy = true;
         $this->errorMessage = '';
 
@@ -961,7 +968,9 @@ final class Compose extends NativeComponent
             $pollOptions,
             $this->pollDuration,
             $threadPolls,
+            $this->captchaPayload(),
         ));
+        $this->captchaAttempted($response);
 
         $this->busy = false;
 
@@ -1030,11 +1039,16 @@ final class Compose extends NativeComponent
             return;
         }
 
+        if (! $this->captchaReadyForSubmission()) {
+            return;
+        }
+
         $this->busy = true;
         $this->errorMessage = '';
 
         $api = app(PinkaryApi::class);
-        $response = $api->attempt(fn () => $api->askQuestion($token, $this->askUsername, $content, $this->anonymous));
+        $response = $api->attempt(fn () => $api->askQuestion($token, $this->askUsername, $content, $this->anonymous, $this->captchaPayload()));
+        $this->captchaAttempted($response);
 
         $this->busy = false;
 

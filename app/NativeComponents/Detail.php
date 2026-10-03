@@ -6,6 +6,7 @@ namespace App\NativeComponents;
 
 use App\NativeComponents\Concerns\TogglesPostReactions;
 use App\NativeComponents\Concerns\UsesAppMenu;
+use App\NativeComponents\Concerns\UsesCaptcha;
 use App\Services\PinkaryApi;
 use App\Support\ApiErrors;
 use App\Support\DisplayText;
@@ -18,6 +19,7 @@ final class Detail extends NativeComponent
 
     use TogglesPostReactions;
     use UsesAppMenu;
+    use UsesCaptcha;
 
     // Back arrow shows instead of the drawer hamburger (no overlap).
     protected bool $hidesDrawer = true;
@@ -75,6 +77,9 @@ final class Detail extends NativeComponent
 
         // Reading a post is public on the web, so guests load it too.
         $this->load($this->token());
+        if (($token = $this->token()) !== null) {
+            $this->loadCaptcha('comment', $token);
+        }
     }
 
     public function retry(): void
@@ -269,11 +274,16 @@ final class Detail extends NativeComponent
             return;
         }
 
+        if (! $this->captchaReadyForSubmission()) {
+            return;
+        }
+
         $this->commentBusy = true;
         $this->commentError = '';
 
         $api = app(PinkaryApi::class);
-        $response = $api->attempt(fn () => $api->comment($token, $this->id, $content));
+        $response = $api->attempt(fn () => $api->comment($token, $this->id, $content, $this->captchaPayload()));
+        $this->captchaAttempted($response);
 
         $this->commentBusy = false;
 

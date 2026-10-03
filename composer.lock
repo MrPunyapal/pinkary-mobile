@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "9ef209bd3625c87001f75f1cc4fde665",
+    "content-hash": "eab1e11f5ac466dbb4c820d4ce20bd71",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -2505,7 +2505,7 @@
             "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "../nativephp-plugin-impressions"
+                "url": "../../../packages/nativephp-plugin-impressions"
             },
             "require": {
                 "illuminate/contracts": "^12.0|^13.0",
@@ -2548,9 +2548,6 @@
                 }
             },
             "scripts": {
-                "configure": [
-                    "@php configure.php"
-                ],
                 "test": [
                     "pest"
                 ],

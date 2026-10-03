@@ -39,6 +39,8 @@
                         @endif
                     </native:column>
 
+                    <x-captcha-check :required="$captchaRequired" :loading="$captchaLoading" :completed="$captchaCompleted" :url="$captchaUrl" :error="$captchaError" />
+
                     <native:button variant="primary" :disabled="$commentBusy" @tap="postComment">{{ $commentBusy ? 'Postingâ€¦' : 'Reply' }}</native:button>
                 </native:column>
             @endif

@@ -134,11 +134,16 @@ final class PinkaryApi
     /**
      * Create a Pinkary account and return its access token.
      *
-     * @param  array{name: string, username: string, email: string, password: string, password_confirmation: string, terms: bool}  $data
+     * @param  array{name: string, username: string, email: string, password: string, password_confirmation: string, terms: bool, cf-turnstile-response?: string, captcha_state?: string}  $data
      */
     public function register(array $data): Response
     {
         return $this->request()->post(self::PREFIX.'/auth/register', $data);
+    }
+
+    public function captcha(string $action, ?string $token = null): Response
+    {
+        return $this->authed($token)->get(self::PREFIX.'/captcha', ['action' => $action]);
     }
 
     /**
@@ -172,6 +177,7 @@ final class PinkaryApi
      * @param  list<string>  $threadPosts
      * @param  list<string>  $pollOptions
      * @param  array<int, array{options: list<string>, duration: int}|null>  $threadPolls
+     * @param  array{cf-turnstile-response?: string, captcha_state?: string}  $captcha
      */
     public function createThread(
         string $token,
@@ -181,11 +187,12 @@ final class PinkaryApi
         ?string $channelName = null,
         array $pollOptions = [],
         int $pollDuration = 1,
-        array $threadPolls = []
+        array $threadPolls = [],
+        array $captcha = []
     ): Response {
         return $this->request()->withToken($token)->post(
             self::PREFIX.'/questions',
-            $this->threadPayload($content, $threadPosts, $channelId, $channelName, $pollOptions, $pollDuration, $threadPolls)
+            [...$this->threadPayload($content, $threadPosts, $channelId, $channelName, $pollOptions, $pollDuration, $threadPolls), ...$captcha]
         );
     }
 
@@ -242,11 +249,14 @@ final class PinkaryApi
 
     /**
      * Comment on a question for the authenticated user.
+     *
+     * @param  array{cf-turnstile-response?: string, captcha_state?: string}  $captcha
      */
-    public function comment(string $token, string $id, string $content): Response
+    public function comment(string $token, string $id, string $content, array $captcha = []): Response
     {
         return $this->request()->withToken($token)->post(self::PREFIX."/questions/{$id}/comments", [
             'content' => $content,
+            ...$captcha,
         ]);
     }
 
@@ -392,13 +402,16 @@ final class PinkaryApi
 
     /**
      * Ask another user a question (255 chars, optionally anonymous).
+     *
+     * @param  array{cf-turnstile-response?: string, captcha_state?: string}  $captcha
      */
-    public function askQuestion(string $token, string $toUsername, string $content, bool $anonymously = false): Response
+    public function askQuestion(string $token, string $toUsername, string $content, bool $anonymously = false, array $captcha = []): Response
     {
         return $this->request()->withToken($token)->post(self::PREFIX.'/questions', [
             'content' => $content,
             'to_username' => $toUsername,
             'anonymously' => $anonymously,
+            ...$captcha,
         ]);
     }
 

@@ -44,6 +44,8 @@
                 </native:row>
             </native:column>
 
+            <x-captcha-check :required="$captchaRequired" :loading="$captchaLoading" :completed="$captchaCompleted" :url="$captchaUrl" :error="$captchaError" />
+
             <native:pressable class="w-full h-11 items-center justify-center rounded-md bg-theme-primary {{ $busy ? 'opacity-50' : '' }}" @tap="createAccount" a11y-label="Register">
                 <native:text class="text-sm font-semibold text-white">{{ $busy ? 'Creating account…' : 'Register' }}</native:text>
             </native:pressable>

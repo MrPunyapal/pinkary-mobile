@@ -639,9 +639,6 @@ it('toggles bookmarks through the action row', function (): void {
         'https://pinkary.test/api/v1/questions/q1/bookmark' => Http::sequence()
             ->push(['data' => ['bookmarked' => true, 'bookmarks' => 1]])
             ->push(['data' => ['bookmarked' => false, 'bookmarks' => 0]]),
-        // Feed entry also refreshes the tab badge (web nav counts per
-        // render), so the suite accounts for that request here.
-        'https://pinkary.test/api/v1/notifications*' => Http::response(['data' => [], 'meta' => ['unread_count' => 0]]),
     ]);
 
     $test = Native::test(Home::class)
@@ -653,7 +650,7 @@ it('toggles bookmarks through the action row', function (): void {
 
     expect($test->get('posts')[0]['metrics']['bookmarked'])->toBeFalse();
 
-    Http::assertSentCount(4);
+    Http::assertSentCount(3);
 });
 
 it('appends the next page when loading more', function (): void {
@@ -1378,6 +1375,7 @@ it('hides pin and delete when the viewer does not own the post', function (): vo
 });
 
 it('shows the unread count on the notifications tab', function (): void {
+    AsyncTask::fake();
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     // The bell only exists on the signed-in bar, so the current user

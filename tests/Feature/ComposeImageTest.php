@@ -6,6 +6,7 @@ use App\Support\CurrentUser;
 use App\Support\DraftStore;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Native\Mobile\AsyncTask;
 use Native\Mobile\Events\Gallery\MediaSelected;
 use Native\Mobile\Testing\Native;
 
@@ -97,6 +98,7 @@ it('says so plainly when the picked file cannot be read', function (): void {
 
 it('blames the jump split rather than the device', function (): void {
     fakeImageUpload([]);
+    AsyncTask::fake();
 
     // JumpCommand exports this into the artisan serve process, which is how
     // the app can tell the file is on the phone while PHP is on this machine.
@@ -204,6 +206,7 @@ it('reports a picker that failed outright', function (): void {
 
 it('surfaces the API validation message', function (): void {
     Http::fake([
+        'https://pinkary.test/api/v1/channels*' => Http::response(['data' => []]),
         'https://pinkary.test/api/v1/images' => Http::response([
             'message' => 'The image may not be greater than 8192 kilobytes.',
             'errors' => ['images.0' => ['The image may not be greater than 8192 kilobytes.']],

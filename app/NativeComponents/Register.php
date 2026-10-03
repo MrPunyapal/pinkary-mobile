@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\NativeComponents;
 
+use App\NativeComponents\Concerns\UsesCaptcha;
 use App\Services\PinkaryApi;
 use App\Services\TokenStorage;
 use App\Support\AccountStore;
@@ -17,6 +18,13 @@ use Native\Mobile\Platform;
 
 final class Register extends NativeComponent
 {
+    use UsesCaptcha;
+
+    public function mount(): void
+    {
+        $this->loadCaptcha('register');
+    }
+
     public string $name = '';
 
     public string $username = '';
@@ -93,15 +101,29 @@ final class Register extends NativeComponent
             return;
         }
 
+        if (! $this->captchaReadyForSubmission()) {
+            return;
+        }
+
         $this->busy = true;
-        $response = app(PinkaryApi::class)->register([
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->register([
             'name' => $this->name,
             'username' => $this->username,
             'email' => $this->email,
             'password' => $this->password,
             'password_confirmation' => $this->passwordConfirmation,
             'terms' => $this->terms,
-        ]);
+            ...$this->captchaPayload(),
+        ]));
+        $this->captchaAttempted($response);
+
+        if ($response === null) {
+            $this->busy = false;
+            $this->errorMessage = 'We could not reach Pinkary. Please try again.';
+
+            return;
+        }
 
         if ($response->successful() && is_string($token = $response->json('token'))) {
             $userData = $response->json('data') ?? $response->json('user');
