@@ -11,6 +11,8 @@
             <native:text class="text-sm font-medium text-theme-primary">Try again</native:text>
         </native:pressable>
     </native:column>
+@elseif ($hasMore)
+    <x-load-more :tap="$tap" />
 @elseif ($endText !== null && ! $hasMore)
     <native:column class="w-full items-center px-5 py-5">
         <native:text class="text-base text-center text-theme-on-surface-variant">{{ $endText }}</native:text>

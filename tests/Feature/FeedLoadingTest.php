@@ -54,6 +54,7 @@ it('shows a loader without replacing posts while a single next page is in flight
 
     $screen = Native::test(Home::class)->call('prefetchMore')->call('prefetchMore')
         ->assertSet('loadingMore', true)->assertSee('Post q1')->assertElement('activity_indicator')
+        ->assertDontSee('Load more')
         ->assertNativeCalledTimes('AsyncTask.Dispatch', 1);
     $id = $screen->bridge()->callsTo('AsyncTask.Dispatch')[0]['params']['id'];
     AsyncTaskTransport::forgetPayload($id);
@@ -61,6 +62,24 @@ it('shows a loader without replacing posts while a single next page is in flight
         ->assertSet('loadingMore', false)->assertSet('page', 2)->assertSee('Post q2')->assertMissingElement('activity_indicator');
 
     Http::assertSentCount(1);
+});
+
+it('offers manual loading when another page exists and removes it after the final page', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::clear();
+    $tasks = AsyncTask::fake();
+    Http::preventStrayRequests();
+    Http::fake(['https://pinkary.test/api/v1/feed*' => Http::sequence()
+        ->push(['data' => [pagingPost('q1')], 'links' => ['next' => '?page=2']])
+        ->push(['data' => [pagingPost('q2')], 'links' => ['next' => null]]),
+    ]);
+
+    Native::test(Home::class)->assertSee('Load more')->tap('Load more')
+        ->assertSet('page', 2)->assertSee('Post q1')->assertSee('Post q2')
+        ->assertDontSee('Load more')->assertSee("You're all caught up.");
+
+    Http::assertSentCount(2);
+    $tasks->assertDispatchedTimes(1);
 });
 
 it('stops the loader and retains the retryable page when background paging fails', function (): void {

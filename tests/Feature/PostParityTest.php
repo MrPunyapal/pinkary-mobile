@@ -390,7 +390,7 @@ it('renders body text in the web body tone with the web line heights', function 
         ->and($answer['props']['dark_color'])->toBe('#E2E8F0');
 });
 
-it('draws the link preview title as a bottom overlay with no card border', function (): void {
+it('shows the full preview image with its title below and no card border', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     parityFakeFeed([parityPost('Linked answer.', [
@@ -415,12 +415,11 @@ it('draws the link preview title as a bottom overlay with no card border', funct
         ->and($card['style']['border_width'] ?? null)->toBeNull()
         ->and($card['style']['border_radius'] ?? null)->toEqual(8.0);
 
-    $overlay = parityFind($card, fn (array $n): bool => ($n['layout']['position_type'] ?? null) === 1);
+    $caption = $card['children'][1];
 
-    expect($overlay)->not->toBeNull()
-        ->and($overlay['style']['bg_color'])->toBe('#8C9D174D')
-        ->and($overlay['layout']['position'])->toEqual([0, -0, -0, -0])
-        ->and($overlay['layout']['padding'] ?? null)->toEqual([4.0, 8.0, 4.0, 8.0]);
+    expect($caption['layout']['position_type'] ?? null)->not->toBe(1);
+    expect($caption['style']['bg_color'])->toBe('#8C9D174D');
+    expect($card['children'][0]['props']['fit'])->toBe(1);
 
     $title = parityByText($card, 'A link preview');
 
@@ -475,8 +474,37 @@ it('drops the border from answer images and rounds them like the web', function 
     $image = parityFind($tree, fn (array $n): bool => ($n['props']['src'] ?? null) === 'https://example.test/a.png');
 
     expect($image)->not->toBeNull()
+        ->and($image['props']['fit'])->toBe(1)
         ->and($image['style']['border_width'] ?? null)->toBeNull()
         ->and($image['style']['border_radius'])->toEqual(12.0);
+});
+
+it('gives uploaded images priority over a stored link preview', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::clear();
+    parityFakeFeed([parityPost('An image and a link.', [
+        'images' => ['https://example.test/upload.png'],
+        'preview' => ['url' => 'https://example.test/article', 'host' => 'example.test', 'image' => 'https://example.test/preview.png'],
+    ])]);
+
+    $screen = Native::test(Home::class);
+
+    $screen->assertDontSee('Open link: example.test');
+    expect(parityFind($screen->tree(), fn (array $n): bool => ($n['props']['src'] ?? null) === 'https://example.test/upload.png'))->not->toBeNull();
+    expect(parityFind($screen->tree(), fn (array $n): bool => ($n['props']['src'] ?? null) === 'https://example.test/preview.png'))->toBeNull();
+});
+
+it('keeps multiple images in an ordered horizontal gallery without cropping them', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::clear();
+    parityFakeFeed([parityPost('Two images.', ['images' => ['https://example.test/one.png', 'https://example.test/two.png']])]);
+
+    $screen = Native::test(Home::class)->assertSee('Swipe to see all 2 images');
+    $gallery = parityFind($screen->tree(), fn (array $n): bool => ($n['type'] ?? null) === 'list' && ($n['props']['horizontal'] ?? false));
+
+    expect($gallery['children'])->toHaveCount(2);
+    expect($gallery['children'][0]['children'][0]['props'])->toMatchArray(['src' => 'https://example.test/one.png', 'fit' => 1]);
+    expect($gallery['children'][1]['children'][0]['props'])->toMatchArray(['src' => 'https://example.test/two.png', 'fit' => 1]);
 });
 
 it('insets the asker box and the avatar lane 8px like the web per-thread padding', function (): void {

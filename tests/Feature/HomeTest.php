@@ -117,7 +117,7 @@ it('renders the Pinkary feed from the API', function (): void {
         ->assertSee('A thoughtful mobile experience.');
 });
 
-it('renders channel, edited time, preview, images, and polls', function (): void {
+it('renders channel edited time images and polls with images taking preview priority', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
@@ -156,8 +156,8 @@ it('renders channel, edited time, preview, images, and polls', function (): void
         ->assertSee('Laravel')
         ->assertSee('Edited:')
         ->assertSee('ago')
-        ->assertSee('Punyapal Shah | Laravel Engineer')
-        ->assertSee('mrpunyapal.dev')
+        ->assertDontSee('Punyapal Shah | Laravel Engineer')
+        ->assertSee('Open image fullscreen')
         ->assertSee('Rails')
         ->assertSee('3 votes');
 });
@@ -458,7 +458,7 @@ it('shows the end-of-feed message when nothing is left', function (): void {
     ]);
 
     Native::test(Home::class)
-        ->assertSee('There are no more questions to load');
+        ->assertSee("You're all caught up.");
 });
 
 it('marks company-verified authors', function (): void {
@@ -680,10 +680,10 @@ it('appends the next page when loading more', function (): void {
 
     Native::test(Home::class)
         ->assertSee('First page answer.')
-        ->assertDontSee('Load more')
+        ->assertSee('Load more')
         ->call('loadMore')
         ->assertSee('Second page answer.')
-        ->assertSee('There are no more questions to load, or you have scrolled too far.')
+        ->assertSee("You're all caught up.")
         ->assertDontSee('Load more');
 });
 
@@ -884,7 +884,7 @@ it('opens post images fullscreen through the in-app browser link handler', funct
     ]);
 
     Native::test(Home::class)
-        ->press("openLink('https://pinkary.test/storage/a.png')")
+        ->tap('Open image fullscreen')
         ->assertSee('A post with an image.');
 });
 

@@ -1,0 +1,56 @@
+name: Check iOS simulator
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  simulator:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - name: Check out Pinkary Mobile
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          coverage: none
+
+      - name: Prepare app
+        run: |
+          cp .env.example .env
+          composer install --prefer-dist --no-interaction --no-progress
+          php artisan key:generate --no-interaction
+
+      - name: Install NativePHP iOS resources
+        run: php artisan native:install ios --no-interaction
+
+      - name: Build real simulator app with all plugins
+        env:
+          NATIVEPHP_APP_VERSION: '1.0.0'
+          NATIVEPHP_APP_VERSION_CODE: '1'
+        run: |
+          set -euo pipefail
+          simulator=$(xcrun simctl list devices available --json | jq -r '[.devices[][] | select(.isAvailable and (.name | startswith("iPhone")))][0].udid')
+          test "$simulator" != null
+          php artisan native:build --simulated --target="$simulator" --no-tty --no-interaction
+
+      - name: Upload simulator app
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pinkary-ios-simulator
+          path: nativephp/ios/build/Build/Products/Debug-iphonesimulator/*.app
+          if-no-files-found: error
+
+      - name: Upload compiler log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pinkary-ios-compiler-log
+          path: nativephp/ios-build.log
+          if-no-files-found: ignore

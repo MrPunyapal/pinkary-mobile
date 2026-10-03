@@ -16,7 +16,7 @@
                 </native:pressable>
             </native:column>
         @else
-            <x-thread-post :post="$post" :expanded-ids="$expanded" :viewer-username="$viewerUsername" />
+            <x-thread-post :post="$post" :expanded-ids="$expanded" :viewer-username="$viewerUsername" :full="true" />
 
             @if ($voteError !== '')
                 <native:column class="w-full p-4 gap-3 bg-theme-destructive/15 border-b border-theme-destructive">

@@ -1,4 +1,4 @@
-@props(['post', 'rail' => false, 'railTop' => false, 'moreLink' => null, 'flushTop' => false, 'bare' => false, 'expanded' => false, 'comment' => false, 'viewerUsername' => null])
+@props(['post', 'rail' => false, 'railTop' => false, 'moreLink' => null, 'flushTop' => false, 'bare' => false, 'expanded' => false, 'full' => false, 'comment' => false, 'viewerUsername' => null])
 
 @php
     $anonymous = (bool) data_get($post, 'anonymously', false);
@@ -29,7 +29,7 @@
     // Native views cannot measure text height; approximate 640px with 27 lines of 36 characters.
     $answerLimit = 972;
     $answerLong = mb_strlen($answerText) > $answerLimit;
-    $answerShown = $expanded || ! $answerLong
+    $answerShown = $full || $expanded || ! $answerLong
         ? $answerText
         : mb_substr($answerText, 0, $answerLimit).'…';
     $hasMoreLink = $moreLink !== null && $moreLink !== '';
@@ -119,25 +119,21 @@
                         @endif
                     </native:row>
                 </native:row>
-                <x-post-text :html="$comment && $answerText === '' ? data_get($post, 'content') : data_get($post, 'answer')" :post-id="$postId" :limit="! $comment && ! $expanded && $answerLong ? $answerLimit : null" />
+                <x-post-text :html="$comment && $answerText === '' ? data_get($post, 'content') : data_get($post, 'answer')" :post-id="$postId" :limit="! $comment && ! $full && ! $expanded && $answerLong ? $answerLimit : null" />
 
                 @unless ($comment)
-                @if ($answerLong)
+                @if ($answerLong && ! $full)
                     <x-show-more :post-id="$postId" :expanded="$expanded" />
                 @endif
 
-                @foreach ($images as $src)
-                    <native:pressable @tap="openLink('{{ $src }}')" a11y-label="Open image fullscreen">
-                        <x-lazy-image src="{{ $src }}" alt="Post image" class="w-full h-48 object-cover rounded-xl" />
-                    </native:pressable>
-                @endforeach
+                <x-post-images :images="$images" />
 
-                @if (is_array($preview) && ($preview['url'] ?? '') !== '')
+                @if ($images === [] && is_array($preview) && ($preview['url'] ?? '') !== '')
                     <native:pressable @tap="openLink('{{ $preview['url'] }}')" a11y-label="Open link: {{ $preview['host'] ?? $preview['url'] }}">
                         @if (($preview['image'] ?? null) !== null && $preview['image'] !== '')
                             <native:column class="w-full gap-0 rounded-lg relative">
-                                <x-lazy-image src="{{ $preview['image'] }}" alt="{{ $preview['title'] ?? $preview['url'] }}" class="w-full h-36 object-cover rounded-lg" />
-                                <native:column class="absolute right-0 bottom-0 left-0 w-full gap-0 px-2 py-1 rounded-b-lg bg-pink-800/55">
+                                <x-lazy-image src="{{ $preview['image'] }}" alt="{{ $preview['title'] ?? $preview['url'] }}" class="w-full h-48 object-contain rounded-lg" />
+                                <native:column class="w-full gap-0 px-2 py-1 rounded-b-lg bg-pink-800/55">
                                     <native:text class="text-xs font-semibold text-white" max-lines="1">{{ $preview['title'] ?? $preview['url'] }}</native:text>
                                 </native:column>
                             </native:column>

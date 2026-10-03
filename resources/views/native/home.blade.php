@@ -65,10 +65,12 @@
                 <x-thread-post :post="$post" :expanded-ids="$expanded" :viewer-username="$viewerUsername" />
             @endforeach
 
-            <x-list-footer :loading="$loadingMore" :error="$loadMoreError" tap="loadMore" :has-more="$hasMore" end-text="There are no more questions to load, or you have scrolled too far." />
         @endif
 
     </native:list>
+    @if (! $loading && $errorMessage === '' && count($posts) > 0)
+        <x-list-footer :loading="$loadingMore" :error="$loadMoreError" tap="loadMore" :has-more="$hasMore" end-text="You're all caught up." />
+    @endif
 </native:column>
 
 @php

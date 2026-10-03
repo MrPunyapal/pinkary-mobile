@@ -2506,12 +2506,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/MrPunyapal/nativephp-plugin-impressions.git",
-                "reference": "c5a3771124c204feb377f53e0f716aa6189b993a"
+                "reference": "8f140e156702c2a6b53b6b166d3ab17b50fa5c07"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/MrPunyapal/nativephp-plugin-impressions/zipball/c5a3771124c204feb377f53e0f716aa6189b993a",
-                "reference": "c5a3771124c204feb377f53e0f716aa6189b993a",
+                "url": "https://api.github.com/repos/MrPunyapal/nativephp-plugin-impressions/zipball/8f140e156702c2a6b53b6b166d3ab17b50fa5c07",
+                "reference": "8f140e156702c2a6b53b6b166d3ab17b50fa5c07",
                 "shasum": ""
             },
             "require": {
@@ -2573,7 +2573,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-10-03T12:01:16+00:00"
+            "time": "2026-10-03T18:43:33+00:00"
         },
         {
             "name": "nativephp/mobile",
