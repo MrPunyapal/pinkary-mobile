@@ -12,6 +12,7 @@ use App\Support\CurrentUser;
 use App\Support\DisplayText;
 use App\Support\PostViews;
 use Illuminate\Support\Carbon;
+use Native\Mobile\Attributes\Poll;
 use Native\Mobile\Browser;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Share;
@@ -33,17 +34,42 @@ trait TogglesPostReactions
 
         $token = $this->token();
         $viewer = PostViews::viewerId();
-        $key = PostViews::claim($id, $token, $viewer);
-        if ($key === null) {
+        if (PostViews::enqueue($id, $token, $viewer)) {
+            $this->sendPostViews($token, $viewer, false);
+        }
+    }
+
+    #[Poll(5000)]
+    public function flushPostViews(): void
+    {
+        $this->sendPostViews($this->token(), PostViews::viewerId(), true);
+    }
+
+    public function unmount(): void
+    {
+        $this->flushPostViews();
+        parent::unmount();
+    }
+
+    private function sendPostViews(?string $token, string $viewer, bool $force): void
+    {
+        $batch = PostViews::takeBatch($token, $viewer, $force);
+        if ($batch === null) {
             return;
         }
 
-        $this->async(static function () use ($id, $token, $viewer): bool {
-            return app(PinkaryApi::class)->recordView($token, $id, $viewer)->successful();
-        })->finished(static function (bool $accepted) use ($key): void {
-            PostViews::finish($key, $accepted);
-        })->failed(static function (\Throwable $exception) use ($key): void {
-            PostViews::finish($key, false);
+        $this->async(static function () use ($batch, $token, $viewer): void {
+            $accepted = false;
+            $retryAfter = 0;
+            try {
+                $response = app(PinkaryApi::class)->recordViews($token, $batch['ids'], $viewer);
+                $accepted = $response->successful();
+                $retryAfter = (int) $response->header('Retry-After');
+            } finally {
+                PostViews::finishBatch($batch, $accepted, $retryAfter);
+            }
+        })->failed(static function (\Throwable $exception) use ($batch): void {
+            PostViews::finishBatch($batch, false);
         });
     }
 

@@ -166,9 +166,13 @@ final class PinkaryApi
         ]);
     }
 
-    public function recordView(?string $token, string $id, string $viewer): Response
+    /** @param list<string> $ids */
+    public function recordViews(?string $token, array $ids, string $viewer): Response
     {
-        return $this->authed($token)->withUserAgent('PinkaryMobile/1.0')->timeout(3)->post(self::PREFIX."/questions/{$id}/views", ['viewer_id' => $viewer]);
+        return $this->authed($token)->withUserAgent('PinkaryMobile/1.0')->connectTimeout(2)->timeout(3)->post(self::PREFIX.'/questions/views', [
+            'question_ids' => $ids,
+            'viewer_id' => $viewer,
+        ]);
     }
 
     /**

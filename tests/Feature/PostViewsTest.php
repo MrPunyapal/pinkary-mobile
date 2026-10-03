@@ -17,55 +17,71 @@ beforeEach(function (): void {
     AccountStore::clear();
 });
 
-function impressionFeed(): array
+function impressionFeed(int $count = 2): array
 {
-    return ['data' => [[
+    $posts = [[
         'id' => 'q1', 'is_update' => true, 'answer' => 'A visible post.',
         'to' => ['name' => 'Ada', 'username' => 'ada'],
     ], [
         'id' => 'q2', 'is_update' => true, 'answer' => 'A prefetched post.',
         'to' => ['name' => 'Grace', 'username' => 'grace'],
-    ]]];
+    ]];
+
+    for ($index = 3; $index <= $count; $index++) {
+        $posts[] = ['id' => 'q'.$index, 'is_update' => true, 'answer' => 'Post '.$index, 'to' => ['name' => 'Ada', 'username' => 'ada']];
+    }
+
+    return ['data' => $posts];
 }
 
 it('does not count fetched posts and sends a guest impression only when native visibility fires', function (): void {
     AsyncTask::fake();
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(impressionFeed()),
-        'https://pinkary.test/api/v1/questions/q1/views' => Http::response('', 204),
+        'https://pinkary.test/api/v1/questions/views' => Http::response('', 204),
     ]);
     $screen = Native::test(Home::class)->assertElement('impression', fn (array $node): bool => ($node['props']['identity'] ?? '') === 'q1' && ($node['props']['dwell_ms'] ?? 0) === 500);
     Http::assertNotSent(fn (Request $request): bool => str_ends_with($request->url(), '/views'));
 
     $screen->call('recordPostView', 'q1')->call('recordPostView', 'q1');
-    Http::assertSent(fn (Request $request): bool => $request->url() === 'https://pinkary.test/api/v1/questions/q1/views'
-        && $request->method() === 'POST' && Str::isUuid($request['viewer_id']) && ! $request->hasHeader('Authorization'));
+    Http::assertNotSent(fn (Request $request): bool => str_ends_with($request->url(), '/views'));
+    $screen->call('flushPostViews');
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'https://pinkary.test/api/v1/questions/views'
+        && $request['question_ids'] === ['q1'] && $request->method() === 'POST' && Str::isUuid($request['viewer_id']) && ! $request->hasHeader('Authorization'));
     expect(collect(Http::recorded())->filter(fn (array $pair): bool => str_ends_with($pair[0]->url(), '/views')))->toHaveCount(1);
-    Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), '/q2/views'));
+    Http::assertNotSent(fn (Request $request): bool => in_array('q2', $request['question_ids'] ?? [], true));
 });
 
 it('uses the signed in bearer token and lets failed impressions retry without breaking the feed', function (): void {
     AsyncTask::fake();
+    $this->freezeTime();
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(impressionFeed()),
-        'https://pinkary.test/api/v1/questions/q1/views' => Http::sequence()->pushStatus(503)->pushStatus(204),
+        'https://pinkary.test/api/v1/questions/views' => Http::sequence()->pushStatus(503)->pushStatus(204),
         'https://pinkary.test/api/v1/notifications*' => Http::response(['data' => []]),
     ]);
-    Native::test(Home::class)->call('recordPostView', 'q1')->call('recordPostView', 'q1')->assertSee('A visible post.')->assertSet('errorMessage', '');
-    Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/q1/views') && $request->hasHeader('Authorization', 'Bearer test-token'));
+    $screen = Native::test(Home::class)->call('recordPostView', 'q1')->call('flushPostViews')->call('flushPostViews');
+    expect(collect(Http::recorded())->filter(fn (array $pair): bool => str_ends_with($pair[0]->url(), '/views')))->toHaveCount(1);
+    $this->travel(5)->seconds();
+    $screen->call('flushPostViews')->assertSee('A visible post.')->assertSet('errorMessage', '');
+    Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/questions/views') && $request['question_ids'] === ['q1'] && $request->hasHeader('Authorization', 'Bearer test-token'));
     expect(collect(Http::recorded())->filter(fn (array $pair): bool => str_ends_with($pair[0]->url(), '/views')))->toHaveCount(2);
 });
 
 it('uses a stable guest identity and does not expose a token in cache keys', function (): void {
+    $this->freezeTime();
     $viewer = PostViews::viewerId();
     expect(Str::isUuid($viewer))->toBeTrue()->and(PostViews::viewerId())->toBe($viewer);
-    $key = PostViews::claim('q1', 'secret-token', $viewer);
-    expect($key)->not->toContain('secret-token');
-    PostViews::finish($key, true);
-    expect(PostViews::claim('q1', 'secret-token', $viewer))->toBeNull();
+    PostViews::enqueue('q1', 'secret-token', $viewer);
+    $batch = PostViews::takeBatch('secret-token', $viewer, true);
+    expect($batch['key'])->not->toContain('secret-token');
+    PostViews::finishBatch($batch, true);
+    PostViews::enqueue('q1', 'secret-token', $viewer);
+    expect(PostViews::takeBatch('secret-token', $viewer, true))->toBeNull();
     $this->travel(121)->minutes();
-    expect(PostViews::claim('q1', 'secret-token', $viewer))->not->toBeNull();
+    PostViews::enqueue('q1', 'secret-token', $viewer);
+    expect(PostViews::takeBatch('secret-token', $viewer, true)['ids'])->toBe(['q1']);
 });
 
 it('rejects callbacks for posts not loaded on the screen', function (): void {
@@ -73,4 +89,115 @@ it('rejects callbacks for posts not loaded on the screen', function (): void {
     Http::fake(['https://pinkary.test/api/v1/feed*' => Http::response(impressionFeed())]);
     Native::test(Home::class)->call('recordPostView', 'not-loaded');
     Http::assertNotSent(fn (Request $request): bool => str_ends_with($request->url(), '/views'));
+});
+
+it('sends ten visible posts in one request and flushes the remaining posts on the timer', function (): void {
+    AsyncTask::fake();
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(impressionFeed(12)),
+        'https://pinkary.test/api/v1/questions/views' => Http::response('', 204),
+    ]);
+    $screen = Native::test(Home::class);
+
+    foreach (range(1, 9) as $index) {
+        $screen->call('recordPostView', 'q'.$index);
+    }
+    Http::assertNotSent(fn (Request $request): bool => str_ends_with($request->url(), '/views'));
+    $screen->call('recordPostView', 'q10')->call('recordPostView', 'q11')->call('recordPostView', 'q12');
+    Http::assertSent(fn (Request $request): bool => ($request['question_ids'] ?? []) === ['q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8', 'q9', 'q10']);
+    $screen->call('flushPostViews');
+    Http::assertSent(fn (Request $request): bool => ($request['question_ids'] ?? []) === ['q11', 'q12']);
+    expect(collect(Http::recorded())->filter(fn (array $pair): bool => str_ends_with($pair[0]->url(), '/views')))->toHaveCount(2);
+});
+
+it('flushes a partial batch when a screen unmounts', function (): void {
+    AsyncTask::fake();
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(impressionFeed()),
+        'https://pinkary.test/api/v1/questions/views' => Http::response('', 204),
+    ]);
+
+    Native::test(Home::class)->call('recordPostView', 'q1')->call('unmount');
+
+    Http::assertSent(fn (Request $request): bool => ($request['question_ids'] ?? []) === ['q1']);
+});
+
+it('keeps queued impressions when another screen becomes active', function (): void {
+    AsyncTask::fake();
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(impressionFeed()),
+        'https://pinkary.test/api/v1/questions/views' => Http::response('', 204),
+    ]);
+    Native::test(Home::class)->call('recordPostView', 'q1');
+
+    Native::test(Home::class)->call('recordPostView', 'q2')->call('flushPostViews');
+
+    Http::assertSent(fn (Request $request): bool => ($request['question_ids'] ?? []) === ['q1', 'q2']);
+});
+
+it('isolates pending batches between accounts and guests', function (): void {
+    $viewer = PostViews::viewerId();
+    PostViews::enqueue('guest-post', null, $viewer);
+    PostViews::enqueue('ada-post', 'ada-token', $viewer);
+    PostViews::enqueue('grace-post', 'grace-token', $viewer);
+
+    $batch = PostViews::takeBatch('ada-token', $viewer, true);
+    PostViews::finishBatch($batch, true);
+
+    expect($batch['ids'])->toBe(['ada-post']);
+    expect(PostViews::takeBatch('grace-token', $viewer, true)['ids'])->toBe(['grace-post']);
+    expect(PostViews::takeBatch(null, $viewer, true)['ids'])->toBe(['guest-post']);
+});
+
+it('keeps new arrivals while a batch is in flight and recovers an expired delivery lease', function (): void {
+    $this->freezeTime();
+    $viewer = PostViews::viewerId();
+    PostViews::enqueue('q1', null, $viewer);
+    $original = PostViews::takeBatch(null, $viewer, true);
+    PostViews::enqueue('q2', null, $viewer);
+    expect(PostViews::takeBatch(null, $viewer, true))->toBeNull();
+
+    $this->travel(31)->seconds();
+    $replacement = PostViews::takeBatch(null, $viewer, true);
+    PostViews::finishBatch($original, true);
+    expect(PostViews::takeBatch(null, $viewer, true))->toBeNull();
+    PostViews::enqueue('q3', null, $viewer);
+    PostViews::finishBatch($replacement, true);
+
+    expect($replacement['ids'])->toBe(['q1', 'q2']);
+    expect(PostViews::takeBatch(null, $viewer, true)['ids'])->toBe(['q3']);
+});
+
+it('retains a batch after a connection failure and retries without a second visibility event', function (): void {
+    $this->freezeTime();
+    AsyncTask::fake();
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(impressionFeed()),
+        'https://pinkary.test/api/v1/questions/views' => Http::failedConnection(),
+    ]);
+    $screen = Native::test(Home::class)->call('recordPostView', 'q1')->call('flushPostViews')->assertSet('errorMessage', '');
+    Http::fake(['https://pinkary.test/api/v1/questions/views' => Http::response('', 204)]);
+
+    $this->travel(5)->seconds();
+    $screen->call('flushPostViews');
+
+    Http::assertSent(fn (Request $request): bool => ($request['question_ids'] ?? []) === ['q1']);
+});
+
+it('honors the APIs retry after interval for a rate limited batch', function (): void {
+    $this->freezeTime();
+    AsyncTask::fake();
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(impressionFeed()),
+        'https://pinkary.test/api/v1/questions/views' => Http::sequence()->push('', 429, ['Retry-After' => '45'])->pushStatus(204),
+    ]);
+    $screen = Native::test(Home::class)->call('recordPostView', 'q1')->call('flushPostViews');
+    $this->travel(44)->seconds();
+    $screen->call('flushPostViews');
+    expect(collect(Http::recorded())->filter(fn (array $pair): bool => str_ends_with($pair[0]->url(), '/views')))->toHaveCount(1);
+
+    $this->travel(1)->seconds();
+    $screen->call('flushPostViews');
+
+    expect(collect(Http::recorded())->filter(fn (array $pair): bool => str_ends_with($pair[0]->url(), '/views')))->toHaveCount(2);
 });
