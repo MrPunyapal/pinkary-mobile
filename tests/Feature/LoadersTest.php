@@ -141,7 +141,7 @@ it('lazy-loads avatars and post images', function (): void {
 
     $test = Native::test(Home::class)
         ->assertSee('A post with an image.')
-        ->press("openLink('https://pinkary.test/storage/a.png')");
+        ->tap('Open image fullscreen');
 
     expect(countTreeType($test->tree(), 'image'))->toBeGreaterThanOrEqual(2);
 });
