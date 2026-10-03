@@ -53,6 +53,12 @@ return [
             'lock_path' => storage_path('framework/cache/data'),
         ],
 
+        'impressions' => [
+            'driver' => 'file',
+            'path' => storage_path('app/impressions'),
+            'lock_path' => storage_path('app/impressions'),
+        ],
+
         'storage' => [
             'driver' => 'storage',
             'disk' => env('CACHE_STORAGE_DISK'),

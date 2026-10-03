@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Support;
 
+use Illuminate\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Native\Mobile\Facades\SecureStorage;
@@ -35,15 +36,15 @@ final class PostViews
     {
         $key = self::queueKey($token, $viewer);
 
-        return Cache::lock($key.':mutex', 5)->block(1, static function () use ($key, $id): bool {
-            if (Cache::has($key.':seen:'.$id)) {
+        return self::cache()->lock($key.':mutex', 5)->block(1, static function () use ($key, $id): bool {
+            if (self::cache()->has($key.':seen:'.$id)) {
                 return false;
             }
 
             $queue = self::queue($key);
             if (! in_array($id, $queue['pending'], true)) {
                 $queue['pending'][] = $id;
-                Cache::put($key, $queue, now()->addHours(2));
+                self::cache()->put($key, $queue, now()->addHours(2));
             }
 
             return count($queue['pending']) >= self::BATCH_SIZE
@@ -57,7 +58,7 @@ final class PostViews
     {
         $key = self::queueKey($token, $viewer);
 
-        return Cache::lock($key.':mutex', 5)->block(1, static function () use ($key, $force): ?array {
+        return self::cache()->lock($key.':mutex', 5)->block(1, static function () use ($key, $force): ?array {
             $queue = self::queue($key);
             $timestamp = now()->getTimestamp();
 
@@ -71,7 +72,7 @@ final class PostViews
 
             $queue['lease'] = (string) Str::uuid();
             $queue['lease_until'] = $timestamp + 30;
-            Cache::put($key, $queue, now()->addHours(2));
+            self::cache()->put($key, $queue, now()->addHours(2));
 
             return ['key' => $key, 'lease' => $queue['lease'], 'ids' => array_slice($queue['pending'], 0, self::BATCH_SIZE)];
         });
@@ -87,7 +88,7 @@ final class PostViews
     {
         $key = $batch['key'];
 
-        Cache::lock($key.':mutex', 5)->block(1, static function () use ($key, $batch, $accepted, $retryAfter): void {
+        self::cache()->lock($key.':mutex', 5)->block(1, static function () use ($key, $batch, $accepted, $retryAfter): void {
             $queue = self::queue($key);
             if ($queue['lease'] !== $batch['lease']) {
                 return;
@@ -95,7 +96,7 @@ final class PostViews
 
             if ($accepted) {
                 foreach ($batch['ids'] as $id) {
-                    Cache::put($key.':seen:'.$id, true, now()->addHours(2));
+                    self::cache()->put($key.':seen:'.$id, true, now()->addHours(2));
                 }
 
                 $queue['pending'] = array_values(array_diff($queue['pending'], $batch['ids']));
@@ -109,7 +110,7 @@ final class PostViews
 
             $queue['lease'] = null;
             $queue['lease_until'] = 0;
-            Cache::put($key, $queue, now()->addHours(2));
+            self::cache()->put($key, $queue, now()->addHours(2));
         });
     }
 
@@ -118,9 +119,15 @@ final class PostViews
         return 'pinkary:impressions:'.hash('sha256', $token ?? $viewer);
     }
 
+    /** The default store is flushed by NativePHP's startup optimize:clear. */
+    private static function cache(): Repository
+    {
+        return Cache::store('impressions');
+    }
+
     /** @return array{pending: list<string>, lease: ?string, lease_until: int, retry_at: int, attempts: int} */
     private static function queue(string $key): array
     {
-        return Cache::get($key, ['pending' => [], 'lease' => null, 'lease_until' => 0, 'retry_at' => 0, 'attempts' => 0]);
+        return self::cache()->get($key, ['pending' => [], 'lease' => null, 'lease_until' => 0, 'retry_at' => 0, 'attempts' => 0]);
     }
 }

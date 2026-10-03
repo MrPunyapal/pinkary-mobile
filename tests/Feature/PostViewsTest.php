@@ -5,15 +5,20 @@ use App\Support\AccountStore;
 use App\Support\PostViews;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Native\Mobile\AsyncTask;
 use Native\Mobile\Testing\Native;
 
 beforeEach(function (): void {
-    config(['services.pinkary.url' => 'https://pinkary.test']);
+    config([
+        'services.pinkary.url' => 'https://pinkary.test',
+        'cache.stores.impressions' => ['driver' => 'array', 'serialize' => false],
+    ]);
     Http::preventStrayRequests();
     Cache::flush();
+    Cache::purge('impressions');
     AccountStore::clear();
 });
 
@@ -200,4 +205,45 @@ it('honors the APIs retry after interval for a rate limited batch', function ():
     $screen->call('flushPostViews');
 
     expect(collect(Http::recorded())->filter(fn (array $pair): bool => str_ends_with($pair[0]->url(), '/views')))->toHaveCount(2);
+});
+
+it('preserves queued impressions and delivered deduplication when startup clears the default cache', function (): void {
+    $viewer = PostViews::viewerId();
+    PostViews::enqueue('q1', null, $viewer);
+    PostViews::enqueue('q2', null, $viewer);
+    $batch = PostViews::takeBatch(null, $viewer, true);
+    PostViews::finishBatch($batch, true);
+    PostViews::enqueue('q3', null, $viewer);
+
+    $this->artisan('cache:clear')->assertSuccessful();
+    PostViews::enqueue('q1', null, $viewer);
+
+    expect(PostViews::takeBatch(null, $viewer, true)['ids'])->toBe(['q3']);
+});
+
+it('recovers pending batches after reopening the persistent file store', function (): void {
+    $this->freezeTime();
+    $directory = storage_path('framework/testing/impressions-'.Str::uuid());
+    config(['cache.stores.impressions' => ['driver' => 'file', 'path' => $directory, 'lock_path' => $directory]]);
+    Cache::purge('impressions');
+    $viewer = PostViews::viewerId();
+
+    try {
+        PostViews::enqueue('q1', null, $viewer);
+        $interrupted = PostViews::takeBatch(null, $viewer, true);
+        Cache::purge('impressions');
+        $this->artisan('cache:clear')->assertSuccessful();
+        $this->travel(31)->seconds();
+
+        $recovered = PostViews::takeBatch(null, $viewer, true);
+        expect($recovered['ids'])->toBe(['q1']);
+        expect($recovered['lease'])->not->toBe($interrupted['lease']);
+        PostViews::finishBatch($recovered, true);
+        Cache::purge('impressions');
+        PostViews::enqueue('q1', null, $viewer);
+
+        expect(PostViews::takeBatch(null, $viewer, true))->toBeNull();
+    } finally {
+        File::deleteDirectory($directory);
+    }
 });
