@@ -76,12 +76,15 @@
         "test:type-coverage": [
             "@php vendor/bin/pest --type-coverage --min=100"
         ],
+        "test:unit": [
+            "@php vendor/bin/pest --coverage --min=78"
+        ],
         "test": [
             "@test:lint",
             "@test:types",
             "@test:type-coverage",
             "@php artisan config:clear --ansi @no_additional_args",
-            "@php artisan test"
+            "@test:unit"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
