@@ -47,6 +47,24 @@ Lengths, limits and durations are `public const int` on the component (e.g. `MAX
 Do not repeat a limit inline in a blade or a second component — two components with the same limit
 must not drift.
 
+## Runtime macros carry no return type
+`Route::native()` and `Route::nativeGroup()` are registered in `NativeServiceProvider::boot()`
+as closures with no return type, so Larastan's macro support yields `mixed` for them even when it
+resolves the macro. Their types come from `nativephp.stub.php`, which PHPStan loads via
+`scanFiles`. That declaration is authoritative for `Illuminate\Routing\Router`, so **every** Router
+method used through the facade must be declared there or PHPStan reports it undefined. The app uses
+`get()`, `native()` and `nativeGroup()`; add to the stub in the same change as any new one.
+
+## `PendingAsyncTask::finished()` erases array shapes
+`Native\Mobile\Edge\PendingAsyncTask::finished(Closure)` types its callback parameter as plain
+`array`, so a shape built in the `async()` work closure arrives as `mixed`, and a `@var` on the work
+closure does not propagate across that boundary. Narrow at the consumption site with `Payload::*`.
+
+## Never cast an array key to int
+Keys decoded from a JSON object are `int|string`. `Payload::int($key)` maps non-numeric input to `0`,
+which silently writes the wrong element (`links.0` instead of `links.<the real key>`). Declare such
+parameters `int|string` and interpolate them.
+
 ## `#[Poll]` is the views flush
 Impression/view batching uses `#[Poll]` on the component. It must be paired with a `try`/`finally`
 around anything that can throw, such as a navigation `replace()`.

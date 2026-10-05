@@ -25,6 +25,17 @@ surface through the normal error contract.
 If a payload shape appears in more than one method, declare it as a typed `array{...}` return or
 `@param` on the method that produces it rather than repeating a looser shape at each consumer.
 
+## Never pass a typed array to `data_set()`
+`data_set()` is declared `mixed &$target`, so handing it an `array<string, mixed>` variable widens
+that variable to `mixed` and every later use of it fails static analysis. Assign the nested offset
+directly (`$post['thread'] = $mirror`) or write a small typed helper. `Arr::set()` is better but
+still takes `array &$array`, so re-narrow with `array_filter(..., ARRAY_FILTER_USE_KEY)` if a
+`list<>` or `array<string, mixed>` contract is required.
+
+Reading several fields off one `Response::json()` result means several `Payload::` calls. A
+`@var array<string, mixed>` on the row narrows every read at once and is the exception to the usual
+no-inline-`@var` guidance — see `payloadRow()`.
+
 ## Native cache and storage defaults are not the test defaults
 Helpers that cache write to a real disk or store in production. Tests must override the store
 explicitly; do not rely on a default being harmless.
