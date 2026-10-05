@@ -34,7 +34,10 @@
         "nunomaduro/collision": "^8.6",
         "pestphp/pest": "^5.1",
         "pestphp/pest-plugin-drift": "^5.0",
-        "pestphp/pest-plugin-laravel": "^5.0"
+        "pestphp/pest-plugin-laravel": "^5.0",
+        "pestphp/pest-plugin-rector": "5.x-dev",
+        "pestphp/pest-plugin-type-coverage": "5.0.2",
+        "rector/rector": "2.6.7"
     },
     "autoload": {
         "psr-4": {
@@ -70,9 +73,13 @@
         "test:types": [
             "@php vendor/bin/phpstan analyse --memory-limit=2G"
         ],
+        "test:type-coverage": [
+            "@php vendor/bin/pest --type-coverage --min=100"
+        ],
         "test": [
             "@test:lint",
             "@test:types",
+            "@test:type-coverage",
             "@php artisan config:clear --ansi @no_additional_args",
             "@php artisan test"
         ],
