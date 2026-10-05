@@ -12,6 +12,7 @@ use App\Support\CurrentUser;
 use App\Support\FeedCache;
 use App\Support\Payload;
 use App\Support\UnreadCount;
+use Illuminate\Http\Client\Response;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
 use Throwable;
@@ -22,7 +23,7 @@ final class Home extends NativeComponent
     use UsesAppMenu;
 
     /** @var list<string> */
-    private const TABS = ['recent', 'following', 'trending'];
+    private const array TABS = ['recent', 'following', 'trending'];
 
     /** @var array<string, mixed>|null */
     public ?array $currentUser = null;
@@ -297,7 +298,7 @@ final class Home extends NativeComponent
         $this->errorMessage = '';
 
         $api = app(PinkaryApi::class);
-        $response = $api->attempt(fn () => $api->feed($token, $this->tab));
+        $response = $api->attempt(fn (): Response => $api->feed($token, $this->tab));
 
         if ($response === null) {
             $this->failFeedLoad();
@@ -419,7 +420,7 @@ final class Home extends NativeComponent
             }
 
             $api = app(PinkaryApi::class);
-            $response = $api->attempt(fn () => $api->profile($token));
+            $response = $api->attempt(fn (): Response => $api->profile($token));
 
             if ($response?->successful() && is_array($data = $response->json('data')) && ! empty($data['username'])) {
                 CurrentUser::store(self::payloadObject($data));
