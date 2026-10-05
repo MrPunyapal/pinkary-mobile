@@ -67,7 +67,7 @@ final class Detail extends NativeComponent
 
     public function mount(): void
     {
-        $this->id = (string) $this->param('id', '');
+        $this->id = Payload::string($this->param('id'));
 
         if ($this->id === '') {
             $this->replace($this->route('mobile.feed'));
@@ -148,7 +148,7 @@ final class Detail extends NativeComponent
             return;
         }
 
-        $this->translateHtml(data_get($post, $field));
+        $this->translateHtml(Payload::string(data_get($post, $field)));
     }
 
     public function toggleShowMore(string $id): void
@@ -180,13 +180,7 @@ final class Detail extends NativeComponent
             if ($location !== null) {
                 [, $key] = $location;
 
-                if ($key === null) {
-                    $target = &$this->post;
-                } else {
-                    $target = &$this->post['thread']['posts'][$key];
-                }
-
-                $this->voteWithFeedback($target, $id, $optionId, $token);
+                $this->post = $this->voteOnPost($this->post, $key, $id, $optionId, $token);
                 $this->syncThreadMirror();
 
                 return;
@@ -201,13 +195,7 @@ final class Detail extends NativeComponent
 
                 [, $key] = $location;
 
-                if ($key === null) {
-                    $target = &$this->comments[$index];
-                } else {
-                    $target = &$this->comments[$index]['thread']['posts'][$key];
-                }
-
-                $this->voteWithFeedback($target, $id, $optionId, $token);
+                $this->comments[$index] = $this->voteOnPost($comment, $key, $id, $optionId, $token);
 
                 return;
             }
@@ -289,7 +277,10 @@ final class Detail extends NativeComponent
             $this->comments = [...$this->comments, $api->normalizeQuestion($created)];
         }
 
-        data_set($this->post, 'metrics.comments', (int) data_get($this->post, 'metrics.comments', 0) + 1);
+        $metrics = Payload::array($this->post['metrics'] ?? null);
+        $metrics['comments'] = Payload::int($metrics['comments'] ?? null) + 1;
+
+        $this->post['metrics'] = $metrics;
         $this->comment = '';
     }
 
@@ -337,7 +328,7 @@ final class Detail extends NativeComponent
 
         $next = array_values(array_filter(
             $next,
-            fn (mixed $row): bool => is_array($row) && ! isset($seen[Payload::string(data_get($row, 'id', ''))])
+            fn (array $row): bool => ! isset($seen[Payload::string(data_get($row, 'id', ''))])
         ));
 
         $this->comments = [...$this->comments, ...$next];
@@ -384,8 +375,33 @@ final class Detail extends NativeComponent
         $poll = $response->json('data', []);
 
         if ($poll !== []) {
-            data_set($post, 'poll', $poll);
+            $post['poll'] = $poll;
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $post
+     * @return array<string, mixed>
+     */
+    private function voteOnPost(array $post, int|string|null $key, string $id, int $optionId, ?string $token): array
+    {
+        if ($key === null) {
+            $this->voteWithFeedback($post, $id, $optionId, $token);
+
+            return $post;
+        }
+
+        $ancestors = Payload::array(data_get($post, 'thread.posts'));
+        $ancestor = self::payloadRow($ancestors[$key] ?? null);
+
+        $this->voteWithFeedback($ancestor, $id, $optionId, $token);
+
+        $ancestors[$key] = $ancestor;
+        $thread = Payload::array(data_get($post, 'thread'));
+        $thread['posts'] = $ancestors;
+        $post['thread'] = $thread;
+
+        return $post;
     }
 
     private function reactOnLoadedPost(string $id, string $kind): void
@@ -399,7 +415,7 @@ final class Detail extends NativeComponent
         $posts = [$this->post];
 
         if ($this->reactOnPostPayload($posts, $id, $kind, $token)) {
-            $this->post = $posts[0];
+            $this->post = self::payloadRow($posts[0]);
             $this->syncThreadMirror();
 
             return;
@@ -409,7 +425,7 @@ final class Detail extends NativeComponent
             $list = [$comment];
 
             if ($this->reactOnPostPayload($list, $id, $kind, $token)) {
-                $this->comments[$index] = $list[0];
+                $this->comments[$index] = self::payloadRow($list[0]);
 
                 return;
             }
@@ -440,10 +456,7 @@ final class Detail extends NativeComponent
 
     private function syncThreadMirror(): void
     {
-        $rendered = array_values(array_filter(
-            (array) data_get($this->post, 'thread.posts', []),
-            fn (mixed $ancestor): bool => is_array($ancestor)
-        ));
+        $rendered = self::payloadRows(data_get($this->post, 'thread.posts'));
 
         if ($rendered !== []) {
             $this->thread = $rendered;
@@ -484,8 +497,11 @@ final class Detail extends NativeComponent
         $thread = $api->normalizeQuestions($response->json('thread', []));
         $this->thread = $thread;
 
-        data_set($this->post, 'thread.posts', $this->thread);
-        data_set($this->post, 'thread.more', false);
+        $mirror = Payload::array($this->post['thread'] ?? null);
+        $mirror['posts'] = $this->thread;
+        $mirror['more'] = false;
+
+        $this->post['thread'] = $mirror;
 
         $comments = $api->attempt(fn () => $api->comments($token, $this->id));
 

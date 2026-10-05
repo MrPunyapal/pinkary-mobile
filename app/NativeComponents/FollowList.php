@@ -55,9 +55,9 @@ final class FollowList extends NativeComponent
 
     public function mount(): void
     {
-        $this->username = (string) $this->param('username', '');
+        $this->username = Payload::string($this->param('username'));
 
-        $modeParam = (string) $this->param('mode', '');
+        $modeParam = Payload::string($this->param('mode'));
 
         if ($modeParam === 'following' || $modeParam === 'followers') {
             $this->mode = $modeParam;
@@ -147,7 +147,7 @@ final class FollowList extends NativeComponent
             return;
         }
 
-        data_set($this->users[$index], 'followed_by_me', (bool) $response->json('data.followed', ! $followed));
+        $this->users[$index]['followed_by_me'] = (bool) $response->json('data.followed', ! $followed);
     }
 
     public function loadMore(): void

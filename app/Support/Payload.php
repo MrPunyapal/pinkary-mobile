@@ -72,6 +72,7 @@ final class Payload
     }
 
     /**
+     * @param  array<array-key, mixed>  $default
      * @return array<array-key, mixed>
      */
     public static function array(mixed $value, array $default = []): array

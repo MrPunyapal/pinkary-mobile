@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Support;
 
-use Illuminate\Cache\Repository;
+use Illuminate\Contracts\Cache\Lock;
+use Illuminate\Contracts\Cache\LockProvider;
+use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use LogicException;
 use Native\Mobile\Facades\SecureStorage;
 
 final class PostViews
@@ -34,10 +37,11 @@ final class PostViews
     public static function enqueue(string $id, ?string $token, string $viewer): bool
     {
         $key = self::queueKey($token, $viewer);
+        $ready = false;
 
-        return self::cache()->lock($key.':mutex', 5)->block(1, static function () use ($key, $id): bool {
+        self::lock($key)->block(1, static function () use ($key, $id, &$ready): void {
             if (self::cache()->has($key.':seen:'.$id)) {
-                return false;
+                return;
             }
 
             $queue = self::queue($key);
@@ -46,35 +50,40 @@ final class PostViews
                 self::cache()->put($key, $queue, now()->addHours(2));
             }
 
-            return count($queue['pending']) >= self::BATCH_SIZE
+            $ready = count($queue['pending']) >= self::BATCH_SIZE
                 && $queue['lease_until'] <= now()->getTimestamp()
                 && $queue['retry_at'] <= now()->getTimestamp();
         });
+
+        return $ready;
     }
 
     /** @return array{key: string, lease: string, ids: list<string>}|null */
     public static function takeBatch(?string $token, string $viewer, bool $force = false): ?array
     {
         $key = self::queueKey($token, $viewer);
+        $batch = null;
 
-        return self::cache()->lock($key.':mutex', 5)->block(1, static function () use ($key, $force): ?array {
+        self::lock($key)->block(1, static function () use ($key, $force, &$batch): void {
             $queue = self::queue($key);
             $timestamp = now()->getTimestamp();
 
             if ($queue['pending'] === [] || $queue['retry_at'] > $timestamp || $queue['lease_until'] > $timestamp) {
-                return null;
+                return;
             }
 
             if (! $force && count($queue['pending']) < self::BATCH_SIZE) {
-                return null;
+                return;
             }
 
             $queue['lease'] = (string) Str::uuid();
             $queue['lease_until'] = $timestamp + 30;
             self::cache()->put($key, $queue, now()->addHours(2));
 
-            return ['key' => $key, 'lease' => $queue['lease'], 'ids' => array_slice($queue['pending'], 0, self::BATCH_SIZE)];
+            $batch = ['key' => $key, 'lease' => $queue['lease'], 'ids' => array_slice($queue['pending'], 0, self::BATCH_SIZE)];
         });
+
+        return $batch;
     }
 
     /**
@@ -87,7 +96,7 @@ final class PostViews
     {
         $key = $batch['key'];
 
-        self::cache()->lock($key.':mutex', 5)->block(1, static function () use ($key, $batch, $accepted, $retryAfter): void {
+        self::lock($key)->block(1, static function () use ($key, $batch, $accepted, $retryAfter): void {
             $queue = self::queue($key);
             if ($queue['lease'] !== $batch['lease']) {
                 return;
@@ -124,9 +133,40 @@ final class PostViews
         return Cache::store('impressions');
     }
 
+    private static function lock(string $key): Lock
+    {
+        $store = self::cache()->getStore();
+
+        return $store instanceof LockProvider
+            ? $store->lock($key.':mutex', 5)
+            : throw new LogicException('The impressions cache store does not support locks.');
+    }
+
     /** @return array{pending: list<string>, lease: ?string, lease_until: int, retry_at: int, attempts: int} */
     private static function queue(string $key): array
     {
-        return self::cache()->get($key, ['pending' => [], 'lease' => null, 'lease_until' => 0, 'retry_at' => 0, 'attempts' => 0]);
+        $queue = Payload::array(self::cache()->get($key));
+
+        return [
+            'pending' => self::pending($queue['pending'] ?? []),
+            'lease' => is_string($queue['lease'] ?? null) ? $queue['lease'] : null,
+            'lease_until' => Payload::int($queue['lease_until'] ?? 0),
+            'retry_at' => Payload::int($queue['retry_at'] ?? 0),
+            'attempts' => Payload::int($queue['attempts'] ?? 0),
+        ];
+    }
+
+    /** @return list<string> */
+    private static function pending(mixed $ids): array
+    {
+        $pending = [];
+
+        foreach (Payload::array($ids) as $id) {
+            if (is_string($id) && $id !== '') {
+                $pending[] = $id;
+            }
+        }
+
+        return $pending;
     }
 }

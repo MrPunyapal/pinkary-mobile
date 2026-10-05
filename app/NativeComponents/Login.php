@@ -86,7 +86,7 @@ final class Login extends NativeComponent
         $response = app(PinkaryApi::class)->login($this->email, $this->password);
 
         if ($response->successful() && is_string($token = $response->json('token'))) {
-            $this->acceptToken($token, (array) ($response->json('data') ?? []));
+            $this->acceptToken($token, self::payloadObject($response->json('data')));
 
             return;
         }
@@ -101,7 +101,7 @@ final class Login extends NativeComponent
         }
 
         $this->busy = false;
-        $this->applyFieldErrors((array) $response->json('errors', []), [
+        $this->applyFieldErrors(self::payloadObject($response->json('errors')), [
             'email' => 'email',
             'password' => 'password',
         ], Payload::string($response->json('message') ?? 'We could not log you in. Please check your details and try again.'));
@@ -124,7 +124,7 @@ final class Login extends NativeComponent
         $response = app(PinkaryApi::class)->twoFactorChallenge($this->twoFactorChallenge, $code);
 
         if ($response->successful() && is_string($token = $response->json('token'))) {
-            $this->acceptToken($token, (array) ($response->json('data') ?? []));
+            $this->acceptToken($token, self::payloadObject($response->json('data')));
 
             return;
         }
@@ -178,6 +178,17 @@ final class Login extends NativeComponent
     public function render(): View
     {
         return view('native.login');
+    }
+
+    /**
+     * A decoded JSON object has string keys, which the untyped payload gives no
+     * way to express.
+     *
+     * @return array<string, mixed>
+     */
+    private static function payloadObject(mixed $value): array
+    {
+        return array_filter(Payload::array($value), 'is_string', ARRAY_FILTER_USE_KEY);
     }
 
     /**

@@ -85,7 +85,7 @@ trait UsesCaptcha
             }
 
             $this->captchaToken = $token;
-            $this->captchaExpiresAt = now()->timestamp + 240;
+            $this->captchaExpiresAt = now()->getTimestamp() + 240;
             $this->captchaCompleted = true;
             $this->captchaUrl = '';
             $this->captchaError = '';
@@ -112,18 +112,21 @@ trait UsesCaptcha
             return ['success' => $response->successful(), 'data' => $response->json('data', [])];
         })->finished(function (array $result): void {
             $this->captchaLoading = false;
-            $data = $result['data'];
+            $data = Payload::array($result['data'] ?? null);
+            $required = $data['required'] ?? null;
+            $widgetPath = Payload::string($data['widget_path'] ?? null);
+            $returnPath = Payload::string($data['return_path'] ?? null);
 
-            if (! $result['success'] || ! is_array($data) || ! is_bool($data['required'] ?? null)
-                || ! $this->validCaptchaPath($data['widget_path'] ?? null) || ! $this->validCaptchaPath($data['return_path'] ?? null)) {
+            if (! $result['success'] || ! is_bool($required)
+                || ! $this->validCaptchaPath($widgetPath) || ! $this->validCaptchaPath($returnPath)) {
                 $this->captchaError = 'Could not load the security check. Please retry.';
 
                 return;
             }
 
-            $this->captchaRequired = $data['required'];
-            $this->captchaWidgetPath = $data['widget_path'];
-            $this->captchaReturnPath = $data['return_path'];
+            $this->captchaRequired = $required;
+            $this->captchaWidgetPath = $widgetPath;
+            $this->captchaReturnPath = $returnPath;
             $this->resetCaptcha();
         })->failed(function (Throwable $exception): void {
             $this->captchaLoading = false;
@@ -137,7 +140,7 @@ trait UsesCaptcha
             return true;
         }
 
-        if ($this->captchaToken !== '' && $this->captchaExpiresAt > now()->timestamp) {
+        if ($this->captchaToken !== '' && $this->captchaExpiresAt > now()->getTimestamp()) {
             return true;
         }
 
@@ -153,7 +156,7 @@ trait UsesCaptcha
     /** @return array{cf-turnstile-response?: string, captcha_state?: string} */
     private function captchaPayload(): array
     {
-        return $this->captchaToken !== '' && $this->captchaExpiresAt > now()->timestamp
+        return $this->captchaToken !== '' && $this->captchaExpiresAt > now()->getTimestamp()
             ? ['cf-turnstile-response' => $this->captchaToken, 'captcha_state' => $this->captchaState]
             : [];
     }

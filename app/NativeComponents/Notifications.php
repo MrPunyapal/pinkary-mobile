@@ -102,7 +102,7 @@ final class Notifications extends NativeComponent
         }
 
         if ($response?->successful()) {
-            $this->unreadCount = (int) $response->json('data.unread_count', max(0, $this->unreadCount - 1));
+            $this->unreadCount = Payload::int($response->json('data.unread_count'), max(0, $this->unreadCount - 1));
             UnreadCount::store($this->unreadCount);
         }
 
@@ -154,7 +154,7 @@ final class Notifications extends NativeComponent
         }
 
         $this->items = [];
-        $this->unreadCount = (int) $response->json('data.unread_count', 0);
+        $this->unreadCount = Payload::int($response->json('data.unread_count'));
         UnreadCount::store($this->unreadCount);
         $this->page = 1;
         $this->hasMore = false;
@@ -201,7 +201,7 @@ final class Notifications extends NativeComponent
         $this->items = [...$this->items, ...$next];
         $this->page++;
         $this->hasMore = $response->json('links.next') !== null;
-        $this->unreadCount = (int) $response->json('meta.unread_count', $this->unreadCount);
+        $this->unreadCount = Payload::int($response->json('meta.unread_count'), $this->unreadCount);
         UnreadCount::store($this->unreadCount);
         $this->rememberNotifications();
     }
@@ -238,7 +238,7 @@ final class Notifications extends NativeComponent
         /** @var list<array<string, mixed>> $items */
         $items = $response->json('data', []);
         $this->items = $items;
-        $this->unreadCount = (int) $response->json('meta.unread_count', 0);
+        $this->unreadCount = Payload::int($response->json('meta.unread_count'));
         UnreadCount::store($this->unreadCount);
         $this->page = 1;
         $this->hasMore = $response->json('links.next') !== null;

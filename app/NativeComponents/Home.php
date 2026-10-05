@@ -156,7 +156,7 @@ final class Home extends NativeComponent
             return;
         }
 
-        $this->translateHtml(data_get($post, $field));
+        $this->translateHtml(Payload::string(data_get($post, $field)));
     }
 
     public function votePoll(string $id, int $optionId): void
@@ -249,7 +249,7 @@ final class Home extends NativeComponent
             $next = app(PinkaryApi::class)->normalizeQuestions($result['posts']);
             $this->posts = array_values(collect([...$this->posts, ...$next])->unique('id')->all());
             $this->page = $page + 1;
-            $this->hasMore = $result['hasMore'];
+            $this->hasMore = Payload::bool($result['hasMore']);
             $this->rememberFeed();
         })->failed(function (Throwable $exception) use ($accountId, $tab, $page, $revision): void {
             if ($this->isCurrentFeedRequest($accountId, $tab, $page, $revision)) {
@@ -262,6 +262,17 @@ final class Home extends NativeComponent
     public function render(): View
     {
         return view('native.home');
+    }
+
+    /**
+     * A decoded JSON object has string keys, which the untyped payload gives no
+     * way to express.
+     *
+     * @return array<string, mixed>
+     */
+    private static function payloadObject(mixed $value): array
+    {
+        return array_filter(Payload::array($value), 'is_string', ARRAY_FILTER_USE_KEY);
     }
 
     private function switchTab(int $index): void
@@ -386,10 +397,10 @@ final class Home extends NativeComponent
         $this->async(static function () use ($token): array {
             $response = app(PinkaryApi::class)->notifications($token, 1, 1);
 
-            return ['success' => $response->successful(), 'count' => (int) $response->json('meta.unread_count', 0)];
+            return ['success' => $response->successful(), 'count' => Payload::int($response->json('meta.unread_count', 0))];
         })->finished(static function (array $result) use ($token): void {
             if ($result['success'] && AccountStore::activeToken() === $token) {
-                UnreadCount::store($result['count']);
+                UnreadCount::store(Payload::int($result['count']));
             }
         })->failed(static function (Throwable $exception): void {});
     }
@@ -411,7 +422,7 @@ final class Home extends NativeComponent
             $response = $api->attempt(fn () => $api->profile($token));
 
             if ($response?->successful() && is_array($data = $response->json('data')) && ! empty($data['username'])) {
-                CurrentUser::store($data);
+                CurrentUser::store(self::payloadObject($data));
                 $this->currentUser = CurrentUser::get();
             }
         }

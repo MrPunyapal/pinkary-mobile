@@ -10,6 +10,7 @@ use App\Services\PinkaryApi;
 use App\Support\ApiErrors;
 use App\Support\CurrentUser;
 use App\Support\Payload;
+use Illuminate\Support\Arr;
 use Illuminate\View\View;
 use Native\Mobile\Browser;
 use Native\Mobile\Edge\NativeComponent;
@@ -67,7 +68,7 @@ final class Profile extends NativeComponent
 
     public function mount(): void
     {
-        $this->username = (string) $this->param('username', '');
+        $this->username = Payload::string($this->param('username', ''));
 
         $this->load($this->token());
     }
@@ -170,7 +171,7 @@ final class Profile extends NativeComponent
             return;
         }
 
-        $this->translateHtml(data_get($post, $field));
+        $this->translateHtml(Payload::string(data_get($post, $field)));
     }
 
     public function sharePost(string $id): void
@@ -285,12 +286,12 @@ final class Profile extends NativeComponent
             return;
         }
 
-        data_set($this->profile, 'followed_by_me', (bool) $response->json('data.followed', ! $followed));
+        $this->setProfileValue('followed_by_me', (bool) $response->json('data.followed', ! $followed));
 
         $followers = $response->json('data.followers');
 
         if (is_int($followers)) {
-            data_set($this->profile, 'stats.followers', $followers);
+            $this->setProfileValue('stats.followers', $followers);
         }
     }
 
@@ -299,7 +300,7 @@ final class Profile extends NativeComponent
         $url = null;
 
         foreach ((array) data_get($this->profile, 'links', []) as $link) {
-            if ((int) data_get($link, 'id', 0) === $id) {
+            if (Payload::int(data_get($link, 'id', 0)) === $id) {
                 $url = data_get($link, 'url');
             }
         }
@@ -361,8 +362,8 @@ final class Profile extends NativeComponent
         $key = null;
         $visible = false;
 
-        foreach ((array) data_get($this->profile, 'links', []) as $index => $link) {
-            if ((int) data_get($link, 'id', 0) === (int) $id) {
+        foreach (Payload::array(data_get($this->profile, 'links')) as $index => $link) {
+            if (Payload::int(data_get($link, 'id', 0)) === (int) $id) {
                 $key = $index;
                 $visible = (bool) data_get($link, 'is_visible', false);
 
@@ -383,13 +384,13 @@ final class Profile extends NativeComponent
         $next = ! $visible;
 
         $this->linkError = '';
-        data_set($this->profile, 'links.'.$key.'.is_visible', $next);
-        data_set($this->profile, 'links.'.$key.'._busy', true);
+        $this->setProfileValue('links.'.$key.'.is_visible', $next);
+        $this->setProfileValue('links.'.$key.'._busy', true);
 
         $api = app(PinkaryApi::class);
         $response = $api->attempt(fn () => $api->updateLinkVisibility($token, (int) $id, $next));
 
-        data_set($this->profile, 'links.'.$key.'._busy', false);
+        $this->setProfileValue('links.'.$key.'._busy', false);
 
         if ($response === null) {
             $this->restoreLinkVisibility($key, $visible);
@@ -411,8 +412,7 @@ final class Profile extends NativeComponent
 
         $stored = $response->json('data.is_visible');
 
-        data_set(
-            $this->profile,
+        $this->setProfileValue(
             'links.'.$key.'.is_visible',
             is_bool($stored) ? $stored : $next,
         );
@@ -491,9 +491,27 @@ final class Profile extends NativeComponent
         return is_string($username) ? $username : '';
     }
 
-    private function restoreLinkVisibility(int $key, bool $visible): void
+    private function restoreLinkVisibility(int|string $key, bool $visible): void
     {
-        data_set($this->profile, 'links.'.$key.'.is_visible', $visible);
+        $this->setProfileValue('links.'.$key.'.is_visible', $visible);
+    }
+
+    /**
+     * `Arr::set()` takes its target by reference, which widens `$profile` to a
+     * plain `array` and trips every assignment to the property. `data_set()` is
+     * worse: its target is `mixed`, so it cannot be narrowed back at all.
+     */
+    private function setProfileValue(string $path, mixed $value): void
+    {
+        $profile = $this->profile;
+
+        if ($profile === null) {
+            return;
+        }
+
+        Arr::set($profile, $path, $value);
+
+        $this->profile = array_filter($profile, 'is_string', ARRAY_FILTER_USE_KEY);
     }
 
     private function loadQuestions(?string $token, string $username): void

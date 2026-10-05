@@ -104,7 +104,6 @@ final class DraftStore
     }
 
     /**
-     * @param  array<string, mixed>  $draft
      * @return array{
      *     content: string,
      *     posts: list<string>,
@@ -267,7 +266,7 @@ final class DraftStore
     private static function accountKey(): string
     {
         $account = AccountStore::active();
-        $username = is_array($account) ? Payload::string($account['username'] ?? '') : '';
+        $username = is_array($account) ? Payload::string($account['username']) : '';
 
         if ($username === '') {
             $user = CurrentUser::get();
@@ -287,7 +286,7 @@ final class DraftStore
         $stored = session($key);
 
         if (is_array($stored)) {
-            return $stored;
+            return self::stringKeys($stored);
         }
 
         try {
@@ -297,15 +296,34 @@ final class DraftStore
                 $decoded = json_decode($result->value, true);
 
                 if (is_array($decoded)) {
-                    session([$key => $decoded]);
+                    $draft = self::stringKeys($decoded);
+                    session([$key => $draft]);
 
-                    return $decoded;
+                    return $draft;
                 }
             }
         } catch (Throwable) {
         }
 
         return null;
+    }
+
+    /**
+     * JSON objects whose keys are numeric strings decode to integer keys, so
+     * the draft shape is only guaranteed once the keys are spelled as strings.
+     *
+     * @param  array<array-key, mixed>  $draft
+     * @return array<string, mixed>
+     */
+    private static function stringKeys(array $draft): array
+    {
+        $fields = [];
+
+        foreach ($draft as $field => $value) {
+            $fields[Payload::string($field)] = $value;
+        }
+
+        return $fields;
     }
 
     /**
@@ -316,7 +334,7 @@ final class DraftStore
         session([$key => $draft]);
 
         try {
-            SecureStorage::set($key, json_encode($draft));
+            SecureStorage::set($key, json_encode($draft, JSON_THROW_ON_ERROR));
         } catch (Throwable) {
         }
     }

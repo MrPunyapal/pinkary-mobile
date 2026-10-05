@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Support;
 
-use Illuminate\Support\Arr;
-
 final class CurrentUser
 {
     private const string KEY = 'pinkary_user';
@@ -40,16 +38,31 @@ final class CurrentUser
         $user = session(self::KEY);
 
         if (is_array($user)) {
-            return $user;
+            return self::fields($user);
         }
 
         $account = AccountStore::active();
 
-        return $account === null ? null : Arr::only($account, ['name', 'username', 'avatar', 'email', 'member_since']);
+        return $account === null ? null : self::fields($account);
     }
 
     public static function clear(): void
     {
         session()->forget(self::KEY);
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $user
+     * @return array<string, mixed>
+     */
+    private static function fields(array $user): array
+    {
+        return [
+            'name' => $user['name'] ?? null,
+            'username' => $user['username'] ?? null,
+            'avatar' => $user['avatar'] ?? null,
+            'email' => $user['email'] ?? null,
+            'member_since' => $user['member_since'] ?? null,
+        ];
     }
 }

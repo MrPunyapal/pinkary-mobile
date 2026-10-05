@@ -15,7 +15,6 @@ use Native\Mobile\Edge\Layouts\Builders\Tab;
 use Native\Mobile\Edge\Layouts\Builders\TabBar;
 use Native\Mobile\Edge\Layouts\NativeLayout;
 use Native\Mobile\Edge\NativeComponent;
-use Native\Mobile\UI\Builders\Drawer;
 use Native\Mobile\UI\Builders\FloatingOverlay;
 use Native\Mobile\UI\Concerns\HasFloatingOverlay;
 use Native\Mobile\UI\Concerns\HasLayoutDrawer;
@@ -70,7 +69,7 @@ final class MobileLayout extends NativeLayout
             ->add($this->menuTab());
     }
 
-    public function drawer(NativeComponent $screen): ?Drawer
+    public function drawer(NativeComponent $screen): null
     {
         return null;
     }

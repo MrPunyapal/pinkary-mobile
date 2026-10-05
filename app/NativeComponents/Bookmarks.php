@@ -96,7 +96,7 @@ final class Bookmarks extends NativeComponent
             return;
         }
 
-        $this->translateHtml(data_get($post, $field));
+        $this->translateHtml(Payload::string(data_get($post, $field)));
     }
 
     public function toggleShowMore(string $id): void

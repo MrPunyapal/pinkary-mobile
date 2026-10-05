@@ -12,7 +12,6 @@ use App\Support\CurrentUser;
 use App\Support\DisplayText;
 use App\Support\Payload;
 use App\Support\PostViews;
-use Closure;
 use Illuminate\Support\Carbon;
 use Native\Mobile\Attributes\Poll;
 use Native\Mobile\Browser;
@@ -188,7 +187,7 @@ trait TogglesPostReactions
             return false;
         }
 
-        return (int) data_get($post, 'metrics.likes', 0) > 0;
+        return Payload::int(data_get($post, 'metrics.likes')) > 0;
     }
 
     /**
@@ -265,9 +264,7 @@ trait TogglesPostReactions
 
             $next = (bool) $response->json('data.pinned', ! $pinned);
 
-            $this->updatePostForMenu($id, function (array &$row) use ($next): void {
-                data_set($row, 'pinned', $next);
-            });
+            $this->updatePostForMenu($id, ['pinned' => $next]);
 
             $this->closeMenu();
         } finally {
@@ -351,14 +348,13 @@ trait TogglesPostReactions
             }
 
             $saved = $response->json('data.answer');
+            $values = ['edited' => (bool) $response->json('data.edited', true)];
 
-            $this->updatePostForMenu($id, function (array &$row) use ($response, $saved): void {
-                if (is_string($saved)) {
-                    data_set($row, 'answer', $saved);
-                }
+            if (is_string($saved)) {
+                $values['answer'] = $saved;
+            }
 
-                data_set($row, 'edited', (bool) $response->json('data.edited', true));
-            });
+            $this->updatePostForMenu($id, $values);
 
             $this->closeMenu();
         } finally {
@@ -509,7 +505,7 @@ trait TogglesPostReactions
             return;
         }
 
-        if ((int) data_get($post, 'metrics.likes', 0) <= 0) {
+        if (Payload::int(data_get($post, 'metrics.likes')) <= 0) {
             return;
         }
 
@@ -655,6 +651,93 @@ trait TogglesPostReactions
         );
     }
 
+    /**
+     * @param  list<array<string, mixed>>  $posts
+     * @return array<string, mixed>|null
+     */
+    private static function postAt(array $posts, int $index, int|string|null $key): ?array
+    {
+        $post = $posts[$index] ?? null;
+
+        if ($key === null) {
+            return is_array($post) ? self::payloadRow($post) : null;
+        }
+
+        $ancestor = is_array($post) ? data_get($post, 'thread.posts.'.$key) : null;
+
+        return is_array($ancestor) ? self::payloadRow($ancestor) : null;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $posts
+     * @param  array<string, mixed>  $post
+     */
+    private static function writePostAt(array &$posts, int $index, int|string|null $key, array $post): void
+    {
+        if ($key === null) {
+            $posts[$index] = $post;
+
+            return;
+        }
+
+        $ancestors = Payload::array(data_get($posts[$index] ?? null, 'thread.posts'));
+        $ancestors[$key] = $post;
+
+        self::writeThreadPosts($posts, $index, $ancestors);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $posts
+     * @param  array<array-key, mixed>  $ancestors
+     */
+    private static function writeThreadPosts(array &$posts, int $index, array $ancestors): void
+    {
+        $thread = Payload::array(data_get($posts[$index] ?? null, 'thread'));
+        $thread['posts'] = $ancestors;
+        $posts[$index]['thread'] = $thread;
+    }
+
+    /**
+     * @param  array<string, mixed>  $post
+     * @return array<string, mixed>
+     */
+    private static function withoutPost(array $post, string $id): array
+    {
+        $thread = Payload::array(data_get($post, 'thread'));
+        $thread['posts'] = array_values(array_filter(
+            Payload::array(data_get($post, 'thread.posts')),
+            static fn (mixed $row): bool => ! is_array($row) || Payload::string(data_get($row, 'id', '')) !== $id
+        ));
+        $post['thread'] = $thread;
+
+        return $post;
+    }
+
+    /**
+     * Posts reach the menu as decoded JSON objects, so their keys are strings;
+     * rows read back out of a component property are narrowed to that shape here.
+     *
+     * @return array<string, mixed>
+     */
+    private static function payloadRow(mixed $row): array
+    {
+        return is_array($row) ? array_filter($row, 'is_string', ARRAY_FILTER_USE_KEY) : [];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private static function payloadRows(mixed $rows): array
+    {
+        $normalized = [];
+
+        foreach (Payload::array($rows) as $row) {
+            $normalized[] = self::payloadRow($row);
+        }
+
+        return $normalized;
+    }
+
     private function sendPostViews(?string $token, string $viewer, bool $force): void
     {
         $batch = PostViews::takeBatch($token, $viewer, $force);
@@ -711,10 +794,10 @@ trait TogglesPostReactions
 
         try {
             $liked = (bool) data_get($post, 'metrics.liked', false);
-            $count = (int) data_get($post, 'metrics.likes', 0);
+            $count = Payload::int(data_get($post, 'metrics.likes'));
 
-            data_set($post, 'metrics.liked', ! $liked);
-            data_set($post, 'metrics.likes', max(0, $count + ($liked ? -1 : 1)));
+            $this->setPostMetric($post, 'liked', ! $liked);
+            $this->setPostMetric($post, 'likes', max(0, $count + ($liked ? -1 : 1)));
 
             $api = app(PinkaryApi::class);
             $response = $liked
@@ -722,8 +805,8 @@ trait TogglesPostReactions
                 : $api->attempt(fn () => $api->like($token, $id));
 
             if ($response === null) {
-                data_set($post, 'metrics.liked', $liked);
-                data_set($post, 'metrics.likes', $count);
+                $this->setPostMetric($post, 'liked', $liked);
+                $this->setPostMetric($post, 'likes', $count);
 
                 return;
             }
@@ -736,18 +819,18 @@ trait TogglesPostReactions
             }
 
             if (! $response->successful()) {
-                data_set($post, 'metrics.liked', $liked);
-                data_set($post, 'metrics.likes', $count);
+                $this->setPostMetric($post, 'liked', $liked);
+                $this->setPostMetric($post, 'likes', $count);
 
                 return;
             }
 
-            data_set($post, 'metrics.liked', (bool) $response->json('data.liked', ! $liked));
+            $this->setPostMetric($post, 'liked', (bool) $response->json('data.liked', ! $liked));
 
             $likes = $response->json('data.likes');
 
             if (is_int($likes)) {
-                data_set($post, 'metrics.likes', $likes);
+                $this->setPostMetric($post, 'likes', $likes);
             }
         } finally {
             $this->releaseReactionLock('like:'.$id);
@@ -772,7 +855,7 @@ trait TogglesPostReactions
         try {
             $bookmarked = (bool) data_get($post, 'metrics.bookmarked', false);
 
-            data_set($post, 'metrics.bookmarked', ! $bookmarked);
+            $this->setPostMetric($post, 'bookmarked', ! $bookmarked);
 
             $api = app(PinkaryApi::class);
             $response = $bookmarked
@@ -780,7 +863,7 @@ trait TogglesPostReactions
                 : $api->attempt(fn () => $api->bookmark($token, $id));
 
             if ($response === null) {
-                data_set($post, 'metrics.bookmarked', $bookmarked);
+                $this->setPostMetric($post, 'bookmarked', $bookmarked);
 
                 return;
             }
@@ -793,12 +876,12 @@ trait TogglesPostReactions
             }
 
             if (! $response->successful()) {
-                data_set($post, 'metrics.bookmarked', $bookmarked);
+                $this->setPostMetric($post, 'bookmarked', $bookmarked);
 
                 return;
             }
 
-            data_set($post, 'metrics.bookmarked', (bool) $response->json('data.bookmarked', ! $bookmarked));
+            $this->setPostMetric($post, 'bookmarked', (bool) $response->json('data.bookmarked', ! $bookmarked));
         } finally {
             $this->releaseReactionLock('bookmark:'.$id);
         }
@@ -838,15 +921,26 @@ trait TogglesPostReactions
                 return;
             }
 
-            /** @var array<string, mixed> $poll */
-            $poll = $response->json('data', []);
+            $poll = self::payloadRow($response->json('data'));
 
             if ($poll !== []) {
-                data_set($post, 'poll', $poll);
+                $post['poll'] = $poll;
             }
         } finally {
             $this->releaseReactionLock('vote:'.$id);
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $post
+     */
+    private function setPostMetric(array &$post, string $metric, mixed $value): void
+    {
+        $metrics = $post['metrics'] ?? null;
+
+        $metrics = is_array($metrics) ? $metrics : [];
+        $metrics[$metric] = $value;
+        $post['metrics'] = $metrics;
     }
 
     /**
@@ -860,15 +954,11 @@ trait TogglesPostReactions
         }
 
         foreach ($posts as $index => $post) {
-            if (! is_array($post)) {
-                continue;
-            }
-
             if (Payload::string(data_get($post, 'id')) === $id) {
                 return [$index, null];
             }
 
-            foreach ((array) data_get($post, 'thread.posts', []) as $key => $ancestor) {
+            foreach (Payload::array(data_get($post, 'thread.posts')) as $key => $ancestor) {
                 if (is_array($ancestor) && Payload::string(data_get($ancestor, 'id')) === $id) {
                     return [$index, $key];
                 }
@@ -890,17 +980,7 @@ trait TogglesPostReactions
             return null;
         }
 
-        [$index, $key] = $location;
-
-        $post = $posts[$index];
-
-        if ($key === null) {
-            return $post;
-        }
-
-        $ancestor = $post['thread']['posts'][$key] ?? null;
-
-        return is_array($ancestor) ? $ancestor : null;
+        return self::postAt($posts, $location[0], $location[1]);
     }
 
     /**
@@ -915,20 +995,21 @@ trait TogglesPostReactions
         }
 
         [$index, $key] = $location;
+        $post = self::postAt($posts, $index, $key);
 
-        if ($key === null) {
-            $target = &$posts[$index];
-        } else {
-            $target = &$posts[$index]['thread']['posts'][$key];
+        if ($post === null) {
+            return false;
         }
 
         if ($kind === 'like') {
-            $this->reactLike($target, $id, $token);
+            $this->reactLike($post, $id, $token);
         } elseif ($kind === 'bookmark') {
-            $this->reactBookmark($target, $id, $token);
+            $this->reactBookmark($post, $id, $token);
         } else {
             return false;
         }
+
+        self::writePostAt($posts, $index, $key, $post);
 
         return true;
     }
@@ -945,12 +1026,15 @@ trait TogglesPostReactions
         }
 
         [$index, $key] = $location;
+        $post = self::postAt($posts, $index, $key);
 
-        if ($key === null) {
-            $this->voteOnPoll($posts[$index], $id, $optionId, $token);
-        } else {
-            $this->voteOnPoll($posts[$index]['thread']['posts'][$key], $id, $optionId, $token);
+        if ($post === null) {
+            return false;
         }
+
+        $this->voteOnPoll($post, $id, $optionId, $token);
+
+        self::writePostAt($posts, $index, $key, $post);
 
         return true;
     }
@@ -961,8 +1045,7 @@ trait TogglesPostReactions
             return;
         }
 
-        /** @var list<string> $expanded */
-        $expanded = isset($this->expanded) && is_array($this->expanded) ? $this->expanded : [];
+        $expanded = array_values(array_filter(Payload::array($this->expanded), 'is_string'));
 
         $this->expanded = in_array($id, $expanded, true)
             ? array_values(array_diff($expanded, [$id]))
@@ -1037,14 +1120,14 @@ trait TogglesPostReactions
             return;
         }
 
-        data_set($rows[$index], '_busy', true);
+        $rows[$index]['_busy'] = true;
 
         $api = app(PinkaryApi::class);
         $response = $following
             ? $api->attempt(fn () => $api->unfollow($token, $username))
             : $api->attempt(fn () => $api->follow($token, $username));
 
-        data_set($rows[$index], '_busy', false);
+        $rows[$index]['_busy'] = false;
 
         if ($response === null) {
             return;
@@ -1058,7 +1141,7 @@ trait TogglesPostReactions
             return;
         }
 
-        data_set($rows[$index], 'followed_by_me', (bool) $response->json('data.followed', ! $following));
+        $rows[$index]['followed_by_me'] = (bool) $response->json('data.followed', ! $following);
     }
 
     /**
@@ -1080,7 +1163,7 @@ trait TogglesPostReactions
     {
         $active = AccountStore::active();
 
-        if (is_array($active) && is_string($active['username'] ?? null) && $active['username'] !== '') {
+        if ($active !== null && $active['username'] !== '') {
             return $active['username'];
         }
 
@@ -1102,108 +1185,124 @@ trait TogglesPostReactions
             return null;
         }
 
-        foreach (['posts', 'questions'] as $property) {
-            if (isset($this->{$property}) && is_array($this->{$property})) {
-                $found = $this->readPostPayload($this->{$property}, $id);
-
-                if ($found !== null) {
-                    return $found;
-                }
-            }
-        }
-
-        if (isset($this->post) && is_array($this->post) && $this->post !== []) {
-            $found = $this->readPostPayload([$this->post], $id);
+        foreach ($this->menuPostSources() as $posts) {
+            $found = $this->readPostPayload($posts, $id);
 
             if ($found !== null) {
                 return $found;
             }
         }
 
-        if (isset($this->comments) && is_array($this->comments)) {
-            foreach ($this->comments as $comment) {
-                if (! is_array($comment)) {
-                    continue;
-                }
-
-                $found = $this->readPostPayload([$comment], $id);
-
-                if ($found !== null) {
-                    return $found;
-                }
-            }
-        }
-
         return null;
     }
 
-    private function updatePostForMenu(string $id, Closure $mutate): bool
+    /**
+     * @return list<list<array<string, mixed>>>
+     */
+    private function menuPostSources(): array
+    {
+        $sources = [];
+
+        foreach ($this->menuPostProperties() as $property) {
+            $rows = self::payloadRows($this->{$property});
+
+            if ($rows !== []) {
+                $sources[] = $rows;
+            }
+        }
+
+        if (isset($this->post)) {
+            $post = self::payloadRow($this->post);
+
+            if ($post !== []) {
+                $sources[] = [$post];
+            }
+        }
+
+        if (isset($this->comments)) {
+            $comments = self::payloadRows($this->comments);
+
+            if ($comments !== []) {
+                $sources[] = $comments;
+            }
+        }
+
+        return $sources;
+    }
+
+    /**
+     * Not every component declares every collection, and the name a component
+     * keeps its posts under is only known here, so ask each of them.
+     *
+     * @return list<string>
+     */
+    private function menuPostProperties(): array
+    {
+        return array_values(array_filter(
+            ['posts', 'questions'],
+            fn (string $property): bool => property_exists($this, $property)
+        ));
+    }
+
+    /**
+     * @param  array<string, mixed>  $values
+     */
+    private function updatePostForMenu(string $id, array $values): bool
     {
         if ($id === '') {
             return false;
         }
 
-        foreach (['posts', 'questions'] as $property) {
-            if (! isset($this->{$property}) || ! is_array($this->{$property})) {
-                continue;
-            }
-
-            $location = $this->locateNestedPost($this->{$property}, $id);
+        foreach ($this->menuPostProperties() as $property) {
+            $rows = self::payloadRows($this->{$property});
+            $location = $this->locateNestedPost($rows, $id);
 
             if ($location === null) {
                 continue;
             }
 
-            [$index, $key] = $location;
+            $post = self::postAt($rows, $location[0], $location[1]);
 
-            if ($key === null) {
-                $mutate($this->{$property}[$index]);
-            } else {
-                $mutate($this->{$property}[$index]['thread']['posts'][$key]);
+            if ($post === null) {
+                continue;
             }
+
+            self::writePostAt($rows, $location[0], $location[1], array_replace($post, $values));
+            $this->{$property} = $rows;
 
             return true;
         }
 
-        if (isset($this->post) && is_array($this->post) && $this->post !== []) {
-            $location = $this->locateNestedPost([$this->post], $id);
+        if (isset($this->post)) {
+            $post = [self::payloadRow($this->post)];
+            $location = $this->locateNestedPost($post, $id);
 
             if ($location !== null) {
-                [, $key] = $location;
+                $found = self::postAt($post, $location[0], $location[1]);
 
-                if ($key === null) {
-                    $mutate($this->post);
-                } else {
-                    $mutate($this->post['thread']['posts'][$key]);
+                if ($found !== null) {
+                    self::writePostAt($post, $location[0], $location[1], array_replace($found, $values));
+                    $this->post = $post[0];
+                    $this->syncMenuThreadMirror();
+
+                    return true;
                 }
-
-                $this->syncMenuThreadMirror();
-
-                return true;
             }
         }
 
-        if (isset($this->comments) && is_array($this->comments)) {
-            foreach ($this->comments as $index => $comment) {
-                if (! is_array($comment)) {
-                    continue;
+        if (isset($this->comments)) {
+            $comments = self::payloadRows($this->comments);
+            $location = $this->locateNestedPost($comments, $id);
+
+            if ($location !== null) {
+                $post = self::postAt($comments, $location[0], $location[1]);
+
+                if ($post !== null) {
+                    self::writePostAt($comments, $location[0], $location[1], array_replace($post, $values));
+                    $this->comments = $comments;
+
+                    return true;
                 }
-
-                $location = $this->locateNestedPost([$comment], $id);
-
-                if ($location === null) {
-                    continue;
-                }
-
-                [, $key] = $location;
-
-                if ($key === null) {
-                    $mutate($this->comments[$index]);
-                } else {
-                    $mutate($this->comments[$index]['thread']['posts'][$key]);
-                }
-
-                return true;
             }
         }
 
@@ -1216,12 +1315,9 @@ trait TogglesPostReactions
             return;
         }
 
-        foreach (['posts', 'questions'] as $property) {
-            if (! isset($this->{$property}) || ! is_array($this->{$property})) {
-                continue;
-            }
-
-            $location = $this->locateNestedPost($this->{$property}, $id);
+        foreach ($this->menuPostProperties() as $property) {
+            $rows = self::payloadRows($this->{$property});
+            $location = $this->locateNestedPost($rows, $id);
 
             if ($location === null) {
                 continue;
@@ -1230,56 +1326,40 @@ trait TogglesPostReactions
             [$index, $key] = $location;
 
             if ($key === null) {
-                $this->{$property} = array_values(array_filter(
-                    $this->{$property},
-                    fn (mixed $row): bool => ! is_array($row) || Payload::string(data_get($row, 'id', '')) !== $id
+                $rows = array_values(array_filter(
+                    $rows,
+                    static fn (array $row): bool => Payload::string(data_get($row, 'id', '')) !== $id
                 ));
             } else {
-                $thread = array_values(array_filter(
-                    (array) data_get($this->{$property}[$index], 'thread.posts', []),
-                    fn (mixed $row): bool => ! is_array($row) || Payload::string(data_get($row, 'id', '')) !== $id
-                ));
-
-                data_set($this->{$property}[$index], 'thread.posts', $thread);
+                $rows[$index] = self::withoutPost($rows[$index], $id);
             }
+
+            $this->{$property} = $rows;
         }
 
-        if (isset($this->comments) && is_array($this->comments)) {
-            $this->comments = array_values(array_filter(
-                $this->comments,
-                fn (mixed $row): bool => ! is_array($row) || Payload::string(data_get($row, 'id', '')) !== $id
+        if (isset($this->comments)) {
+            $comments = array_values(array_filter(
+                self::payloadRows($this->comments),
+                static fn (array $row): bool => Payload::string(data_get($row, 'id', '')) !== $id
             ));
 
-            foreach ($this->comments as $index => $comment) {
-                if (! is_array($comment)) {
-                    continue;
-                }
-
+            foreach ($comments as $index => $comment) {
                 $location = $this->locateNestedPost([$comment], $id);
 
-                if ($location === null || $location[1] === null) {
-                    continue;
+                if ($location !== null && $location[1] !== null) {
+                    $comments[$index] = self::withoutPost($comment, $id);
                 }
-
-                $thread = array_values(array_filter(
-                    (array) data_get($comment, 'thread.posts', []),
-                    fn (mixed $row): bool => ! is_array($row) || Payload::string(data_get($row, 'id', '')) !== $id
-                ));
-
-                data_set($this->comments[$index], 'thread.posts', $thread);
             }
+
+            $this->comments = $comments;
         }
 
-        if (isset($this->post) && is_array($this->post) && $this->post !== []) {
-            $location = $this->locateNestedPost([$this->post], $id);
+        if (isset($this->post)) {
+            $post = self::payloadRow($this->post);
+            $location = $this->locateNestedPost([$post], $id);
 
             if ($location !== null && $location[1] !== null) {
-                $thread = array_values(array_filter(
-                    (array) data_get($this->post, 'thread.posts', []),
-                    fn (mixed $row): bool => ! is_array($row) || Payload::string(data_get($row, 'id', '')) !== $id
-                ));
-
-                data_set($this->post, 'thread.posts', $thread);
+                $this->post = self::withoutPost($post, $id);
                 $this->syncMenuThreadMirror();
             }
         }
@@ -1329,7 +1409,7 @@ trait TogglesPostReactions
 
     private function plainText(mixed $html): string
     {
-        return mb_trim(html_entity_decode(strip_tags((string) $html), ENT_QUOTES, 'UTF-8'));
+        return mb_trim(html_entity_decode(strip_tags(Payload::string($html)), ENT_QUOTES, 'UTF-8'));
     }
 
     private function syncMenuThreadMirror(): void

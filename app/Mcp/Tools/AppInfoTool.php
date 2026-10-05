@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mcp\Tools;
 
+use App\Support\Payload;
 use Composer\InstalledVersions;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Foundation\Application;
@@ -31,9 +32,9 @@ final class AppInfoTool extends Tool
 
         $lines = [
             'Super Stack',
-            'App: '.config('app.name'),
-            'Env: '.config('app.env'),
-            'URL: '.config('app.url'),
+            'App: '.Payload::string(config('app.name')),
+            'Env: '.Payload::string(config('app.env')),
+            'URL: '.Payload::string(config('app.url')),
             'PHP: '.PHP_VERSION,
             '',
             'Packages:',

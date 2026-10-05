@@ -120,7 +120,7 @@ final class Compose extends NativeComponent
 
     public function mount(): void
     {
-        $this->askUsername = (string) $this->param('username', '');
+        $this->askUsername = Payload::string($this->param('username'));
 
         $token = $this->requireToken(replaceScreen: true);
 
@@ -187,12 +187,14 @@ final class Compose extends NativeComponent
             return;
         }
 
-        $users = $response->json('data.users', []);
-        $this->mentionResults = array_slice(array_values(array_filter(
-            is_array($users) ? $users : [],
-            fn (mixed $user): bool => is_array($user)
-                && preg_match('/^[A-Za-z0-9_-]+$/D', Payload::string($user['username'] ?? '')) === 1
-        )), 0, 5);
+        $users = Payload::array($response->json('data.users'));
+
+        $mentions = array_filter(array_map(
+            fn (mixed $user): array => is_array($user) ? array_filter($user, 'is_string', ARRAY_FILTER_USE_KEY) : [],
+            $users
+        ), fn (array $user): bool => preg_match('/^[A-Za-z0-9_-]+$/D', Payload::string($user['username'] ?? '')) === 1);
+
+        $this->mentionResults = array_slice(array_values($mentions), 0, 5);
     }
 
     public function selectMention(int $index): void
@@ -201,7 +203,7 @@ final class Compose extends NativeComponent
             return;
         }
 
-        $username = (string) $this->mentionResults[$index]['username'];
+        $username = Payload::string($this->mentionResults[$index]['username']);
         $postIndex = $this->mentionPostIndex;
         $text = $postIndex < 0 ? $this->content : ($this->posts[$postIndex] ?? '');
 
@@ -256,7 +258,7 @@ final class Compose extends NativeComponent
         }
 
         foreach ($this->postPolls as $poll) {
-            if (($poll['isPoll'] ?? false) && ! $this->pollOptionsAreValid($poll['options'] ?? [])) {
+            if ($poll['isPoll'] && ! $this->pollOptionsAreValid($poll['options'])) {
                 return false;
             }
         }
@@ -301,11 +303,13 @@ final class Compose extends NativeComponent
             return;
         }
 
-        unset($this->posts[$index]);
-        unset($this->postPolls[$index]);
+        $posts = $this->posts;
+        $postPolls = $this->postPolls;
+        unset($posts[$index], $postPolls[$index]);
+
         $this->clearMentionSuggestions();
-        $this->posts = array_values($this->posts);
-        $this->postPolls = array_values($this->postPolls);
+        $this->posts = array_values($posts);
+        $this->postPolls = array_values($postPolls);
         $this->touchDraft();
     }
 
@@ -363,8 +367,10 @@ final class Compose extends NativeComponent
             return;
         }
 
-        unset($this->postPolls[$index]['options'][$optionIndex]);
-        $this->postPolls[$index]['options'] = array_values($this->postPolls[$index]['options']);
+        $options = $this->postPolls[$index]['options'];
+        unset($options[$optionIndex]);
+
+        $this->postPolls[$index]['options'] = array_values($options);
         $this->touchDraft();
     }
 
@@ -427,7 +433,7 @@ final class Compose extends NativeComponent
         $name = '';
 
         foreach ($this->channelResults as $channel) {
-            if ((int) data_get($channel, 'id', 0) === $id) {
+            if (Payload::int(data_get($channel, 'id')) === $id) {
                 $name = Payload::string(data_get($channel, 'name', ''));
             }
         }
@@ -507,8 +513,10 @@ final class Compose extends NativeComponent
             return;
         }
 
-        unset($this->pollOptions[$index]);
-        $this->pollOptions = array_values($this->pollOptions);
+        $options = $this->pollOptions;
+        unset($options[$index]);
+
+        $this->pollOptions = array_values($options);
         $this->touchDraft();
     }
 
@@ -659,8 +667,10 @@ final class Compose extends NativeComponent
         $this->content = str_replace($snippet."\n", '', $this->content);
         $this->content = str_replace($snippet, '', $this->content);
 
-        unset($this->images[$index]);
-        $this->images = array_values($this->images);
+        $images = $this->images;
+        unset($images[$index]);
+
+        $this->images = array_values($images);
 
         $this->touchDraft();
     }
@@ -949,9 +959,7 @@ final class Compose extends NativeComponent
      */
     private function imageSnippet(array $image): string
     {
-        $path = Payload::string($image['path'] ?? '');
-
-        return '!['.$image['name'].']('.($path !== '' ? $path : $image['url']).')';
+        return '!['.$image['name'].']('.($image['path'] !== '' ? $image['path'] : $image['url']).')';
     }
 
     /**
@@ -991,7 +999,7 @@ final class Compose extends NativeComponent
             }
         }
 
-        $duration = (int) ($poll['duration'] ?? 1);
+        $duration = $poll['duration'];
 
         if (! isset(self::THREAD_POLL_DURATIONS[$duration])) {
             $this->errorMessage = 'Post '.($index + 2).'’s poll has an invalid duration.';
@@ -1077,7 +1085,7 @@ final class Compose extends NativeComponent
         $this->content = $draft['content'];
         $this->posts = $draft['posts'];
         $this->postPolls = $draft['postPolls'];
-        $this->images = $draft['images'] ?? [];
+        $this->images = $draft['images'];
         $this->channelId = $draft['channelId'];
         $this->channelName = $draft['channelName'];
         $this->isPoll = $draft['isPoll'];
@@ -1139,14 +1147,14 @@ final class Compose extends NativeComponent
     }
 
     /**
-     * @param  list<string>|array<int, mixed>  $options
+     * @param  list<string>  $options
      */
     private function pollOptionsAreValid(array $options): bool
     {
         $filled = 0;
 
         foreach ($options as $option) {
-            $text = mb_trim((string) $option);
+            $text = mb_trim($option);
 
             if ($text === '') {
                 continue;

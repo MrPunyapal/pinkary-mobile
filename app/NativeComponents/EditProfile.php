@@ -205,7 +205,7 @@ final class EditProfile extends NativeComponent
         }
 
         if (! $response->successful()) {
-            $this->applyFieldErrors((array) $response->json('errors', []), [
+            $this->applyFieldErrors(self::payloadObject($response->json('errors')), [
                 'name' => 'name',
                 'username' => 'username',
                 'email' => 'email',
@@ -352,7 +352,7 @@ final class EditProfile extends NativeComponent
     public function startEdit(int $id): void
     {
         foreach ($this->links as $link) {
-            if ((int) data_get($link, 'id', 0) === $id) {
+            if (Payload::int(data_get($link, 'id', 0)) === $id) {
                 $this->editingLinkId = $id;
                 $this->editDescription = Payload::string(data_get($link, 'description', ''));
                 $this->editUrl = $this->bareUrl(Payload::string(data_get($link, 'url', '')));
@@ -439,7 +439,7 @@ final class EditProfile extends NativeComponent
 
         if (is_array($link)) {
             foreach ($this->links as $key => $row) {
-                if ((int) data_get($row, 'id', 0) === $id) {
+                if (Payload::int(data_get($row, 'id', 0)) === $id) {
                     $this->links[$key] = $link;
 
                     break;
@@ -482,7 +482,7 @@ final class EditProfile extends NativeComponent
         if ($response !== null && ($response->successful() || $response->notFound())) {
             $this->links = array_values(array_filter(
                 $this->links,
-                fn (mixed $link): bool => (int) data_get($link, 'id', 0) !== $id
+                fn (mixed $link): bool => Payload::int(data_get($link, 'id', 0)) !== $id
             ));
             $this->linkMessage = 'Link deleted.';
 
@@ -510,6 +510,17 @@ final class EditProfile extends NativeComponent
     public function render(): View
     {
         return view('native.edit-profile');
+    }
+
+    /**
+     * A decoded JSON object has string keys, which the untyped payload gives no
+     * way to express.
+     *
+     * @return array<string, mixed>
+     */
+    private static function payloadObject(mixed $value): array
+    {
+        return array_filter(Payload::array($value), 'is_string', ARRAY_FILTER_USE_KEY);
     }
 
     private function load(string $token): void

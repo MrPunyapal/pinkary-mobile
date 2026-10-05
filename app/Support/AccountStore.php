@@ -90,10 +90,10 @@ final class AccountStore
      */
     public static function allTokens(): array
     {
-        return array_values(array_map(
+        return array_map(
             fn (array $account): string => $account['token'],
             self::readAll()
-        ));
+        );
     }
 
     /**
@@ -140,8 +140,8 @@ final class AccountStore
 
             $account['name'] = Payload::string(data_get($profile, 'name', $account['name']));
             $account['avatar'] = data_get($profile, 'avatar', $account['avatar']);
-            $account['email'] = data_get($profile, 'email', $account['email'] ?? null);
-            $account['member_since'] = data_get($profile, 'member_since.human', data_get($profile, 'member_since', $account['member_since'] ?? null));
+            $account['email'] = data_get($profile, 'email', $account['email']);
+            $account['member_since'] = data_get($profile, 'member_since.human', data_get($profile, 'member_since', $account['member_since']));
             $changed = true;
 
             break;
@@ -201,7 +201,7 @@ final class AccountStore
     }
 
     /**
-     * @param  list<array<string, mixed>>  $accounts
+     * @param  list<array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, token: string}>  $accounts
      * @return array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, token: string}|null
      */
     private static function find(array $accounts, string $id): ?array
@@ -273,7 +273,7 @@ final class AccountStore
      */
     private static function write(array $accounts, ?string $activeId): void
     {
-        $payload = json_encode(['accounts' => array_values($accounts), 'active' => $activeId], JSON_THROW_ON_ERROR);
+        $payload = json_encode(['accounts' => $accounts, 'active' => $activeId], JSON_THROW_ON_ERROR);
         $path = self::path();
 
         File::ensureDirectoryExists(dirname($path), 0700);

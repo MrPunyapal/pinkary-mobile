@@ -47,7 +47,7 @@ final class DisplayText
                     $code = $node->getElementsByTagName('code')->item(0);
                     $language = $code instanceof DOMElement && preg_match('/(?:language-|(?:^|\s)hljs\s+)([\w+-]+)/', $code->getAttribute('class'), $match) ? $match[1] : '';
                     $runs[] = ['text' => "\n", 'type' => 'text', 'target' => ''];
-                    $runs[] = ['text' => preg_replace('/\n$/', '', self::codeText($code ?? $node)), 'type' => 'code', 'target' => $language];
+                    $runs[] = ['text' => Payload::string(preg_replace('/\n$/', '', self::codeText($code ?? $node))), 'type' => 'code', 'target' => $language];
                     $runs[] = ['text' => "\n", 'type' => 'text', 'target' => ''];
 
                     return;
@@ -78,7 +78,7 @@ final class DisplayText
                 }
 
                 if ($node->nodeType === XML_TEXT_NODE) {
-                    $runs = [...$runs, ...self::textRuns($node->textContent, $target)];
+                    $runs = [...$runs, ...self::textRuns(Payload::string($node->textContent), $target)];
 
                     return;
                 }

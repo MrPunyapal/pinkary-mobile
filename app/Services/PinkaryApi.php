@@ -46,8 +46,13 @@ final class PinkaryApi
             $post['preview'] = DisplayText::preview($post['answer'] ?? $post['content'] ?? null);
         }
 
-        if (is_array($post['thread']['posts'] ?? null)) {
-            $post['thread']['posts'] = $this->normalizeQuestions($post['thread']['posts']);
+        if (is_array($post['thread'] ?? null)) {
+            $thread = $post['thread'];
+
+            if (is_array($thread['posts'] ?? null)) {
+                $thread['posts'] = $this->normalizeQuestions($thread['posts']);
+                $post['thread'] = $thread;
+            }
         }
 
         return $post;
@@ -65,9 +70,17 @@ final class PinkaryApi
         $normalized = [];
 
         foreach ($posts as $post) {
-            if (is_array($post)) {
-                $normalized[] = $this->normalizeQuestion($post);
+            if (! is_array($post)) {
+                continue;
             }
+
+            $fields = [];
+
+            foreach ($post as $field => $value) {
+                $fields[(string) $field] = $value;
+            }
+
+            $normalized[] = $this->normalizeQuestion($fields);
         }
 
         return $normalized;
