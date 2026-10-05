@@ -2,6 +2,9 @@
     "exclude": [
         "app/Icons"
     ],
+    "notName": [
+        "nativephp.stub.php"
+    ],
     "preset": "laravel",
     "rules": {
         "Pint/laravel_blade": true,

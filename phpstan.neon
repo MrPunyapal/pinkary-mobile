@@ -1,0 +1,16 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+    - vendor/phpstan/phpstan/conf/bleedingEdge.neon
+
+parameters:
+    level: max
+
+    scanFiles:
+        - nativephp.stub.php
+
+    paths:
+        - app
+        - config
+        - bootstrap
+        - database/factories
+        - routes
