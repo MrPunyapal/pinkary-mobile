@@ -11,6 +11,7 @@ use App\Support\AccountStore;
 use App\Support\ApiErrors;
 use App\Support\CurrentUser;
 use App\Support\DraftStore;
+use App\Support\Payload;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Events\Gallery\MediaSelected;
@@ -190,7 +191,7 @@ final class Compose extends NativeComponent
         $this->mentionResults = array_slice(array_values(array_filter(
             is_array($users) ? $users : [],
             fn (mixed $user): bool => is_array($user)
-                && preg_match('/^[A-Za-z0-9_-]+$/D', (string) ($user['username'] ?? '')) === 1
+                && preg_match('/^[A-Za-z0-9_-]+$/D', Payload::string($user['username'] ?? '')) === 1
         )), 0, 5);
     }
 
@@ -413,7 +414,7 @@ final class Compose extends NativeComponent
         }
 
         foreach ($this->channelResults as $channel) {
-            if (mb_strtolower((string) data_get($channel, 'name', '')) === mb_strtolower($query)) {
+            if (mb_strtolower(Payload::string(data_get($channel, 'name', ''))) === mb_strtolower($query)) {
                 return false;
             }
         }
@@ -427,7 +428,7 @@ final class Compose extends NativeComponent
 
         foreach ($this->channelResults as $channel) {
             if ((int) data_get($channel, 'id', 0) === $id) {
-                $name = (string) data_get($channel, 'name', '');
+                $name = Payload::string(data_get($channel, 'name', ''));
             }
         }
 
@@ -631,9 +632,9 @@ final class Compose extends NativeComponent
         $uploaded = $response->json('data', []);
 
         foreach ($uploaded as $image) {
-            $url = (string) data_get($image, 'url', '');
-            $name = (string) data_get($image, 'original_name', '');
-            $storedPath = (string) data_get($image, 'path', '');
+            $url = Payload::string(data_get($image, 'url', ''));
+            $name = Payload::string(data_get($image, 'original_name', ''));
+            $storedPath = Payload::string(data_get($image, 'path', ''));
 
             if ($url === '' || $name === '' || $storedPath === '') {
                 continue;
@@ -948,7 +949,7 @@ final class Compose extends NativeComponent
      */
     private function imageSnippet(array $image): string
     {
-        $path = (string) ($image['path'] ?? '');
+        $path = Payload::string($image['path'] ?? '');
 
         return '!['.$image['name'].']('.($path !== '' ? $path : $image['url']).')';
     }
@@ -1044,7 +1045,7 @@ final class Compose extends NativeComponent
         }
 
         $user = CurrentUser::get() ?? AccountStore::active();
-        $name = is_array($user) ? (string) ($user['name'] ?? '') : '';
+        $name = is_array($user) ? Payload::string($user['name'] ?? '') : '';
 
         if ($name !== '') {
             return false;

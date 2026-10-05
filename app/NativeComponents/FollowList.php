@@ -8,6 +8,7 @@ use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
 use App\Support\AccountStore;
 use App\Support\CurrentUser;
+use App\Support\Payload;
 use Illuminate\Http\Client\Response;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
@@ -69,7 +70,7 @@ final class FollowList extends NativeComponent
         $token = $this->token();
 
         $me = CurrentUser::get() ?? AccountStore::active();
-        $myUsername = is_array($me) ? (string) ($me['username'] ?? '') : '';
+        $myUsername = is_array($me) ? Payload::string($me['username'] ?? '') : '';
 
         $this->isOwnProfile = $myUsername !== '' && mb_strtolower($myUsername) === mb_strtolower($this->username);
 
@@ -113,7 +114,7 @@ final class FollowList extends NativeComponent
         $followed = false;
 
         foreach ($this->users as $key => $user) {
-            if ((string) data_get($user, 'username', '') === $username) {
+            if (Payload::string(data_get($user, 'username', '')) === $username) {
                 $index = $key;
                 $followed = (bool) data_get($user, 'followed_by_me', false);
 

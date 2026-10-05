@@ -10,6 +10,7 @@ use App\Support\AccountStore;
 use App\Support\ApiErrors;
 use App\Support\CurrentUser;
 use App\Support\DisplayText;
+use App\Support\Payload;
 use App\Support\PostViews;
 use Closure;
 use Illuminate\Support\Carbon;
@@ -627,9 +628,9 @@ trait TogglesPostReactions
         }
 
         $this->shareQuestion(
-            (string) data_get($post, 'to.username', ''),
+            Payload::string(data_get($post, 'to.username', '')),
             $this->menuPostId,
-            (string) (data_get($post, 'answer') ?? data_get($post, 'content')),
+            Payload::string(data_get($post, 'answer') ?? data_get($post, 'content')),
         );
     }
 
@@ -641,7 +642,7 @@ trait TogglesPostReactions
             return;
         }
 
-        $url = $this->questionUrl((string) data_get($post, 'to.username', ''), $this->menuPostId);
+        $url = $this->questionUrl(Payload::string(data_get($post, 'to.username', '')), $this->menuPostId);
 
         if ($url === null) {
             return;
@@ -863,12 +864,12 @@ trait TogglesPostReactions
                 continue;
             }
 
-            if ((string) data_get($post, 'id') === $id) {
+            if (Payload::string(data_get($post, 'id')) === $id) {
                 return [$index, null];
             }
 
             foreach ((array) data_get($post, 'thread.posts', []) as $key => $ancestor) {
-                if (is_array($ancestor) && (string) data_get($ancestor, 'id') === $id) {
+                if (is_array($ancestor) && Payload::string(data_get($ancestor, 'id')) === $id) {
                     return [$index, $key];
                 }
             }
@@ -1014,7 +1015,7 @@ trait TogglesPostReactions
         $following = false;
 
         foreach ($rows as $key => $row) {
-            if ((string) data_get($row, 'username', '') === $username) {
+            if (Payload::string(data_get($row, 'username', '')) === $username) {
                 $index = $key;
                 $following = (bool) data_get($row, 'followed_by_me', false);
 
@@ -1069,7 +1070,7 @@ trait TogglesPostReactions
             return false;
         }
 
-        $owner = mb_strtolower(mb_trim((string) data_get($post, 'to.username', '')));
+        $owner = mb_strtolower(mb_trim(Payload::string(data_get($post, 'to.username', ''))));
         $viewer = mb_strtolower(mb_trim($this->viewerUsername()));
 
         return $owner !== '' && $viewer !== '' && $owner === $viewer;
@@ -1231,12 +1232,12 @@ trait TogglesPostReactions
             if ($key === null) {
                 $this->{$property} = array_values(array_filter(
                     $this->{$property},
-                    fn (mixed $row): bool => ! is_array($row) || (string) data_get($row, 'id', '') !== $id
+                    fn (mixed $row): bool => ! is_array($row) || Payload::string(data_get($row, 'id', '')) !== $id
                 ));
             } else {
                 $thread = array_values(array_filter(
                     (array) data_get($this->{$property}[$index], 'thread.posts', []),
-                    fn (mixed $row): bool => ! is_array($row) || (string) data_get($row, 'id', '') !== $id
+                    fn (mixed $row): bool => ! is_array($row) || Payload::string(data_get($row, 'id', '')) !== $id
                 ));
 
                 data_set($this->{$property}[$index], 'thread.posts', $thread);
@@ -1246,7 +1247,7 @@ trait TogglesPostReactions
         if (isset($this->comments) && is_array($this->comments)) {
             $this->comments = array_values(array_filter(
                 $this->comments,
-                fn (mixed $row): bool => ! is_array($row) || (string) data_get($row, 'id', '') !== $id
+                fn (mixed $row): bool => ! is_array($row) || Payload::string(data_get($row, 'id', '')) !== $id
             ));
 
             foreach ($this->comments as $index => $comment) {
@@ -1262,7 +1263,7 @@ trait TogglesPostReactions
 
                 $thread = array_values(array_filter(
                     (array) data_get($comment, 'thread.posts', []),
-                    fn (mixed $row): bool => ! is_array($row) || (string) data_get($row, 'id', '') !== $id
+                    fn (mixed $row): bool => ! is_array($row) || Payload::string(data_get($row, 'id', '')) !== $id
                 ));
 
                 data_set($this->comments[$index], 'thread.posts', $thread);
@@ -1275,7 +1276,7 @@ trait TogglesPostReactions
             if ($location !== null && $location[1] !== null) {
                 $thread = array_values(array_filter(
                     (array) data_get($this->post, 'thread.posts', []),
-                    fn (mixed $row): bool => ! is_array($row) || (string) data_get($row, 'id', '') !== $id
+                    fn (mixed $row): bool => ! is_array($row) || Payload::string(data_get($row, 'id', '')) !== $id
                 ));
 
                 data_set($this->post, 'thread.posts', $thread);
@@ -1321,7 +1322,7 @@ trait TogglesPostReactions
             return null;
         }
 
-        $base = mb_rtrim((string) config('services.pinkary.url'), '/');
+        $base = mb_rtrim(Payload::string(config('services.pinkary.url')), '/');
 
         return $base.'/@'.$username.'/questions/'.$id;
     }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\NativeComponents\Concerns;
 
 use App\Services\PinkaryApi;
+use App\Support\Payload;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Str;
 use Native\Mobile\Edge\NativeComponent;
@@ -56,7 +57,7 @@ trait UsesCaptcha
 
     public function captchaNavigated(string $url): void
     {
-        $base = parse_url((string) config('services.pinkary.url'));
+        $base = parse_url(Payload::string(config('services.pinkary.url')));
         $callback = parse_url($url);
 
         if (! $this->captchaRequired || $this->captchaState === '' || ! is_array($base) || ! is_array($callback)
@@ -182,7 +183,7 @@ trait UsesCaptcha
         $this->captchaCompleted = false;
         $this->captchaState = (string) Str::uuid();
         $this->captchaUrl = $this->captchaRequired && $this->captchaWidgetPath !== ''
-            ? mb_rtrim((string) config('services.pinkary.url'), '/').$this->captchaWidgetPath.'?'.http_build_query([
+            ? mb_rtrim(Payload::string(config('services.pinkary.url')), '/').$this->captchaWidgetPath.'?'.http_build_query([
                 'action' => $this->captchaAction, 'state' => $this->captchaState,
             ]) : '';
     }

@@ -8,6 +8,7 @@ use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
 use App\Support\AccountStore;
 use App\Support\FeedCache;
+use App\Support\Payload;
 use App\Support\UnreadCount;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
@@ -75,7 +76,7 @@ final class Notifications extends NativeComponent
         $target = null;
 
         foreach ($this->items as $index => $item) {
-            if ((string) data_get($item, 'id') === $id) {
+            if (Payload::string(data_get($item, 'id')) === $id) {
                 $target = data_get($item, 'target');
 
                 break;
@@ -125,7 +126,7 @@ final class Notifications extends NativeComponent
         $api = app(PinkaryApi::class);
 
         foreach ($this->items as $item) {
-            $id = (string) data_get($item, 'id', '');
+            $id = Payload::string(data_get($item, 'id', ''));
 
             if ($id !== '') {
                 $api->attempt(fn () => $api->deleteNotification($token, $id));
@@ -308,7 +309,7 @@ final class Notifications extends NativeComponent
     {
         $this->items = array_values(array_filter(
             $this->items,
-            fn (mixed $item): bool => (string) data_get($item, 'id') !== $id
+            fn (mixed $item): bool => Payload::string(data_get($item, 'id')) !== $id
         ));
     }
 

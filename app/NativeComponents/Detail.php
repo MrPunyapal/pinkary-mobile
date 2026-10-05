@@ -10,6 +10,7 @@ use App\NativeComponents\Concerns\UsesCaptcha;
 use App\Services\PinkaryApi;
 use App\Support\ApiErrors;
 use App\Support\DisplayText;
+use App\Support\Payload;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
 
@@ -119,9 +120,9 @@ final class Detail extends NativeComponent
         }
 
         $this->shareQuestion(
-            (string) data_get($post, 'to.username', ''),
+            Payload::string(data_get($post, 'to.username', '')),
             $id,
-            (string) (data_get($post, 'answer') ?? data_get($post, 'content')),
+            Payload::string(data_get($post, 'answer') ?? data_get($post, 'content')),
         );
     }
 
@@ -331,12 +332,12 @@ final class Detail extends NativeComponent
         $seen = [];
 
         foreach ($this->comments as $row) {
-            $seen[(string) data_get($row, 'id', '')] = true;
+            $seen[Payload::string(data_get($row, 'id', ''))] = true;
         }
 
         $next = array_values(array_filter(
             $next,
-            fn (mixed $row): bool => is_array($row) && ! isset($seen[(string) data_get($row, 'id', '')])
+            fn (mixed $row): bool => is_array($row) && ! isset($seen[Payload::string(data_get($row, 'id', ''))])
         ));
 
         $this->comments = [...$this->comments, ...$next];

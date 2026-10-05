@@ -9,6 +9,7 @@ use App\Services\TokenStorage;
 use App\Support\AccountStore;
 use App\Support\ApiErrors;
 use App\Support\CurrentUser;
+use App\Support\Payload;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 use Native\Mobile\Browser;
@@ -47,7 +48,7 @@ final class Login extends NativeComponent
         $active = AccountStore::active();
 
         $this->addingAccount = (bool) session('pinkary_add_account', false) && $active !== null;
-        $this->activeAccountUsername = (string) ($active['username'] ?? '');
+        $this->activeAccountUsername = Payload::string($active['username'] ?? '');
     }
 
     public function navTitle(): string
@@ -103,7 +104,7 @@ final class Login extends NativeComponent
         $this->applyFieldErrors((array) $response->json('errors', []), [
             'email' => 'email',
             'password' => 'password',
-        ], (string) ($response->json('message') ?? 'We could not log you in. Please check your details and try again.'));
+        ], Payload::string($response->json('message') ?? 'We could not log you in. Please check your details and try again.'));
     }
 
     public function submitTwoFactor(): void
@@ -129,7 +130,7 @@ final class Login extends NativeComponent
         }
 
         $this->busy = false;
-        $this->errorMessage = (string) ($response->json('message') ?? 'That code was not accepted. Check it and try again.');
+        $this->errorMessage = Payload::string($response->json('message') ?? 'That code was not accepted. Check it and try again.');
     }
 
     public function cancelTwoFactor(): void
@@ -184,7 +185,7 @@ final class Login extends NativeComponent
      */
     private function acceptToken(string $token, array $userData): void
     {
-        $username = (string) ($userData['username'] ?? '');
+        $username = Payload::string($userData['username'] ?? '');
 
         $previous = $username !== '' ? AccountStore::tokenForUsername($username) : null;
 
@@ -205,7 +206,7 @@ final class Login extends NativeComponent
 
     private function openWebPage(string $path): void
     {
-        $url = mb_rtrim((string) config('services.pinkary.url'), '/').$path;
+        $url = mb_rtrim(Payload::string(config('services.pinkary.url')), '/').$path;
 
         if (! preg_match('#^https?://#i', $url)) {
             return;

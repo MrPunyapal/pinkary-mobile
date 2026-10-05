@@ -16,8 +16,8 @@ final class CurrentUser
     public static function store(array $profile): void
     {
         $data = [
-            'name' => (string) data_get($profile, 'name', ''),
-            'username' => (string) data_get($profile, 'username', ''),
+            'name' => Payload::string(data_get($profile, 'name', '')),
+            'username' => Payload::string(data_get($profile, 'username', '')),
             'avatar' => data_get($profile, 'avatar'),
             'email' => data_get($profile, 'email'),
             'member_since' => data_get($profile, 'member_since.human'),

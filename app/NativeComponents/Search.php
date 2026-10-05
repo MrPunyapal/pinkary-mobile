@@ -6,6 +6,7 @@ namespace App\NativeComponents;
 
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
+use App\Support\Payload;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
 
@@ -125,7 +126,7 @@ final class Search extends NativeComponent
         $following = false;
 
         foreach ($this->users as $key => $user) {
-            if ((string) data_get($user, 'username', '') === $username) {
+            if (Payload::string(data_get($user, 'username', '')) === $username) {
                 $index = $key;
                 $following = (bool) data_get($user, 'followed_by_me', false);
 

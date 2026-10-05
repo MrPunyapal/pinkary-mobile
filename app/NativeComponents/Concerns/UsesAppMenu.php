@@ -8,6 +8,7 @@ use App\Services\PinkaryApi;
 use App\Services\TokenStorage;
 use App\Support\AccountStore;
 use App\Support\CurrentUser;
+use App\Support\Payload;
 use App\Support\UnreadCount;
 use Illuminate\Http\Client\Response;
 use Native\Mobile\Browser;
@@ -266,7 +267,7 @@ trait UsesAppMenu
 
     private function aboutUrl(): string
     {
-        return mb_rtrim((string) config('services.pinkary.url'), '/').'/about';
+        return mb_rtrim(Payload::string(config('services.pinkary.url')), '/').'/about';
     }
 
     private function afterActiveAccountRemoved(): void

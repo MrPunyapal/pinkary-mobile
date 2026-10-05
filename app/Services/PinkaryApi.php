@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Support\DisplayText;
+use App\Support\Payload;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -400,7 +401,7 @@ final class PinkaryApi
 
     private function request(): PendingRequest
     {
-        return Http::baseUrl(mb_rtrim((string) config('services.pinkary.url'), '/'))
+        return Http::baseUrl(mb_rtrim(Payload::string(config('services.pinkary.url')), '/'))
             ->acceptJson()
             ->asJson()
             ->connectTimeout(self::CONNECT_TIMEOUT)
@@ -410,7 +411,7 @@ final class PinkaryApi
     /** Use a fresh multipart builder; asMultipart() does not clear existing JSON headers. */
     private function multipartRequest(): PendingRequest
     {
-        return Http::baseUrl(mb_rtrim((string) config('services.pinkary.url'), '/'))
+        return Http::baseUrl(mb_rtrim(Payload::string(config('services.pinkary.url')), '/'))
             ->acceptJson()
             ->asMultipart()
             ->connectTimeout(self::CONNECT_TIMEOUT)

@@ -157,7 +157,7 @@ final class DisplayText
         if (str_starts_with($url, '//')) {
             $url = 'https:'.$url;
         } elseif (str_starts_with($url, '/')) {
-            $url = mb_rtrim((string) config('services.pinkary.url'), '/').$url;
+            $url = mb_rtrim(Payload::string(config('services.pinkary.url')), '/').$url;
         }
         $parts = parse_url($url);
         if (! is_array($parts) || ! in_array(mb_strtolower($parts['scheme'] ?? ''), ['http', 'https'], true)
@@ -173,7 +173,7 @@ final class DisplayText
     {
         foreach (self::runs($html) as $run) {
             if ($run['type'] === 'link') {
-                return ['url' => $run['target'], 'host' => (string) parse_url($run['target'], PHP_URL_HOST), 'title' => $run['target'], 'image' => null];
+                return ['url' => $run['target'], 'host' => Payload::string(parse_url($run['target'], PHP_URL_HOST)), 'title' => $run['target'], 'image' => null];
             }
         }
 
@@ -215,7 +215,7 @@ final class DisplayText
         $url = self::url($href);
         $path = $url === null ? null : parse_url($url, PHP_URL_PATH);
         $host = $url === null ? null : parse_url($url, PHP_URL_HOST);
-        $internal = in_array($host, [parse_url((string) config('services.pinkary.url'), PHP_URL_HOST), 'pinkary.com'], true);
+        $internal = in_array($host, [parse_url(Payload::string(config('services.pinkary.url')), PHP_URL_HOST), 'pinkary.com'], true);
 
         if ($internal && is_string($path) && preg_match('~^/@([A-Za-z0-9_-]+)$~D', $path, $match)) {
             return [['text' => $text, 'type' => 'mention', 'target' => $match[1]]];

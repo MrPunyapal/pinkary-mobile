@@ -9,6 +9,7 @@ use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
 use App\Support\AccountStore;
 use App\Support\FeedCache;
+use App\Support\Payload;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
 
@@ -122,9 +123,9 @@ final class Bookmarks extends NativeComponent
         }
 
         $this->shareQuestion(
-            (string) data_get($post, 'to.username', ''),
+            Payload::string(data_get($post, 'to.username', '')),
             $id,
-            (string) (data_get($post, 'answer') ?? data_get($post, 'content')),
+            Payload::string(data_get($post, 'answer') ?? data_get($post, 'content')),
         );
     }
 

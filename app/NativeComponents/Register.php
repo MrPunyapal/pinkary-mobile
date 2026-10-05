@@ -10,6 +10,7 @@ use App\Services\TokenStorage;
 use App\Support\AccountStore;
 use App\Support\ApiErrors;
 use App\Support\CurrentUser;
+use App\Support\Payload;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 use Native\Mobile\Browser;
@@ -118,7 +119,7 @@ final class Register extends NativeComponent
         if ($response->successful() && is_string($token = $response->json('token'))) {
             $userData = $response->json('data') ?? $response->json('user');
             $userData = is_array($userData) ? $userData : [];
-            $username = (string) ($userData['username'] ?? $this->username);
+            $username = Payload::string($userData['username'] ?? $this->username);
 
             $previous = $username !== '' ? AccountStore::tokenForUsername($username) : null;
 
@@ -145,7 +146,7 @@ final class Register extends NativeComponent
         }
 
         $this->busy = false;
-        $this->applyFieldErrors((array) $response->json('errors', []), $fields, (string) ($response->json('message') ?? 'We could not create your account. Please check your details and try again.'));
+        $this->applyFieldErrors((array) $response->json('errors', []), $fields, Payload::string($response->json('message') ?? 'We could not create your account. Please check your details and try again.'));
     }
 
     public function login(): void
@@ -186,7 +187,7 @@ final class Register extends NativeComponent
 
     private function openWebPage(string $path): void
     {
-        $url = mb_rtrim((string) config('services.pinkary.url'), '/').$path;
+        $url = mb_rtrim(Payload::string(config('services.pinkary.url')), '/').$path;
 
         if (! preg_match('#^https?://#i', $url)) {
             return;

@@ -9,6 +9,7 @@ use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
 use App\Support\ApiErrors;
 use App\Support\CurrentUser;
+use App\Support\Payload;
 use Illuminate\View\View;
 use Native\Mobile\Browser;
 use Native\Mobile\Edge\NativeComponent;
@@ -105,7 +106,7 @@ final class Profile extends NativeComponent
 
     public function askUser(): void
     {
-        $username = (string) data_get($this->profile, 'username', '');
+        $username = Payload::string(data_get($this->profile, 'username', ''));
 
         if ($username === '' || (bool) data_get($this->profile, 'is_me', false)) {
             return;
@@ -181,9 +182,9 @@ final class Profile extends NativeComponent
         }
 
         $this->shareQuestion(
-            (string) data_get($post, 'to.username', ''),
+            Payload::string(data_get($post, 'to.username', '')),
             $id,
-            (string) (data_get($post, 'answer') ?? data_get($post, 'content')),
+            Payload::string(data_get($post, 'answer') ?? data_get($post, 'content')),
         );
     }
 
@@ -255,7 +256,7 @@ final class Profile extends NativeComponent
             return;
         }
 
-        $username = (string) data_get($this->profile, 'username', '');
+        $username = Payload::string(data_get($this->profile, 'username', ''));
 
         if ($username === '' || (bool) data_get($this->profile, 'is_me', false)) {
             return;
@@ -321,13 +322,13 @@ final class Profile extends NativeComponent
 
     public function shareProfile(): void
     {
-        $username = (string) data_get($this->profile, 'username', '');
+        $username = Payload::string(data_get($this->profile, 'username', ''));
 
         if ($username === '') {
             return;
         }
 
-        $base = mb_rtrim((string) config('services.pinkary.url'), '/');
+        $base = mb_rtrim(Payload::string(config('services.pinkary.url')), '/');
 
         app(Share::class)->url('Pinkary profile', '@'.$username.' on Pinkary', $base.'/@'.$username);
     }

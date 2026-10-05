@@ -267,11 +267,11 @@ final class DraftStore
     private static function accountKey(): string
     {
         $account = AccountStore::active();
-        $username = is_array($account) ? (string) ($account['username'] ?? '') : '';
+        $username = is_array($account) ? Payload::string($account['username'] ?? '') : '';
 
         if ($username === '') {
             $user = CurrentUser::get();
-            $username = is_array($user) ? (string) ($user['username'] ?? '') : '';
+            $username = is_array($user) ? Payload::string($user['username'] ?? '') : '';
         }
 
         $username = mb_strtolower(mb_trim($username));

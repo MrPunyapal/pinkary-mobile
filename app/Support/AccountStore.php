@@ -113,7 +113,7 @@ final class AccountStore
         array_unshift($accounts, [
             'id' => $id,
             'username' => $username,
-            'name' => (string) data_get($profile, 'name', ''),
+            'name' => Payload::string(data_get($profile, 'name', '')),
             'avatar' => data_get($profile, 'avatar'),
             'email' => data_get($profile, 'email'),
             'member_since' => data_get($profile, 'member_since.human', data_get($profile, 'member_since')),
@@ -138,7 +138,7 @@ final class AccountStore
                 continue;
             }
 
-            $account['name'] = (string) data_get($profile, 'name', $account['name']);
+            $account['name'] = Payload::string(data_get($profile, 'name', $account['name']));
             $account['avatar'] = data_get($profile, 'avatar', $account['avatar']);
             $account['email'] = data_get($profile, 'email', $account['email'] ?? null);
             $account['member_since'] = data_get($profile, 'member_since.human', data_get($profile, 'member_since', $account['member_since'] ?? null));

@@ -8,6 +8,7 @@ use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
 use App\Support\ApiErrors;
 use App\Support\CurrentUser;
+use App\Support\Payload;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
@@ -353,8 +354,8 @@ final class EditProfile extends NativeComponent
         foreach ($this->links as $link) {
             if ((int) data_get($link, 'id', 0) === $id) {
                 $this->editingLinkId = $id;
-                $this->editDescription = (string) data_get($link, 'description', '');
-                $this->editUrl = $this->bareUrl((string) data_get($link, 'url', ''));
+                $this->editDescription = Payload::string(data_get($link, 'description', ''));
+                $this->editUrl = $this->bareUrl(Payload::string(data_get($link, 'url', '')));
                 $this->editUrlTouched = false;
                 $this->linkMessage = '';
                 $this->confirmingDeleteId = null;
@@ -552,15 +553,15 @@ final class EditProfile extends NativeComponent
      */
     private function fillFromProfile(array $profile): void
     {
-        $this->name = (string) data_get($profile, 'name', '');
-        $this->username = (string) data_get($profile, 'username', '');
-        $this->bio = (string) data_get($profile, 'bio', '');
-        $this->email = (string) data_get($profile, 'email', '');
+        $this->name = Payload::string(data_get($profile, 'name', ''));
+        $this->username = Payload::string(data_get($profile, 'username', ''));
+        $this->bio = Payload::string(data_get($profile, 'bio', ''));
+        $this->email = Payload::string(data_get($profile, 'email', ''));
 
         $avatar = data_get($profile, 'avatar');
         $this->avatar = is_string($avatar) && $avatar !== '' ? $avatar : null;
 
-        $linkShape = (string) data_get($profile, 'link_shape', '');
+        $linkShape = Payload::string(data_get($profile, 'link_shape', ''));
         $this->linkShape = in_array($linkShape, self::LINK_SHAPES, true) ? $linkShape : 'rounded-lg';
 
         $anonymous = data_get($profile, 'prefers_anonymous_questions');
@@ -638,7 +639,7 @@ final class EditProfile extends NativeComponent
             return mb_substr($url, 0, $position);
         }
 
-        return (string) preg_replace('/([?&])ref=pinkary(&|$)/', '$1', $url);
+        return Payload::string(preg_replace('/([?&])ref=pinkary(&|$)/', '$1', $url));
     }
 
     /**
