@@ -21,11 +21,6 @@ final class EditProfile extends NativeComponent
      */
     private const array LINK_SHAPES = ['rounded-none', 'rounded-lg', 'rounded-full'];
 
-    public function hidesDrawer(): bool
-    {
-        return true;
-    }
-
     public bool $loading = true;
 
     public string $errorMessage = '';
@@ -112,6 +107,11 @@ final class EditProfile extends NativeComponent
         'rounded-full' => 'Extra Round',
     ];
 
+    public function hidesDrawer(): bool
+    {
+        return true;
+    }
+
     public function navTitle(): string
     {
         return 'Edit profile';
@@ -156,10 +156,10 @@ final class EditProfile extends NativeComponent
         $this->fieldErrors = [];
 
         $validator = Validator::make([
-            'name' => trim($this->name),
-            'username' => trim($this->username),
-            'email' => trim($this->email),
-            'bio' => trim($this->bio),
+            'name' => mb_trim($this->name),
+            'username' => mb_trim($this->username),
+            'email' => mb_trim($this->email),
+            'bio' => mb_trim($this->bio),
         ], [
             'name' => ['required', 'string', 'max:255'],
             'username' => ['required', 'string', 'min:4', 'max:50'],
@@ -180,13 +180,13 @@ final class EditProfile extends NativeComponent
 
         $this->busy = true;
 
-        $bio = trim($this->bio);
+        $bio = mb_trim($this->bio);
 
         $api = app(PinkaryApi::class);
         $response = $api->attempt(fn () => $api->updateProfile($token, [
-            'name' => trim($this->name),
-            'username' => trim($this->username),
-            'email' => trim($this->email),
+            'name' => mb_trim($this->name),
+            'username' => mb_trim($this->username),
+            'email' => mb_trim($this->email),
             'bio' => $bio === '' ? null : $bio,
             ...$this->changedPreferences(),
         ]));
@@ -292,8 +292,8 @@ final class EditProfile extends NativeComponent
 
         $this->linkMessage = '';
 
-        $description = trim($this->newDescription);
-        $url = trim($this->newUrl);
+        $description = mb_trim($this->newDescription);
+        $url = mb_trim($this->newUrl);
 
         if ($description === '') {
             $this->linkMessage = 'Add a short description for the link.';
@@ -389,8 +389,8 @@ final class EditProfile extends NativeComponent
             return;
         }
 
-        $description = trim($this->editDescription);
-        $url = trim($this->editUrl);
+        $description = mb_trim($this->editDescription);
+        $url = mb_trim($this->editUrl);
 
         if ($description === '') {
             $this->linkMessage = 'Add a short description for the link.';
@@ -632,10 +632,10 @@ final class EditProfile extends NativeComponent
 
     private function bareUrl(string $url): string
     {
-        $position = strpos($url, '?ref=pinkary');
+        $position = mb_strpos($url, '?ref=pinkary');
 
         if ($position !== false) {
-            return substr($url, 0, $position);
+            return mb_substr($url, 0, $position);
         }
 
         return (string) preg_replace('/([?&])ref=pinkary(&|$)/', '$1', $url);

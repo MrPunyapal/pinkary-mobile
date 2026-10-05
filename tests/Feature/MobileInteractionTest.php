@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\NativeComponents\Compose;
 use App\NativeComponents\Home;
 use App\NativeComponents\Login;
@@ -165,7 +167,7 @@ it('joins thread avatars with a content sized rail and stops at the final avatar
     ]);
 
     $nodes = interactionNodes(Native::test(Home::class)->tree());
-    $rails = array_values(array_filter($nodes, fn (array $node): bool => ($node['type'] ?? '') === 'column' && ($node['layout']['padding'][3] ?? null) == 2));
+    $rails = array_values(array_filter($nodes, fn (array $node): bool => ($node['type'] ?? '') === 'column' && (float) ($node['layout']['padding'][3] ?? 0) === 2.0));
 
     expect($rails)->toHaveCount(3);
     foreach ($rails as $rail) {
@@ -177,14 +179,14 @@ it('joins thread avatars with a content sized rail and stops at the final avatar
     expect(array_column(array_column($rails, 'style'), 'bg_color'))->toBe(['#CBD5E1', '#CBD5E1', '#FFFFFF']);
 
     $avatars = array_values(array_filter($nodes, fn (array $node): bool => ($node['type'] ?? '') === 'column'
-        && ($node['layout']['position_type'] ?? 0) === 1 && ($node['layout']['width'] ?? 0) == 40));
+        && ($node['layout']['position_type'] ?? 0) === 1 && (float) ($node['layout']['width'] ?? 0) === 40.0));
     expect($avatars)->toHaveCount(3);
     foreach ($avatars as $avatar) {
         expect($avatar['layout']['position'][3] + $avatar['layout']['width'] / 2)->toEqual(28);
     }
 
     $endpoints = array_values(array_filter($nodes, fn (array $node): bool => ($node['type'] ?? '') === 'rect'
-        && ($node['layout']['position_type'] ?? 0) === 1 && ($node['layout']['width'] ?? 0) == 2));
+        && ($node['layout']['position_type'] ?? 0) === 1 && (float) ($node['layout']['width'] ?? 0) === 2.0));
     expect($endpoints)->toHaveCount(2)
         ->and($endpoints[0]['layout']['position'][3])->toEqual(28)
         ->and($endpoints[0]['layout']['height'])->toEqual(52)

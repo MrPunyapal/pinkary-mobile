@@ -1,61 +1,89 @@
-<native:scroll-view class="w-full h-full bg-theme-background">
-    <native:column class="w-full items-center px-5 py-6 gap-6 safe-area">
+<native:scroll-view class="bg-theme-background h-full w-full">
+    <native:column class="safe-area w-full items-center gap-6 px-5 py-6">
         <x-pinkary-logo height="12" />
 
-        <native:column class="w-full p-5 gap-5 rounded-md bg-theme-surface border border-theme-outline-variant">
+        <native:column class="bg-theme-surface border-theme-outline-variant w-full gap-5 rounded-md border p-5">
             <native:column class="w-full gap-2">
-                <native:text class="text-2xl font-semibold text-theme-on-surface">{{ $addingAccount ? 'Add Account' : 'Log in' }}</native:text>
-                <native:text class="text-sm leading-relaxed text-theme-on-surface-variant">{{ $addingAccount ? 'Sign in with another Pinkary account to switch between them easily.' : 'Continue to your Pinkary account.' }}</native:text>
+                <native:text class="text-theme-on-surface text-2xl font-semibold">{{ $addingAccount ? 'Add Account' : 'Log in' }}</native:text>
+                <native:text class="text-theme-on-surface-variant text-sm leading-relaxed">{{ $addingAccount ? 'Sign in with another Pinkary account to switch between them easily.' : 'Continue to your Pinkary account.' }}</native:text>
             </native:column>
 
             @if ($addingAccount && $activeAccountUsername !== '')
-                <native:row class="w-full items-center gap-3 p-3 rounded-md bg-theme-surface-variant border border-theme-outline-variant">
-                    <x-avatar :user="['username' => $activeAccountUsername, 'name' => $activeAccountUsername]" :size="8" :link="false" />
-                    <native:column class="flex-1 gap-0.5 min-w-0">
-                        <native:text class="text-xs text-theme-on-surface-variant">Currently signed in as</native:text>
-                        <native:text class="text-sm font-semibold text-theme-on-surface" max-lines="1">{{ '@'.$activeAccountUsername }}</native:text>
+                <native:row class="bg-theme-surface-variant border-theme-outline-variant w-full items-center gap-3 rounded-md border p-3">
+                    <x-avatar
+                        :user="['username' => $activeAccountUsername, 'name' => $activeAccountUsername]"
+                        :size="8"
+                        :link="false"
+                    />
+                    <native:column class="min-w-0 flex-1 gap-0.5">
+                        <native:text class="text-theme-on-surface-variant text-xs">Currently signed in as</native:text>
+                        <native:text
+                            class="text-theme-on-surface text-sm font-semibold"
+                            max-lines="1"
+                        >{{ '@'.$activeAccountUsername }}</native:text>
                     </native:column>
                 </native:row>
             @endif
 
             @if ($errorMessage !== '')
-                <native:column class="w-full p-4 rounded-md bg-theme-destructive/15 border border-theme-destructive">
-                    <native:text class="text-sm text-theme-destructive">{{ $errorMessage }}</native:text>
+                <native:column class="bg-theme-destructive/15 border-theme-destructive w-full rounded-md border p-4">
+                    <native:text class="text-theme-destructive text-sm">{{ $errorMessage }}</native:text>
                 </native:column>
             @endif
 
             <native:column class="w-full gap-5">
                 @if ($needsTwoFactor)
-                    <native:text class="text-sm text-theme-on-surface">Enter the 6-digit code from your authenticator app, or one of your recovery codes.</native:text>
+                    <native:text class="text-theme-on-surface text-sm">Enter the 6-digit code from your authenticator app, or one of your recovery codes.</native:text>
 
-                    <native:outlined-text-input label="Code" keyboard="numeric" native:model="twoFactorCode" :supporting="$errorMessage" :error="$errorMessage !== ''" />
+                    <native:outlined-text-input
+                        label="Code"
+                        keyboard="numeric"
+                        native:model="twoFactorCode"
+                        :supporting="$errorMessage"
+                        :error="$errorMessage !== ''"
+                    />
 
                     <native:pressable class="self-end py-1" @tap="cancelTwoFactor" a11y-label="Use a different account">
-                        <native:text class="text-sm font-medium text-theme-accent">Use a different account</native:text>
+                        <native:text class="text-theme-accent text-sm font-medium">Use a different account</native:text>
                     </native:pressable>
                 @else
                     <x-auth-field label="Email" model="email" keyboard="email" :error="$fieldErrors['email'] ?? ''" />
-                    <x-auth-field label="Password" model="password" :password="true" :show-password="$showPassword" :error="$fieldErrors['password'] ?? ''" />
+                    <x-auth-field
+                        label="Password"
+                        model="password"
+                        :password="true"
+                        :show-password="$showPassword"
+                        :error="$fieldErrors['password'] ?? ''"
+                    />
 
                     <native:row class="w-full items-center justify-end">
                         <native:pressable class="py-1" @tap="forgotPassword" a11y-label="Forgot password?">
-                            <native:text class="text-sm font-medium text-theme-primary">Forgot password?</native:text>
+                            <native:text class="text-theme-primary text-sm font-medium">Forgot password?</native:text>
                         </native:pressable>
                     </native:row>
                 @endif
             </native:column>
 
             @if ($needsTwoFactor)
-                <native:button class="w-full" variant="primary" :disabled="$busy" @tap="submitTwoFactor">{{ $busy ? 'Checking…' : 'Verify' }}</native:button>
+                <native:button
+                    class="w-full"
+                    variant="primary"
+                    :disabled="$busy"
+                    @tap="submitTwoFactor"
+                >{{ $busy ? 'Checking…' : 'Verify' }}</native:button>
             @else
-                <native:pressable class="w-full h-11 items-center justify-center rounded-md bg-theme-primary {{ $busy ? 'opacity-50' : '' }}" @tap="authenticate" a11y-label="{{ $addingAccount ? 'Add Account' : 'Log in' }}">
+                <native:pressable
+                    class="w-full h-11 items-center justify-center rounded-md bg-theme-primary {{ $busy ? 'opacity-50' : '' }}"
+                    @tap="authenticate"
+                    a11y-label="{{ $addingAccount ? 'Add Account' : 'Log in' }}"
+                >
                     <native:text class="text-sm font-semibold text-white">{{ $busy ? 'Logging in…' : ($addingAccount ? 'Add Account' : 'Log in') }}</native:text>
                 </native:pressable>
             @endif
 
-            <native:column class="w-full pt-6 border-t border-theme-outline-variant">
+            <native:column class="border-theme-outline-variant w-full border-t pt-6">
                 <native:pressable class="w-full items-center py-3" @tap="register">
-                    <native:text class="text-sm text-center text-theme-accent">New to Pinkary? Create an account</native:text>
+                    <native:text class="text-theme-accent text-center text-sm">New to Pinkary? Create an account</native:text>
                 </native:pressable>
             </native:column>
         </native:column>

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\NativeComponents\Compose;
 use App\Support\AccountStore;
 use App\Support\CurrentUser;

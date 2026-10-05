@@ -1,1 +1,1 @@
-<native:column class="w-full h-1 bg-theme-primary" />
+<native:column class="bg-theme-primary h-1 w-full" />

@@ -24,40 +24,6 @@ trait UsesAppMenu
 
     public string $confirmAccountId = '';
 
-    private function token(): ?string
-    {
-        $token = app(TokenStorage::class)->get();
-
-        return is_string($token) && $token !== '' ? $token : null;
-    }
-
-    private function requireToken(bool $replaceScreen = false): ?string
-    {
-        $token = $this->token();
-
-        if ($token === null) {
-            if ($replaceScreen) {
-                $this->replace($this->route('mobile.login'));
-            } else {
-                $this->navigate($this->route('mobile.login'));
-            }
-        }
-
-        return $token;
-    }
-
-    private function handleUnauthorized(Response $response): bool
-    {
-        if (! $response->unauthorized()) {
-            return false;
-        }
-
-        AccountStore::removeActive();
-        $this->afterActiveAccountRemoved();
-
-        return true;
-    }
-
     public function openAppMenu(): void
     {
         $this->appMenuOpen = true;
@@ -235,11 +201,6 @@ trait UsesAppMenu
         $this->replace($this->route('mobile.feed'));
     }
 
-    private function aboutUrl(): string
-    {
-        return rtrim((string) config('services.pinkary.url'), '/').'/about';
-    }
-
     public function removeAccount(string $id): void
     {
         $this->appMenuOpen = false;
@@ -267,6 +228,45 @@ trait UsesAppMenu
         $this->appMenuOpen = false;
         session(['pinkary_add_account' => true]);
         $this->navigate($this->route('mobile.login'));
+    }
+
+    private function token(): ?string
+    {
+        $token = app(TokenStorage::class)->get();
+
+        return is_string($token) && $token !== '' ? $token : null;
+    }
+
+    private function requireToken(bool $replaceScreen = false): ?string
+    {
+        $token = $this->token();
+
+        if ($token === null) {
+            if ($replaceScreen) {
+                $this->replace($this->route('mobile.login'));
+            } else {
+                $this->navigate($this->route('mobile.login'));
+            }
+        }
+
+        return $token;
+    }
+
+    private function handleUnauthorized(Response $response): bool
+    {
+        if (! $response->unauthorized()) {
+            return false;
+        }
+
+        AccountStore::removeActive();
+        $this->afterActiveAccountRemoved();
+
+        return true;
+    }
+
+    private function aboutUrl(): string
+    {
+        return mb_rtrim((string) config('services.pinkary.url'), '/').'/about';
     }
 
     private function afterActiveAccountRemoved(): void

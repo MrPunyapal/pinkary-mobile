@@ -140,30 +140,6 @@ final class Login extends NativeComponent
         $this->errorMessage = '';
     }
 
-    /**
-     * @param  array<string, mixed>  $userData
-     */
-    private function acceptToken(string $token, array $userData): void
-    {
-        $username = (string) ($userData['username'] ?? '');
-
-        $previous = $username !== '' ? AccountStore::tokenForUsername($username) : null;
-
-        if (is_string($previous) && $previous !== '' && $previous !== $token) {
-            app(PinkaryApi::class)->attempt(fn () => app(PinkaryApi::class)->logout($previous));
-        }
-
-        app(TokenStorage::class)->store($token, $username, $userData);
-
-        if ($username !== '') {
-            CurrentUser::store($userData);
-        }
-
-        session()->forget('pinkary_add_account');
-        $this->busy = false;
-        $this->replace($this->route('mobile.feed'));
-    }
-
     public function register(): void
     {
         $this->navigate($this->route('mobile.register'));
@@ -203,9 +179,33 @@ final class Login extends NativeComponent
         return view('native.login');
     }
 
+    /**
+     * @param  array<string, mixed>  $userData
+     */
+    private function acceptToken(string $token, array $userData): void
+    {
+        $username = (string) ($userData['username'] ?? '');
+
+        $previous = $username !== '' ? AccountStore::tokenForUsername($username) : null;
+
+        if (is_string($previous) && $previous !== '' && $previous !== $token) {
+            app(PinkaryApi::class)->attempt(fn () => app(PinkaryApi::class)->logout($previous));
+        }
+
+        app(TokenStorage::class)->store($token, $username, $userData);
+
+        if ($username !== '') {
+            CurrentUser::store($userData);
+        }
+
+        session()->forget('pinkary_add_account');
+        $this->busy = false;
+        $this->replace($this->route('mobile.feed'));
+    }
+
     private function openWebPage(string $path): void
     {
-        $url = rtrim((string) config('services.pinkary.url'), '/').$path;
+        $url = mb_rtrim((string) config('services.pinkary.url'), '/').$path;
 
         if (! preg_match('#^https?://#i', $url)) {
             return;

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Mcp\Tools;
 
 use Composer\InstalledVersions;
@@ -14,7 +16,7 @@ use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 
 #[Description('Returns Super Stack app name, environment, and key package versions (Laravel, NativePHP Mobile, Laravel MCP).')]
 #[IsReadOnly]
-class AppInfoTool extends Tool
+final class AppInfoTool extends Tool
 {
     /**
      * Handle the tool request.

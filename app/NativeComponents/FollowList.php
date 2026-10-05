@@ -16,11 +16,6 @@ final class FollowList extends NativeComponent
 {
     use UsesAppMenu;
 
-    public function hidesDrawer(): bool
-    {
-        return true;
-    }
-
     public string $username = '';
 
     public string $mode = 'followers';
@@ -44,6 +39,11 @@ final class FollowList extends NativeComponent
     public array $busyUsernames = [];
 
     public bool $isOwnProfile = false;
+
+    public function hidesDrawer(): bool
+    {
+        return true;
+    }
 
     public function navTitle(): string
     {

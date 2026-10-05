@@ -77,7 +77,7 @@ final class AccountStore
     public static function tokenForUsername(string $username): ?string
     {
         foreach (self::readAll() as $account) {
-            if (strtolower($account['username']) === strtolower($username)) {
+            if (mb_strtolower($account['username']) === mb_strtolower($username)) {
                 return $account['token'];
             }
         }
@@ -105,7 +105,7 @@ final class AccountStore
 
         $accounts = array_values(array_filter(
             $accounts,
-            fn (array $account): bool => strtolower($account['username']) !== strtolower($username)
+            fn (array $account): bool => mb_strtolower($account['username']) !== mb_strtolower($username)
         ));
 
         $id = Str::random(32);

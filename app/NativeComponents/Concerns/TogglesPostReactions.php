@@ -11,17 +11,45 @@ use App\Support\ApiErrors;
 use App\Support\CurrentUser;
 use App\Support\DisplayText;
 use App\Support\PostViews;
+use Closure;
 use Illuminate\Support\Carbon;
 use Native\Mobile\Attributes\Poll;
 use Native\Mobile\Browser;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Share;
+use Throwable;
 
 /**
  * @mixin NativeComponent
  */
 trait TogglesPostReactions
 {
+    public string $menuPostId = '';
+
+    /** @var 'menu'|'confirm-delete'|'edit'|'likers' */
+    public string $menuStep = 'menu';
+
+    public string $menuError = '';
+
+    public bool $menuBusy = false;
+
+    public string $editAnswer = '';
+
+    /** @var list<array<string, mixed>> */
+    public array $likers = [];
+
+    public int $likersPage = 1;
+
+    public bool $likersHasMore = false;
+
+    public string $likersError = '';
+
+    /** @var array<string, true> postId:action entries hidden after a 403. */
+    public array $menuDenied = [];
+
+    /** @var array<string, true> In-flight like/bookmark/vote locks per post+action. */
+    private array $reactionLocks = [];
+
     public function recordPostView(string $id): void
     {
         $post = $this->findPostForMenu($id);
@@ -46,379 +74,6 @@ trait TogglesPostReactions
     {
         $this->flushPostViews();
         parent::unmount();
-    }
-
-    private function sendPostViews(?string $token, string $viewer, bool $force): void
-    {
-        $batch = PostViews::takeBatch($token, $viewer, $force);
-        if ($batch === null) {
-            return;
-        }
-
-        $this->async(static function () use ($batch, $token, $viewer): void {
-            $accepted = false;
-            $retryAfter = 0;
-            try {
-                $response = app(PinkaryApi::class)->recordViews($token, $batch['ids'], $viewer);
-                $accepted = $response->successful();
-                $retryAfter = (int) $response->header('Retry-After');
-            } finally {
-                PostViews::finishBatch($batch, $accepted, $retryAfter);
-            }
-        })->failed(static function (\Throwable $exception) use ($batch): void {
-            PostViews::finishBatch($batch, false);
-        });
-    }
-
-    /** @var array<string, true> In-flight like/bookmark/vote locks per post+action. */
-    private array $reactionLocks = [];
-
-    public string $menuPostId = '';
-
-    /** @var 'menu'|'confirm-delete'|'edit'|'likers' */
-    public string $menuStep = 'menu';
-
-    public string $menuError = '';
-
-    public bool $menuBusy = false;
-
-    public string $editAnswer = '';
-
-    /** @var list<array<string, mixed>> */
-    public array $likers = [];
-
-    public int $likersPage = 1;
-
-    public bool $likersHasMore = false;
-
-    public string $likersError = '';
-
-    /** @var array<string, true> postId:action entries hidden after a 403. */
-    public array $menuDenied = [];
-
-    /** Release action locks in finally; navigation redirects can throw. */
-    private function acquireReactionLock(string $key): bool
-    {
-        if (isset($this->reactionLocks[$key])) {
-            return false;
-        }
-
-        $this->reactionLocks[$key] = true;
-
-        return true;
-    }
-
-    private function releaseReactionLock(string $key): void
-    {
-        unset($this->reactionLocks[$key]);
-    }
-
-    /**
-     * @param  array<string, mixed>  $post
-     */
-    private function reactLike(array &$post, string $id, ?string $token): void
-    {
-        if ($token === null) {
-            $this->navigate($this->route('mobile.login'));
-
-            return;
-        }
-
-        if (! $this->acquireReactionLock('like:'.$id)) {
-            return;
-        }
-
-        try {
-            $liked = (bool) data_get($post, 'metrics.liked', false);
-            $count = (int) data_get($post, 'metrics.likes', 0);
-
-            data_set($post, 'metrics.liked', ! $liked);
-            data_set($post, 'metrics.likes', max(0, $count + ($liked ? -1 : 1)));
-
-            $api = app(PinkaryApi::class);
-            $response = $liked
-                ? $api->attempt(fn () => $api->unlike($token, $id))
-                : $api->attempt(fn () => $api->like($token, $id));
-
-            if ($response === null) {
-                data_set($post, 'metrics.liked', $liked);
-                data_set($post, 'metrics.likes', $count);
-
-                return;
-            }
-
-            if ($response->unauthorized()) {
-                app(TokenStorage::class)->clear();
-                $this->replace($this->route('mobile.login'));
-
-                return;
-            }
-
-            if (! $response->successful()) {
-                data_set($post, 'metrics.liked', $liked);
-                data_set($post, 'metrics.likes', $count);
-
-                return;
-            }
-
-            data_set($post, 'metrics.liked', (bool) $response->json('data.liked', ! $liked));
-
-            $likes = $response->json('data.likes');
-
-            if (is_int($likes)) {
-                data_set($post, 'metrics.likes', $likes);
-            }
-        } finally {
-            $this->releaseReactionLock('like:'.$id);
-        }
-    }
-
-    /**
-     * @param  array<string, mixed>  $post
-     */
-    private function reactBookmark(array &$post, string $id, ?string $token): void
-    {
-        if ($token === null) {
-            $this->navigate($this->route('mobile.login'));
-
-            return;
-        }
-
-        if (! $this->acquireReactionLock('bookmark:'.$id)) {
-            return;
-        }
-
-        try {
-            $bookmarked = (bool) data_get($post, 'metrics.bookmarked', false);
-
-            data_set($post, 'metrics.bookmarked', ! $bookmarked);
-
-            $api = app(PinkaryApi::class);
-            $response = $bookmarked
-                ? $api->attempt(fn () => $api->unbookmark($token, $id))
-                : $api->attempt(fn () => $api->bookmark($token, $id));
-
-            if ($response === null) {
-                data_set($post, 'metrics.bookmarked', $bookmarked);
-
-                return;
-            }
-
-            if ($response->unauthorized()) {
-                app(TokenStorage::class)->clear();
-                $this->replace($this->route('mobile.login'));
-
-                return;
-            }
-
-            if (! $response->successful()) {
-                data_set($post, 'metrics.bookmarked', $bookmarked);
-
-                return;
-            }
-
-            data_set($post, 'metrics.bookmarked', (bool) $response->json('data.bookmarked', ! $bookmarked));
-        } finally {
-            $this->releaseReactionLock('bookmark:'.$id);
-        }
-    }
-
-    /**
-     * @param  array<string, mixed>  $post
-     */
-    private function voteOnPoll(array &$post, string $id, int $optionId, ?string $token): void
-    {
-        if ($token === null) {
-            $this->navigate($this->route('mobile.login'));
-
-            return;
-        }
-
-        if (! $this->acquireReactionLock('vote:'.$id)) {
-            return;
-        }
-
-        try {
-            $api = app(PinkaryApi::class);
-            $response = $api->attempt(fn () => $api->votePoll($token, $id, $optionId));
-
-            if ($response === null) {
-                return;
-            }
-
-            if ($response->unauthorized()) {
-                app(TokenStorage::class)->clear();
-                $this->replace($this->route('mobile.login'));
-
-                return;
-            }
-
-            if (! $response->successful()) {
-                return;
-            }
-
-            /** @var array<string, mixed> $poll */
-            $poll = $response->json('data', []);
-
-            if ($poll !== []) {
-                data_set($post, 'poll', $poll);
-            }
-        } finally {
-            $this->releaseReactionLock('vote:'.$id);
-        }
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $posts
-     * @return array{0: int, 1: int|string|null}|null
-     */
-    private function locateNestedPost(array $posts, string $id): ?array
-    {
-        if ($id === '') {
-            return null;
-        }
-
-        foreach ($posts as $index => $post) {
-            if (! is_array($post)) {
-                continue;
-            }
-
-            if ((string) data_get($post, 'id') === $id) {
-                return [$index, null];
-            }
-
-            foreach ((array) data_get($post, 'thread.posts', []) as $key => $ancestor) {
-                if (is_array($ancestor) && (string) data_get($ancestor, 'id') === $id) {
-                    return [$index, $key];
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $posts
-     * @return array<string, mixed>|null
-     */
-    private function readPostPayload(array $posts, string $id): ?array
-    {
-        $location = $this->locateNestedPost($posts, $id);
-
-        if ($location === null) {
-            return null;
-        }
-
-        [$index, $key] = $location;
-
-        $post = $posts[$index];
-
-        if ($key === null) {
-            return $post;
-        }
-
-        $ancestor = $post['thread']['posts'][$key] ?? null;
-
-        return is_array($ancestor) ? $ancestor : null;
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $posts
-     */
-    private function reactOnPostPayload(array &$posts, string $id, string $kind, ?string $token): bool
-    {
-        $location = $this->locateNestedPost($posts, $id);
-
-        if ($location === null) {
-            return false;
-        }
-
-        [$index, $key] = $location;
-
-        if ($key === null) {
-            $target = &$posts[$index];
-        } else {
-            $target = &$posts[$index]['thread']['posts'][$key];
-        }
-
-        if ($kind === 'like') {
-            $this->reactLike($target, $id, $token);
-        } elseif ($kind === 'bookmark') {
-            $this->reactBookmark($target, $id, $token);
-        } else {
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $posts
-     */
-    private function voteOnPostPayload(array &$posts, string $id, int $optionId, ?string $token): bool
-    {
-        $location = $this->locateNestedPost($posts, $id);
-
-        if ($location === null) {
-            return false;
-        }
-
-        [$index, $key] = $location;
-
-        if ($key === null) {
-            $this->voteOnPoll($posts[$index], $id, $optionId, $token);
-        } else {
-            $this->voteOnPoll($posts[$index]['thread']['posts'][$key], $id, $optionId, $token);
-        }
-
-        return true;
-    }
-
-    private function toggleExpandedId(string $id): void
-    {
-        if ($id === '') {
-            return;
-        }
-
-        /** @var list<string> $expanded */
-        $expanded = isset($this->expanded) && is_array($this->expanded) ? $this->expanded : [];
-
-        $this->expanded = in_array($id, $expanded, true)
-            ? array_values(array_diff($expanded, [$id]))
-            : [...$expanded, $id];
-    }
-
-    private function shareQuestion(?string $username, string $id, ?string $html): void
-    {
-        $url = $this->questionUrl($username, $id);
-
-        if ($url === null) {
-            return;
-        }
-
-        $text = trim(html_entity_decode(strip_tags((string) $html), ENT_QUOTES, 'UTF-8'));
-
-        app(Share::class)->url('Pinkary post', $text === '' ? $url : mb_substr($text, 0, 140), $url);
-    }
-
-    private function openExternalLink(string $url): void
-    {
-        if (! preg_match('#^https?://#i', $url)) {
-            return;
-        }
-
-        app(Browser::class)->inApp($url);
-    }
-
-    private function translateHtml(?string $html): void
-    {
-        $text = trim(html_entity_decode(strip_tags((string) $html), ENT_QUOTES, 'UTF-8'));
-
-        if ($text === '') {
-            return;
-        }
-
-        $this->openExternalLink('https://translate.google.com/?sl=auto&tl=en&text='.urlencode($text));
     }
 
     public function openMenu(string $id): void
@@ -485,7 +140,7 @@ trait TogglesPostReactions
 
         $answer = data_get($post, 'answer');
 
-        return is_string($answer) && trim(strip_tags($answer)) !== '';
+        return is_string($answer) && mb_trim(strip_tags($answer)) !== '';
     }
 
     public function canEditMenuPost(): bool
@@ -498,7 +153,7 @@ trait TogglesPostReactions
 
         $answer = data_get($post, 'answer');
 
-        if (! is_string($answer) || trim(strip_tags($answer)) === '') {
+        if (! is_string($answer) || mb_trim(strip_tags($answer)) === '') {
             return false;
         }
 
@@ -510,7 +165,7 @@ trait TogglesPostReactions
 
         try {
             return Carbon::parse($answeredAt)->greaterThan(now()->subHours(24));
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return true;
         }
     }
@@ -646,7 +301,7 @@ trait TogglesPostReactions
             return;
         }
 
-        $answer = trim($this->editAnswer);
+        $answer = mb_trim($this->editAnswer);
 
         if ($answer === '') {
             $this->menuError = 'Write an answer first.';
@@ -963,6 +618,389 @@ trait TogglesPostReactions
         $this->toggleUserFollow($this->likers, $username);
     }
 
+    public function shareMenuPost(): void
+    {
+        $post = $this->menuPostData();
+
+        if ($post === null) {
+            return;
+        }
+
+        $this->shareQuestion(
+            (string) data_get($post, 'to.username', ''),
+            $this->menuPostId,
+            (string) (data_get($post, 'answer') ?? data_get($post, 'content')),
+        );
+    }
+
+    public function shareToXMenu(): void
+    {
+        $post = $this->menuPostData();
+
+        if ($post === null) {
+            return;
+        }
+
+        $url = $this->questionUrl((string) data_get($post, 'to.username', ''), $this->menuPostId);
+
+        if ($url === null) {
+            return;
+        }
+
+        $text = $this->plainText(data_get($post, 'answer') ?? data_get($post, 'content'));
+
+        $this->openExternalLink(
+            'https://twitter.com/intent/tweet?url='.urlencode($url).'&text='.urlencode(mb_substr($text, 0, 140))
+        );
+    }
+
+    private function sendPostViews(?string $token, string $viewer, bool $force): void
+    {
+        $batch = PostViews::takeBatch($token, $viewer, $force);
+        if ($batch === null) {
+            return;
+        }
+
+        $this->async(static function () use ($batch, $token, $viewer): void {
+            $accepted = false;
+            $retryAfter = 0;
+            try {
+                $response = app(PinkaryApi::class)->recordViews($token, $batch['ids'], $viewer);
+                $accepted = $response->successful();
+                $retryAfter = (int) $response->header('Retry-After');
+            } finally {
+                PostViews::finishBatch($batch, $accepted, $retryAfter);
+            }
+        })->failed(static function (Throwable $exception) use ($batch): void {
+            PostViews::finishBatch($batch, false);
+        });
+    }
+
+    /** Release action locks in finally; navigation redirects can throw. */
+    private function acquireReactionLock(string $key): bool
+    {
+        if (isset($this->reactionLocks[$key])) {
+            return false;
+        }
+
+        $this->reactionLocks[$key] = true;
+
+        return true;
+    }
+
+    private function releaseReactionLock(string $key): void
+    {
+        unset($this->reactionLocks[$key]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $post
+     */
+    private function reactLike(array &$post, string $id, ?string $token): void
+    {
+        if ($token === null) {
+            $this->navigate($this->route('mobile.login'));
+
+            return;
+        }
+
+        if (! $this->acquireReactionLock('like:'.$id)) {
+            return;
+        }
+
+        try {
+            $liked = (bool) data_get($post, 'metrics.liked', false);
+            $count = (int) data_get($post, 'metrics.likes', 0);
+
+            data_set($post, 'metrics.liked', ! $liked);
+            data_set($post, 'metrics.likes', max(0, $count + ($liked ? -1 : 1)));
+
+            $api = app(PinkaryApi::class);
+            $response = $liked
+                ? $api->attempt(fn () => $api->unlike($token, $id))
+                : $api->attempt(fn () => $api->like($token, $id));
+
+            if ($response === null) {
+                data_set($post, 'metrics.liked', $liked);
+                data_set($post, 'metrics.likes', $count);
+
+                return;
+            }
+
+            if ($response->unauthorized()) {
+                app(TokenStorage::class)->clear();
+                $this->replace($this->route('mobile.login'));
+
+                return;
+            }
+
+            if (! $response->successful()) {
+                data_set($post, 'metrics.liked', $liked);
+                data_set($post, 'metrics.likes', $count);
+
+                return;
+            }
+
+            data_set($post, 'metrics.liked', (bool) $response->json('data.liked', ! $liked));
+
+            $likes = $response->json('data.likes');
+
+            if (is_int($likes)) {
+                data_set($post, 'metrics.likes', $likes);
+            }
+        } finally {
+            $this->releaseReactionLock('like:'.$id);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $post
+     */
+    private function reactBookmark(array &$post, string $id, ?string $token): void
+    {
+        if ($token === null) {
+            $this->navigate($this->route('mobile.login'));
+
+            return;
+        }
+
+        if (! $this->acquireReactionLock('bookmark:'.$id)) {
+            return;
+        }
+
+        try {
+            $bookmarked = (bool) data_get($post, 'metrics.bookmarked', false);
+
+            data_set($post, 'metrics.bookmarked', ! $bookmarked);
+
+            $api = app(PinkaryApi::class);
+            $response = $bookmarked
+                ? $api->attempt(fn () => $api->unbookmark($token, $id))
+                : $api->attempt(fn () => $api->bookmark($token, $id));
+
+            if ($response === null) {
+                data_set($post, 'metrics.bookmarked', $bookmarked);
+
+                return;
+            }
+
+            if ($response->unauthorized()) {
+                app(TokenStorage::class)->clear();
+                $this->replace($this->route('mobile.login'));
+
+                return;
+            }
+
+            if (! $response->successful()) {
+                data_set($post, 'metrics.bookmarked', $bookmarked);
+
+                return;
+            }
+
+            data_set($post, 'metrics.bookmarked', (bool) $response->json('data.bookmarked', ! $bookmarked));
+        } finally {
+            $this->releaseReactionLock('bookmark:'.$id);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $post
+     */
+    private function voteOnPoll(array &$post, string $id, int $optionId, ?string $token): void
+    {
+        if ($token === null) {
+            $this->navigate($this->route('mobile.login'));
+
+            return;
+        }
+
+        if (! $this->acquireReactionLock('vote:'.$id)) {
+            return;
+        }
+
+        try {
+            $api = app(PinkaryApi::class);
+            $response = $api->attempt(fn () => $api->votePoll($token, $id, $optionId));
+
+            if ($response === null) {
+                return;
+            }
+
+            if ($response->unauthorized()) {
+                app(TokenStorage::class)->clear();
+                $this->replace($this->route('mobile.login'));
+
+                return;
+            }
+
+            if (! $response->successful()) {
+                return;
+            }
+
+            /** @var array<string, mixed> $poll */
+            $poll = $response->json('data', []);
+
+            if ($poll !== []) {
+                data_set($post, 'poll', $poll);
+            }
+        } finally {
+            $this->releaseReactionLock('vote:'.$id);
+        }
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $posts
+     * @return array{0: int, 1: int|string|null}|null
+     */
+    private function locateNestedPost(array $posts, string $id): ?array
+    {
+        if ($id === '') {
+            return null;
+        }
+
+        foreach ($posts as $index => $post) {
+            if (! is_array($post)) {
+                continue;
+            }
+
+            if ((string) data_get($post, 'id') === $id) {
+                return [$index, null];
+            }
+
+            foreach ((array) data_get($post, 'thread.posts', []) as $key => $ancestor) {
+                if (is_array($ancestor) && (string) data_get($ancestor, 'id') === $id) {
+                    return [$index, $key];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $posts
+     * @return array<string, mixed>|null
+     */
+    private function readPostPayload(array $posts, string $id): ?array
+    {
+        $location = $this->locateNestedPost($posts, $id);
+
+        if ($location === null) {
+            return null;
+        }
+
+        [$index, $key] = $location;
+
+        $post = $posts[$index];
+
+        if ($key === null) {
+            return $post;
+        }
+
+        $ancestor = $post['thread']['posts'][$key] ?? null;
+
+        return is_array($ancestor) ? $ancestor : null;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $posts
+     */
+    private function reactOnPostPayload(array &$posts, string $id, string $kind, ?string $token): bool
+    {
+        $location = $this->locateNestedPost($posts, $id);
+
+        if ($location === null) {
+            return false;
+        }
+
+        [$index, $key] = $location;
+
+        if ($key === null) {
+            $target = &$posts[$index];
+        } else {
+            $target = &$posts[$index]['thread']['posts'][$key];
+        }
+
+        if ($kind === 'like') {
+            $this->reactLike($target, $id, $token);
+        } elseif ($kind === 'bookmark') {
+            $this->reactBookmark($target, $id, $token);
+        } else {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $posts
+     */
+    private function voteOnPostPayload(array &$posts, string $id, int $optionId, ?string $token): bool
+    {
+        $location = $this->locateNestedPost($posts, $id);
+
+        if ($location === null) {
+            return false;
+        }
+
+        [$index, $key] = $location;
+
+        if ($key === null) {
+            $this->voteOnPoll($posts[$index], $id, $optionId, $token);
+        } else {
+            $this->voteOnPoll($posts[$index]['thread']['posts'][$key], $id, $optionId, $token);
+        }
+
+        return true;
+    }
+
+    private function toggleExpandedId(string $id): void
+    {
+        if ($id === '') {
+            return;
+        }
+
+        /** @var list<string> $expanded */
+        $expanded = isset($this->expanded) && is_array($this->expanded) ? $this->expanded : [];
+
+        $this->expanded = in_array($id, $expanded, true)
+            ? array_values(array_diff($expanded, [$id]))
+            : [...$expanded, $id];
+    }
+
+    private function shareQuestion(?string $username, string $id, ?string $html): void
+    {
+        $url = $this->questionUrl($username, $id);
+
+        if ($url === null) {
+            return;
+        }
+
+        $text = mb_trim(html_entity_decode(strip_tags((string) $html), ENT_QUOTES, 'UTF-8'));
+
+        app(Share::class)->url('Pinkary post', $text === '' ? $url : mb_substr($text, 0, 140), $url);
+    }
+
+    private function openExternalLink(string $url): void
+    {
+        if (! preg_match('#^https?://#i', $url)) {
+            return;
+        }
+
+        app(Browser::class)->inApp($url);
+    }
+
+    private function translateHtml(?string $html): void
+    {
+        $text = mb_trim(html_entity_decode(strip_tags((string) $html), ENT_QUOTES, 'UTF-8'));
+
+        if ($text === '') {
+            return;
+        }
+
+        $this->openExternalLink('https://translate.google.com/?sl=auto&tl=en&text='.urlencode($text));
+    }
+
     /**
      * @param  list<array<string, mixed>>  $rows
      */
@@ -1022,42 +1060,6 @@ trait TogglesPostReactions
         data_set($rows[$index], 'followed_by_me', (bool) $response->json('data.followed', ! $following));
     }
 
-    public function shareMenuPost(): void
-    {
-        $post = $this->menuPostData();
-
-        if ($post === null) {
-            return;
-        }
-
-        $this->shareQuestion(
-            (string) data_get($post, 'to.username', ''),
-            $this->menuPostId,
-            (string) (data_get($post, 'answer') ?? data_get($post, 'content')),
-        );
-    }
-
-    public function shareToXMenu(): void
-    {
-        $post = $this->menuPostData();
-
-        if ($post === null) {
-            return;
-        }
-
-        $url = $this->questionUrl((string) data_get($post, 'to.username', ''), $this->menuPostId);
-
-        if ($url === null) {
-            return;
-        }
-
-        $text = $this->plainText(data_get($post, 'answer') ?? data_get($post, 'content'));
-
-        $this->openExternalLink(
-            'https://twitter.com/intent/tweet?url='.urlencode($url).'&text='.urlencode(mb_substr($text, 0, 140))
-        );
-    }
-
     /**
      * @param  array<string, mixed>|null  $post
      */
@@ -1067,8 +1069,8 @@ trait TogglesPostReactions
             return false;
         }
 
-        $owner = mb_strtolower(trim((string) data_get($post, 'to.username', '')));
-        $viewer = mb_strtolower(trim($this->viewerUsername()));
+        $owner = mb_strtolower(mb_trim((string) data_get($post, 'to.username', '')));
+        $viewer = mb_strtolower(mb_trim($this->viewerUsername()));
 
         return $owner !== '' && $viewer !== '' && $owner === $viewer;
     }
@@ -1134,7 +1136,7 @@ trait TogglesPostReactions
         return null;
     }
 
-    private function updatePostForMenu(string $id, \Closure $mutate): bool
+    private function updatePostForMenu(string $id, Closure $mutate): bool
     {
         if ($id === '') {
             return false;
@@ -1319,14 +1321,14 @@ trait TogglesPostReactions
             return null;
         }
 
-        $base = rtrim((string) config('services.pinkary.url'), '/');
+        $base = mb_rtrim((string) config('services.pinkary.url'), '/');
 
         return $base.'/@'.$username.'/questions/'.$id;
     }
 
     private function plainText(mixed $html): string
     {
-        return trim(html_entity_decode(strip_tags((string) $html), ENT_QUOTES, 'UTF-8'));
+        return mb_trim(html_entity_decode(strip_tags((string) $html), ENT_QUOTES, 'UTF-8'));
     }
 
     private function syncMenuThreadMirror(): void

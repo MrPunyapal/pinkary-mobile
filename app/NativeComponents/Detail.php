@@ -15,13 +15,11 @@ use Native\Mobile\Edge\NativeComponent;
 
 final class Detail extends NativeComponent
 {
-    public const int MAX_COMMENT_LENGTH = 1000;
-
     use TogglesPostReactions;
     use UsesAppMenu;
     use UsesCaptcha;
 
-    protected bool $hidesDrawer = true;
+    public const int MAX_COMMENT_LENGTH = 1000;
 
     public string $id = '';
 
@@ -58,6 +56,8 @@ final class Detail extends NativeComponent
 
     /** @var list<string> */
     public array $expanded = [];
+
+    protected bool $hidesDrawer = true;
 
     public function navTitle(): string
     {
@@ -238,7 +238,7 @@ final class Detail extends NativeComponent
             return;
         }
 
-        $content = trim($this->comment);
+        $content = mb_trim($this->comment);
 
         if ($content === '') {
             $this->commentError = 'Write a comment first.';

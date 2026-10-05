@@ -21,8 +21,6 @@ final class Compose extends NativeComponent
     use UsesAppMenu;
     use UsesCaptcha;
 
-    protected bool $hidesDrawer = true;
-
     public const int MAX_CONTENT_LENGTH = 1000;
 
     public const int MAX_THREAD_POSTS = 9;
@@ -111,6 +109,8 @@ final class Compose extends NativeComponent
     public array $images = [];
 
     public bool $uploadingImages = false;
+
+    protected bool $hidesDrawer = true;
 
     public function navTitle(): string
     {
@@ -224,15 +224,6 @@ final class Compose extends NativeComponent
         $this->touchDraft();
     }
 
-    private function clearMentionSuggestions(): void
-    {
-        $this->mentionResults = [];
-        $this->mentionQuery = '';
-        $this->mentionPostIndex = -1;
-        $this->mentionStart = -1;
-        $this->mentionEnd = -1;
-    }
-
     public function updatedAnonymous(): void
     {
         $this->persistDraft();
@@ -279,12 +270,12 @@ final class Compose extends NativeComponent
 
     public function canAddPost(): bool
     {
-        if (trim($this->content) === '') {
+        if (mb_trim($this->content) === '') {
             return false;
         }
 
         foreach ($this->posts as $post) {
-            if (trim($post) === '') {
+            if (mb_trim($post) === '') {
                 return false;
             }
         }
@@ -415,7 +406,7 @@ final class Compose extends NativeComponent
 
     public function canCreateChannel(): bool
     {
-        $query = trim($this->channelQuery);
+        $query = mb_trim($this->channelQuery);
 
         if (mb_strlen($query) < 2) {
             return false;
@@ -454,7 +445,7 @@ final class Compose extends NativeComponent
 
     public function stageChannel(): void
     {
-        $name = trim($this->channelQuery);
+        $name = mb_trim($this->channelQuery);
 
         if (mb_strlen($name) < 2 || mb_strlen($name) > 50) {
             $this->channelError = 'Channel names must be between 2 and 50 characters.';
@@ -570,16 +561,6 @@ final class Compose extends NativeComponent
             ->start();
     }
 
-    /** Jump runs PHP on the host, so device-local picker paths are inaccessible. */
-    private function unreadableImageMessage(): string
-    {
-        if (getenv('JUMP_BRIDGE_PORT') !== false) {
-            return 'Photos cannot be uploaded in the Jump app. The file is on your phone and the app server is on this machine, so it needs a real build.';
-        }
-
-        return 'That image could not be read from this device.';
-    }
-
     public function onMediaSelected(MediaSelected $event): void
     {
         if ($event->cancelled) {
@@ -664,30 +645,6 @@ final class Compose extends NativeComponent
         $this->touchDraft();
     }
 
-    private function addImage(string $url, string $name, string $path = ''): void
-    {
-        // Store image paths, not URLs: server cleanup matches paths, and hosts can change.
-        $snippet = '!['.$name.']('.($path !== '' ? $path : $url).')';
-
-        if (str_contains($this->content, $snippet)) {
-            return;
-        }
-
-        $candidate = ($this->content !== '' && ! str_ends_with($this->content, "\n"))
-            ? "\n".$snippet
-            : $snippet;
-
-        if (mb_strlen($this->content.$candidate) > $this->maxContentLength()) {
-            $this->errorMessage = 'Adding this image will exceed the maximum content length.';
-
-            return;
-        }
-
-        $this->images[] = ['url' => $url, 'path' => $path, 'name' => $name];
-
-        $this->content .= $candidate;
-    }
-
     public function removeImage(int $index): void
     {
         if ($this->busy || ! isset($this->images[$index])) {
@@ -719,16 +676,6 @@ final class Compose extends NativeComponent
         $this->touchDraft();
     }
 
-    /**
-     * @param  array{url: string, name: string, path: string}  $image
-     */
-    private function imageSnippet(array $image): string
-    {
-        $path = (string) ($image['path'] ?? '');
-
-        return '!['.$image['name'].']('.($path !== '' ? $path : $image['url']).')';
-    }
-
     public function publish(): void
     {
         if ($this->busy) {
@@ -747,7 +694,7 @@ final class Compose extends NativeComponent
             return;
         }
 
-        $content = trim($this->content);
+        $content = mb_trim($this->content);
 
         if ($content === '') {
             $this->errorMessage = 'Write something first — a thread needs a first post.';
@@ -768,7 +715,7 @@ final class Compose extends NativeComponent
         $threadPolls = [];
 
         foreach ($this->posts as $index => $post) {
-            $trimmed = trim($post);
+            $trimmed = mb_trim($post);
 
             if ($trimmed === '') {
                 continue;
@@ -797,7 +744,7 @@ final class Compose extends NativeComponent
 
         if ($this->isPoll) {
             $pollOptions = array_values(array_filter(
-                array_map(fn (mixed $option): string => trim((string) $option), $this->pollOptions),
+                array_map(fn (mixed $option): string => mb_trim((string) $option), $this->pollOptions),
                 fn (string $option): bool => $option !== ''
             ));
 
@@ -895,7 +842,7 @@ final class Compose extends NativeComponent
             return;
         }
 
-        $content = trim($this->content);
+        $content = mb_trim($this->content);
 
         if ($content === '') {
             $this->errorMessage = 'Write your question first — it will be sent to @'.$this->askUsername.'.';
@@ -953,6 +900,59 @@ final class Compose extends NativeComponent
         return view('native.compose');
     }
 
+    private function clearMentionSuggestions(): void
+    {
+        $this->mentionResults = [];
+        $this->mentionQuery = '';
+        $this->mentionPostIndex = -1;
+        $this->mentionStart = -1;
+        $this->mentionEnd = -1;
+    }
+
+    /** Jump runs PHP on the host, so device-local picker paths are inaccessible. */
+    private function unreadableImageMessage(): string
+    {
+        if (getenv('JUMP_BRIDGE_PORT') !== false) {
+            return 'Photos cannot be uploaded in the Jump app. The file is on your phone and the app server is on this machine, so it needs a real build.';
+        }
+
+        return 'That image could not be read from this device.';
+    }
+
+    private function addImage(string $url, string $name, string $path = ''): void
+    {
+        // Store image paths, not URLs: server cleanup matches paths, and hosts can change.
+        $snippet = '!['.$name.']('.($path !== '' ? $path : $url).')';
+
+        if (str_contains($this->content, $snippet)) {
+            return;
+        }
+
+        $candidate = ($this->content !== '' && ! str_ends_with($this->content, "\n"))
+            ? "\n".$snippet
+            : $snippet;
+
+        if (mb_strlen($this->content.$candidate) > $this->maxContentLength()) {
+            $this->errorMessage = 'Adding this image will exceed the maximum content length.';
+
+            return;
+        }
+
+        $this->images[] = ['url' => $url, 'path' => $path, 'name' => $name];
+
+        $this->content .= $candidate;
+    }
+
+    /**
+     * @param  array{url: string, name: string, path: string}  $image
+     */
+    private function imageSnippet(array $image): string
+    {
+        $path = (string) ($image['path'] ?? '');
+
+        return '!['.$image['name'].']('.($path !== '' ? $path : $image['url']).')';
+    }
+
     /**
      * @return array{options: list<string>, duration: int}|null|false
      *                                                                The payload, null when no poll, or false (with error set) when invalid.
@@ -966,7 +966,7 @@ final class Compose extends NativeComponent
         }
 
         $options = array_values(array_filter(
-            array_map(fn (mixed $option): string => trim((string) $option), $poll['options']),
+            array_map(fn (mixed $option): string => mb_trim((string) $option), $poll['options']),
             fn (string $option): bool => $option !== ''
         ));
 
@@ -1012,7 +1012,7 @@ final class Compose extends NativeComponent
         $this->searchingChannels = true;
 
         $api = app(PinkaryApi::class);
-        $response = $api->attempt(fn () => $api->channels($token, trim($this->channelQuery)));
+        $response = $api->attempt(fn () => $api->channels($token, mb_trim($this->channelQuery)));
 
         $this->searchingChannels = false;
 
@@ -1145,7 +1145,7 @@ final class Compose extends NativeComponent
         $filled = 0;
 
         foreach ($options as $option) {
-            $text = trim((string) $option);
+            $text = mb_trim((string) $option);
 
             if ($text === '') {
                 continue;

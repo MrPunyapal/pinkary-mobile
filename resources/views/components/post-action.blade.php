@@ -59,7 +59,13 @@
 @if ($tap === null)
     <native:row class="items-center gap-1.5">
         @if ($type === 'views')
-            <native:icon :ios="\App\Icons\Ios::ChartBar" :android="\App\Icons\Android::BarChart" :size="16" color="{{ $muted }}" dark-color="{{ $mutedDark }}" />
+            <native:icon
+                :ios="\App\Icons\Ios::ChartBar"
+                :android="\App\Icons\Android::BarChart"
+                :size="16"
+                color="{{ $muted }}"
+                dark-color="{{ $mutedDark }}"
+            />
         @endif
         @if ($showCount)
             <native:text class="{{ $metricSize }} text-theme-on-surface-variant">{{ $countLabel }}</native:text>
@@ -70,30 +76,77 @@
         <native:row class="items-center gap-1.5">
             @switch ($type)
                 @case ('comments')
-                    <native:icon :ios="\App\Icons\Ios::BubbleLeftAndBubbleRight" :android="\App\Icons\AndroidOutlined::ChatBubbleOutline" :size="16" color="{{ $muted }}" dark-color="{{ $mutedDark }}" />
+                    <native:icon
+                        :ios="\App\Icons\Ios::BubbleLeftAndBubbleRight"
+                        :android="\App\Icons\AndroidOutlined::ChatBubbleOutline"
+                        :size="16"
+                        color="{{ $muted }}"
+                        dark-color="{{ $mutedDark }}"
+                    />
                     @break
                 @case ('like')
                     @if ($active)
-                        <native:icon :ios="\App\Icons\Ios::HeartFill" :android="\App\Icons\Android::Favorite" :size="16" color="{{ $pink }}" />
+                        <native:icon
+                            :ios="\App\Icons\Ios::HeartFill"
+                            :android="\App\Icons\Android::Favorite"
+                            :size="16"
+                            color="{{ $pink }}"
+                        />
                     @else
-                        <native:icon :ios="\App\Icons\Ios::Heart" :android="\App\Icons\AndroidOutlined::FavoriteBorder" :size="16" color="{{ $muted }}" dark-color="{{ $mutedDark }}" />
+                        <native:icon
+                            :ios="\App\Icons\Ios::Heart"
+                            :android="\App\Icons\AndroidOutlined::FavoriteBorder"
+                            :size="16"
+                            color="{{ $muted }}"
+                            dark-color="{{ $mutedDark }}"
+                        />
                     @endif
                     @break
                 @case ('bookmark')
                     @if ($active)
-                        <native:icon :ios="\App\Icons\Ios::BookmarkFill" :android="\App\Icons\Android::Bookmark" :size="16" color="{{ $muted }}" dark-color="{{ $mutedDark }}" />
+                        <native:icon
+                            :ios="\App\Icons\Ios::BookmarkFill"
+                            :android="\App\Icons\Android::Bookmark"
+                            :size="16"
+                            color="{{ $muted }}"
+                            dark-color="{{ $mutedDark }}"
+                        />
                     @else
-                        <native:icon :ios="\App\Icons\Ios::Bookmark" :android="\App\Icons\AndroidOutlined::Bookmark" :size="16" color="{{ $muted }}" dark-color="{{ $mutedDark }}" />
+                        <native:icon
+                            :ios="\App\Icons\Ios::Bookmark"
+                            :android="\App\Icons\AndroidOutlined::Bookmark"
+                            :size="16"
+                            color="{{ $muted }}"
+                            dark-color="{{ $mutedDark }}"
+                        />
                     @endif
                     @break
                 @case ('translate')
-                    <native:icon :ios="\App\Icons\Ios::Globe" :android="\App\Icons\AndroidOutlined::Language" :size="16" color="{{ $muted }}" dark-color="{{ $mutedDark }}" />
+                    <native:icon
+                        :ios="\App\Icons\Ios::Globe"
+                        :android="\App\Icons\AndroidOutlined::Language"
+                        :size="16"
+                        color="{{ $muted }}"
+                        dark-color="{{ $mutedDark }}"
+                    />
                     @break
                 @case ('share')
-                    <native:icon :ios="\App\Icons\Ios::Paperplane" :android="\App\Icons\AndroidOutlined::Send" :size="16" color="{{ $muted }}" dark-color="{{ $mutedDark }}" />
+                    <native:icon
+                        :ios="\App\Icons\Ios::Paperplane"
+                        :android="\App\Icons\AndroidOutlined::Send"
+                        :size="16"
+                        color="{{ $muted }}"
+                        dark-color="{{ $mutedDark }}"
+                    />
                     @break
                 @case ('menu')
-                    <native:icon :ios="\App\Icons\Ios::Ellipsis" :android="\App\Icons\AndroidOutlined::MoreHoriz" :size="20" color="{{ $muted }}" dark-color="{{ $mutedDark }}" />
+                    <native:icon
+                        :ios="\App\Icons\Ios::Ellipsis"
+                        :android="\App\Icons\AndroidOutlined::MoreHoriz"
+                        :size="20"
+                        color="{{ $muted }}"
+                        dark-color="{{ $mutedDark }}"
+                    />
                     @break
             @endswitch
             @if ($showCount)

@@ -4,14 +4,27 @@
     <x-avatar :user="$author" company-radius="md" :border="false" />
 
     <native:column class="flex-1 gap-0.5">
-        <native:pressable @tap="openProfile('{{ data_get($author, 'username', '') }}')" a11y-label="Open {{ '@'.data_get($author, 'username', '') }}’s profile">
+        <native:pressable @tap="openProfile('{{ data_get($author, 'username', '') }}')"
+            a11y-label="Open {{ '@'.data_get($author, 'username', '') }}’s profile"
+        >
             <native:row class="items-center gap-1.5">
-                <native:text class="text-sm font-medium text-theme-on-surface" max-lines="1">{{ data_get($author, 'name') }}</native:text>
+                <native:text
+                    class="text-theme-on-surface text-sm font-medium"
+                    max-lines="1"
+                >{{ data_get($author, 'name') }}</native:text>
                 @if (data_get($author, 'verified'))
-                    <native:icon :ios="\App\Icons\Ios::CheckmarkSealFill" :android="\App\Icons\Android::Verified" :size="14" color="#EC4899" />
+                    <native:icon
+                        :ios="\App\Icons\Ios::CheckmarkSealFill"
+                        :android="\App\Icons\Android::Verified"
+                        :size="14"
+                        color="#EC4899"
+                    />
                 @endif
             </native:row>
         </native:pressable>
-        <native:text class="text-xs text-theme-on-surface-variant" max-lines="1">{{ '@'.data_get($author, 'username') }}</native:text>
+        <native:text
+            class="text-theme-on-surface-variant text-xs"
+            max-lines="1"
+        >{{ '@'.data_get($author, 'username') }}</native:text>
     </native:column>
 </native:row>

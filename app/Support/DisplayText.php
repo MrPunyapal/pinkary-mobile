@@ -9,6 +9,7 @@ use DOMElement;
 use DOMNode;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Throwable;
 
 final class DisplayText
 {
@@ -36,7 +37,7 @@ final class DisplayText
             $document = new DOMDocument;
             $document->loadHTML('<?xml encoding="UTF-8"><div>'.$html.'</div>', LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
             $walk = function (DOMNode $node, string $target = '') use (&$walk, &$runs): void {
-                $tag = $node instanceof DOMElement ? strtolower($node->tagName) : '';
+                $tag = $node instanceof DOMElement ? mb_strtolower($node->tagName) : '';
                 if (in_array($tag, ['script', 'style', 'iframe', 'object', 'svg'], true)
                     || ($node instanceof DOMElement && $node->getAttribute('id') === 'link-preview-card')) {
                     return;
@@ -108,7 +109,7 @@ final class DisplayText
 
         while ($runs !== []) {
             if ($runs[0]['type'] !== 'code') {
-                $runs[0]['text'] = ltrim($runs[0]['text']);
+                $runs[0]['text'] = mb_ltrim($runs[0]['text']);
             }
             if ($runs[0]['text'] !== '') {
                 break;
@@ -118,7 +119,7 @@ final class DisplayText
         while ($runs !== []) {
             $last = array_key_last($runs);
             if ($runs[$last]['type'] !== 'code') {
-                $runs[$last]['text'] = rtrim($runs[$last]['text']);
+                $runs[$last]['text'] = mb_rtrim($runs[$last]['text']);
             }
             if ($runs[$last]['text'] !== '') {
                 break;
@@ -146,6 +147,50 @@ final class DisplayText
         }
 
         return $result;
+    }
+
+    public static function url(string $url): ?string
+    {
+        if ($url === '' || preg_match('/[\x00-\x20\x7f\\\\]/', $url)) {
+            return null;
+        }
+        if (str_starts_with($url, '//')) {
+            $url = 'https:'.$url;
+        } elseif (str_starts_with($url, '/')) {
+            $url = mb_rtrim((string) config('services.pinkary.url'), '/').$url;
+        }
+        $parts = parse_url($url);
+        if (! is_array($parts) || ! in_array(mb_strtolower($parts['scheme'] ?? ''), ['http', 'https'], true)
+            || empty($parts['host']) || isset($parts['user']) || isset($parts['pass'])) {
+            return null;
+        }
+
+        return $url;
+    }
+
+    /** @return array{url: string, host: string, title: string, image: null}|null */
+    public static function preview(mixed $html): ?array
+    {
+        foreach (self::runs($html) as $run) {
+            if ($run['type'] === 'link') {
+                return ['url' => $run['target'], 'host' => (string) parse_url($run['target'], PHP_URL_HOST), 'title' => $run['target'], 'image' => null];
+            }
+        }
+
+        return null;
+    }
+
+    public static function relativeTime(?string $iso): string
+    {
+        if ($iso === null || $iso === '') {
+            return '';
+        }
+
+        try {
+            return Carbon::parse($iso)->diffForHumans(short: true);
+        } catch (Throwable) {
+            return '';
+        }
     }
 
     private static function codeText(DOMNode $node): string
@@ -190,15 +235,15 @@ final class DisplayText
                 continue;
             }
 
-            $label = rtrim($piece, '.,!?;:');
-            while (str_ends_with($label, ')') && substr_count($label, ')') > substr_count($label, '(')) {
-                $label = substr($label, 0, -1);
+            $label = mb_rtrim($piece, '.,!?;:');
+            while (str_ends_with($label, ')') && mb_substr_count($label, ')') > mb_substr_count($label, '(')) {
+                $label = mb_substr($label, 0, -1);
             }
             $url = self::url(preg_match('~^https?://~i', $label) ? $label : 'https://'.$label);
             if ($url !== null && preg_match('~^(?:https?://|(?:[a-z0-9-]+\.)+[a-z]{2,63}(?:[/:?#]|$))~i', $label)) {
                 $runs[] = ['text' => $label, 'type' => 'link', 'target' => $url];
                 if ($label !== $piece) {
-                    $runs[] = ['text' => substr($piece, strlen($label)), 'type' => 'text', 'target' => ''];
+                    $runs[] = ['text' => mb_substr($piece, mb_strlen($label)), 'type' => 'text', 'target' => ''];
                 }
             } else {
                 $runs[] = ['text' => $piece, 'type' => 'text', 'target' => ''];
@@ -206,49 +251,5 @@ final class DisplayText
         }
 
         return $runs;
-    }
-
-    public static function url(string $url): ?string
-    {
-        if ($url === '' || preg_match('/[\x00-\x20\x7f\\\\]/', $url)) {
-            return null;
-        }
-        if (str_starts_with($url, '//')) {
-            $url = 'https:'.$url;
-        } elseif (str_starts_with($url, '/')) {
-            $url = rtrim((string) config('services.pinkary.url'), '/').$url;
-        }
-        $parts = parse_url($url);
-        if (! is_array($parts) || ! in_array(strtolower($parts['scheme'] ?? ''), ['http', 'https'], true)
-            || empty($parts['host']) || isset($parts['user']) || isset($parts['pass'])) {
-            return null;
-        }
-
-        return $url;
-    }
-
-    /** @return array{url: string, host: string, title: string, image: null}|null */
-    public static function preview(mixed $html): ?array
-    {
-        foreach (self::runs($html) as $run) {
-            if ($run['type'] === 'link') {
-                return ['url' => $run['target'], 'host' => (string) parse_url($run['target'], PHP_URL_HOST), 'title' => $run['target'], 'image' => null];
-            }
-        }
-
-        return null;
-    }
-
-    public static function relativeTime(?string $iso): string
-    {
-        if ($iso === null || $iso === '') {
-            return '';
-        }
-
-        try {
-            return Carbon::parse($iso)->diffForHumans(short: true);
-        } catch (\Throwable) {
-            return '';
-        }
     }
 }

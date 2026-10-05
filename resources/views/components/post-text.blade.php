@@ -13,11 +13,13 @@
                 }
                 $lines[] = $run;
                 $lines[] = [];
+
                 continue;
             }
             foreach (preg_split('/(\n)/', $run['text'], -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) ?: [] as $part) {
                 if ($part === "\n") {
                     $lines[] = [];
+
                     continue;
                 }
                 foreach (preg_split('/(?<=\s)(?=\S)/u', $part, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $word) {
@@ -29,16 +31,31 @@
 @endphp
 
 @if (! $interactive)
-    <native:text native:key="post-text-{{ $question ? 'question' : 'answer' }}" :text="$plain" class="{{ $question ? 'text-sm leading-loose' : 'text-base leading-[1.2]' }} whitespace-pre-wrap text-theme-on-body" @tap="openDetail('{{ $postId }}')" />
+    <native:text
+        native:key="post-text-{{ $question ? 'question' : 'answer' }}"
+        :text="$plain"
+        class="{{ $question ? 'text-sm leading-loose' : 'text-base leading-[1.2]' }} whitespace-pre-wrap text-theme-on-body"
+        @tap="openDetail('{{ $postId }}')"
+    />
 @else
-    <native:column native:key="post-text-{{ $question ? 'question' : 'answer' }}" class="w-full gap-0" a11y-label="{{ $plain }}">
+    <native:column
+        native:key="post-text-{{ $question ? 'question' : 'answer' }}"
+        class="w-full gap-0"
+        a11y-label="{{ $plain }}"
+    >
         @foreach ($lines as $lineIndex => $words)
             @if (($words['type'] ?? '') === 'code')
-                <native:column native:key="code-block-{{ $lineIndex }}" class="w-full my-2 p-3 gap-2 rounded-lg bg-theme-bubble border border-theme-outline-variant">
+                <native:column
+                    native:key="code-block-{{ $lineIndex }}"
+                    class="bg-theme-bubble border-theme-outline-variant my-2 w-full gap-2 rounded-lg border p-3"
+                >
                     @if ($words['target'] !== '')
-                        <native:text :text="$words['target']" class="text-xs text-theme-muted" />
+                        <native:text :text="$words['target']" class="text-theme-muted text-xs" />
                     @endif
-                    <native:text :text="$words['text']" class="w-full text-sm font-mono whitespace-pre-wrap text-theme-on-body select-text" />
+                    <native:text
+                        :text="$words['text']"
+                        class="text-theme-on-body w-full font-mono text-sm whitespace-pre-wrap select-text"
+                    />
                 </native:column>
                 @continue
             @endif
@@ -51,7 +68,12 @@
                             default => 'openDetail('.json_encode($postId).')',
                         };
                     @endphp
-                    <native:text native:key="word-{{ $wordIndex }}" :text="$word['text']" @tap="{{ $tap }}" class="{{ $question ? 'text-sm leading-loose' : 'text-base leading-[1.2]' }} whitespace-pre-wrap {{ $word['type'] === 'code_inline' ? 'font-mono bg-theme-bubble text-theme-on-body select-text' : ($word['type'] === 'text' ? 'text-theme-on-body' : 'text-theme-link') }}" />
+                    <native:text
+                        native:key="word-{{ $wordIndex }}"
+                        :text="$word['text']"
+                        @tap="{{ $tap }}"
+                        class="{{ $question ? 'text-sm leading-loose' : 'text-base leading-[1.2]' }} whitespace-pre-wrap {{ $word['type'] === 'code_inline' ? 'font-mono bg-theme-bubble text-theme-on-body select-text' : ($word['type'] === 'text' ? 'text-theme-on-body' : 'text-theme-link') }}"
+                    />
                 @empty
                     <native:rect class="h-4 w-px" />
                 @endforelse

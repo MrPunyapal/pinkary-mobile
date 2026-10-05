@@ -28,7 +28,7 @@
     $username = (string) data_get($user, 'username', '');
     $name = (string) data_get($user, 'name', '?');
     $avatar = data_get($user, 'avatar');
-    $initial = strtoupper(substr($name !== '' ? $name : '?', 0, 1));
+    $initial = mb_strtoupper(mb_substr($name !== '' ? $name : '?', 0, 1));
     $openProfile = $link && ! $anonymous && $username !== '';
     $ring = match (true) {
         ! $border => '',
@@ -45,7 +45,11 @@
 @elseif ($openProfile)
     <native:pressable @tap="openProfile('{{ $username }}')" a11y-label="Open {{ '@'.$username }}’s profile">
         @if (is_string($avatar) && $avatar !== '')
-            <x-lazy-image src="{{ $avatar }}" alt="{{ $username }}" class="{{ $box }} object-cover {{ $radius }} {{ $ring }}" />
+            <x-lazy-image
+                src="{{ $avatar }}"
+                alt="{{ $username }}"
+                class="{{ $box }} object-cover {{ $radius }} {{ $ring }}"
+            />
         @else
             <native:column class="{{ $box }} items-center justify-center {{ $radius }} bg-theme-avatar {{ $ring }}">
                 <native:text class="{{ $initialSize }} text-theme-on-avatar">{{ $initial }}</native:text>
@@ -53,7 +57,11 @@
         @endif
     </native:pressable>
 @elseif (is_string($avatar) && $avatar !== '')
-    <x-lazy-image src="{{ $avatar }}" alt="{{ $username !== '' ? $username : $name }}" class="{{ $box }} object-cover {{ $radius }} {{ $ring }}" />
+    <x-lazy-image
+        src="{{ $avatar }}"
+        alt="{{ $username !== '' ? $username : $name }}"
+        class="{{ $box }} object-cover {{ $radius }} {{ $ring }}"
+    />
 @else
     <native:column class="{{ $box }} items-center justify-center {{ $radius }} bg-theme-avatar {{ $ring }}">
         <native:text class="{{ $initialSize }} text-theme-on-avatar">{{ $initial }}</native:text>

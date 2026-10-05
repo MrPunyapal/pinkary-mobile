@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\NativeComponents\Home;
 use App\NativeLayout\MobileLayout;
 use App\Support\AccountStore;
@@ -846,7 +848,7 @@ it('toggles likes on nested thread ancestors like the web', function (): void {
 it('clamps long answers with Show more and Show less like the web', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
-    $long = rtrim(str_repeat('Long answer sentence. ', 60));
+    $long = mb_rtrim(str_repeat('Long answer sentence. ', 60));
     Http::fake([
         'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
             'id' => 'q9',
@@ -900,7 +902,7 @@ it('leaves the wordmark left with the search action trailing', function (): void
     $source = file_get_contents(resource_path('views/native/home.blade.php'));
 
     expect($source)
-        ->toContain('flex-1 text-xl font-bold text-theme-on-surface')
+        ->toContain('text-theme-on-surface flex-1 text-xl font-bold')
         ->not->toContain('text-theme-primary')
         ->not->toContain('justify-between')
         ->not->toContain('w-9 h-9 shrink-0" />');
@@ -980,7 +982,7 @@ it('chains thread posts with the web rail connector', function (): void {
     $walk = function (array $node) use (&$walk, &$laneRails): void {
         $layout = $node['layout'] ?? [];
 
-        if (($layout['width'] ?? null) == 2) {
+        if ((float) ($layout['width'] ?? 0) === 2.0) {
             $laneRails++;
         }
 
@@ -1042,7 +1044,7 @@ it('renders thread with more comments divider and continuous lane rails', functi
     $walk = function (array $node) use (&$walk, &$laneRails): void {
         $layout = $node['layout'] ?? [];
 
-        if (($layout['width'] ?? null) == 2) {
+        if ((float) ($layout['width'] ?? 0) === 2.0) {
             $laneRails++;
         }
 

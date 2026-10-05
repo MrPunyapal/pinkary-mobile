@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\NativeComponents\Home;
 use App\Support\AccountStore;
 use Illuminate\Support\Facades\Http;
@@ -48,7 +50,7 @@ function markupOf(string $component): string
     $source = (string) preg_replace('#/\*.*?\*/#s', '', $source);
     $source = implode("\n", array_filter(
         explode("\n", $source),
-        fn (string $line): bool => ! str_starts_with(trim($line), '//'),
+        fn (string $line): bool => ! str_starts_with(mb_trim($line), '//'),
     ));
 
     return $source;
@@ -174,8 +176,8 @@ it('puts the poll check beside the percentage and fills mine at 90 percent', fun
         ->not->toContain('bg-theme-poll-fill" style="width')
         ->toContain('text-theme-on-body');
 
-    expect(strpos($markup, 'CheckmarkCircleFill'))
-        ->toBeGreaterThan(strpos($markup, '{{ $text }}'));
+    expect(mb_strpos($markup, 'CheckmarkCircleFill'))
+        ->toBeGreaterThan(mb_strpos($markup, '{{ $text }}'));
 });
 
 it('gates the author badge on verified alone like the web', function (): void {
@@ -190,9 +192,9 @@ it('draws the divider rails at the web heights', function (): void {
     $markup = markupOf('components/post-divider');
 
     expect($markup)
-        ->toContain('h-1.5 bg-theme-outline shrink-0 my-1')
-        ->toContain('h-2 bg-theme-outline shrink-0 -mt-1')
-        ->toContain('w-0.5 h-8 bg-theme-outline shrink-0 -my-1');
+        ->toContain('bg-theme-outline my-1 h-1.5 w-0.5 shrink-0')
+        ->toContain('bg-theme-outline -mt-1 h-2 w-0.5 shrink-0')
+        ->toContain('bg-theme-outline -my-1 h-8 w-0.5 shrink-0');
 });
 
 it('keeps the list footer paging state a bare indicator with no loading label', function (): void {
@@ -201,7 +203,7 @@ it('keeps the list footer paging state a bare indicator with no loading label', 
     expect($markup)
         ->toContain('native:activity-indicator')
         ->not->toContain('Loading')
-        ->toContain('text-base text-center text-theme-on-surface-variant');
+        ->toContain('text-theme-on-surface-variant text-center text-base');
 });
 
 it('renders the web empty state without a card, border or background', function (): void {
@@ -270,13 +272,13 @@ it('rebuilds the skeleton placeholder to the web shape', function (): void {
     $markup = markupOf('components/skeleton-post');
 
     expect($markup)
-        ->toContain('w-4 h-4 rounded-full')
-        ->toContain('w-16 h-2')
-        ->toContain('w-20 h-2')
-        ->toContain('w-32 h-2')
+        ->toContain('bg-theme-outline-variant h-4 w-4 rounded-full')
+        ->toContain('bg-theme-surface-variant h-2 w-16 rounded')
+        ->toContain('bg-theme-surface-variant h-2 w-20 rounded')
+        ->toContain('bg-theme-outline-variant h-2 w-32 rounded')
         ->not->toContain('h-3');
 
-    expect(substr_count($markup, 'w-4 h-4 rounded-full'))->toBe(4);
+    expect(mb_substr_count($markup, 'bg-theme-outline-variant h-4 w-4 rounded-full'))->toBe(4);
 });
 
 it('parses every utility the parity components rely on', function (): void {

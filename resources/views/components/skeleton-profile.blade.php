@@ -1,10 +1,10 @@
 <native:column class="w-full gap-4">
-    <native:column class="w-full items-center gap-3 p-4 rounded-md bg-theme-surface border border-theme-outline-variant">
-        <native:column class="w-20 h-20 rounded-full bg-theme-surface-variant" />
-        <native:column class="w-40 h-5 rounded-full bg-theme-surface-variant mt-2" />
-        <native:column class="w-24 h-6 rounded-full bg-theme-outline-variant" />
-        <native:column class="w-full h-3 rounded-full bg-theme-outline-variant mt-1" />
-        <native:column class="w-48 h-3 rounded-full bg-theme-outline-variant" />
+    <native:column class="bg-theme-surface border-theme-outline-variant w-full items-center gap-3 rounded-md border p-4">
+        <native:column class="bg-theme-surface-variant h-20 w-20 rounded-full" />
+        <native:column class="bg-theme-surface-variant mt-2 h-5 w-40 rounded-full" />
+        <native:column class="bg-theme-outline-variant h-6 w-24 rounded-full" />
+        <native:column class="bg-theme-outline-variant mt-1 h-3 w-full rounded-full" />
+        <native:column class="bg-theme-outline-variant h-3 w-48 rounded-full" />
     </native:column>
 
     <x-skeleton-post />

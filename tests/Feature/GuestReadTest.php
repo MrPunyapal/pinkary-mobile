@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\NativeComponents\Detail;
 use App\NativeComponents\FollowList;
 use App\NativeComponents\Home;

@@ -55,7 +55,7 @@ final class Search extends NativeComponent
     {
         $query = $this->recentSearches[$index] ?? null;
 
-        if (! is_string($query) || trim($query) === '') {
+        if (! is_string($query) || mb_trim($query) === '') {
             return;
         }
 

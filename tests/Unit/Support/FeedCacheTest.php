@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\Support\FeedCache;
 use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;

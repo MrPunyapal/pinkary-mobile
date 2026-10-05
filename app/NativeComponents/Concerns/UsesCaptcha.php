@@ -37,42 +37,6 @@ trait UsesCaptcha
 
     private ?string $captchaAccountToken = null;
 
-    private function loadCaptcha(string $action, ?string $token = null): void
-    {
-        if ($this->captchaLoading) {
-            return;
-        }
-
-        $this->captchaAction = $action;
-        $this->captchaAccountToken = $token;
-        $this->captchaLoading = true;
-        $this->captchaError = '';
-
-        $this->async(static function () use ($action, $token): array {
-            $response = app(PinkaryApi::class)->captcha($action, $token);
-
-            return ['success' => $response->successful(), 'data' => $response->json('data', [])];
-        })->finished(function (array $result): void {
-            $this->captchaLoading = false;
-            $data = $result['data'];
-
-            if (! $result['success'] || ! is_array($data) || ! is_bool($data['required'] ?? null)
-                || ! $this->validCaptchaPath($data['widget_path'] ?? null) || ! $this->validCaptchaPath($data['return_path'] ?? null)) {
-                $this->captchaError = 'Could not load the security check. Please retry.';
-
-                return;
-            }
-
-            $this->captchaRequired = $data['required'];
-            $this->captchaWidgetPath = $data['widget_path'];
-            $this->captchaReturnPath = $data['return_path'];
-            $this->resetCaptcha();
-        })->failed(function (Throwable $exception): void {
-            $this->captchaLoading = false;
-            $this->captchaError = 'Could not load the security check. Please retry.';
-        });
-    }
-
     public function retryCaptcha(): void
     {
         if ($this->captchaLoading) {
@@ -115,7 +79,7 @@ trait UsesCaptcha
         if ($status === 'success') {
             $token = rawurldecode($callback['fragment'] ?? '');
 
-            if ($token === '' || strlen($token) > 2048 || preg_match('/[\x00-\x20\x7f]/', $token)) {
+            if ($token === '' || mb_strlen($token) > 2048 || preg_match('/[\x00-\x20\x7f]/', $token)) {
                 return;
             }
 
@@ -128,6 +92,42 @@ trait UsesCaptcha
             $this->resetCaptcha();
             $this->captchaError = 'The security check expired or failed. Please try again.';
         }
+    }
+
+    private function loadCaptcha(string $action, ?string $token = null): void
+    {
+        if ($this->captchaLoading) {
+            return;
+        }
+
+        $this->captchaAction = $action;
+        $this->captchaAccountToken = $token;
+        $this->captchaLoading = true;
+        $this->captchaError = '';
+
+        $this->async(static function () use ($action, $token): array {
+            $response = app(PinkaryApi::class)->captcha($action, $token);
+
+            return ['success' => $response->successful(), 'data' => $response->json('data', [])];
+        })->finished(function (array $result): void {
+            $this->captchaLoading = false;
+            $data = $result['data'];
+
+            if (! $result['success'] || ! is_array($data) || ! is_bool($data['required'] ?? null)
+                || ! $this->validCaptchaPath($data['widget_path'] ?? null) || ! $this->validCaptchaPath($data['return_path'] ?? null)) {
+                $this->captchaError = 'Could not load the security check. Please retry.';
+
+                return;
+            }
+
+            $this->captchaRequired = $data['required'];
+            $this->captchaWidgetPath = $data['widget_path'];
+            $this->captchaReturnPath = $data['return_path'];
+            $this->resetCaptcha();
+        })->failed(function (Throwable $exception): void {
+            $this->captchaLoading = false;
+            $this->captchaError = 'Could not load the security check. Please retry.';
+        });
     }
 
     private function captchaReadyForSubmission(): bool
@@ -182,7 +182,7 @@ trait UsesCaptcha
         $this->captchaCompleted = false;
         $this->captchaState = (string) Str::uuid();
         $this->captchaUrl = $this->captchaRequired && $this->captchaWidgetPath !== ''
-            ? rtrim((string) config('services.pinkary.url'), '/').$this->captchaWidgetPath.'?'.http_build_query([
+            ? mb_rtrim((string) config('services.pinkary.url'), '/').$this->captchaWidgetPath.'?'.http_build_query([
                 'action' => $this->captchaAction, 'state' => $this->captchaState,
             ]) : '';
     }

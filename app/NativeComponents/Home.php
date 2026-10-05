@@ -13,11 +13,15 @@ use App\Support\FeedCache;
 use App\Support\UnreadCount;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
+use Throwable;
 
 final class Home extends NativeComponent
 {
     use TogglesPostReactions;
     use UsesAppMenu;
+
+    /** @var list<string> */
+    private const TABS = ['recent', 'following', 'trending'];
 
     /** @var array<string, mixed>|null */
     public ?array $currentUser = null;
@@ -46,12 +50,9 @@ final class Home extends NativeComponent
 
     public string $loadMoreError = '';
 
-    private int $feedRevision = 0;
-
     public string $openedDetailId = '';
 
-    /** @var list<string> */
-    private const TABS = ['recent', 'following', 'trending'];
+    private int $feedRevision = 0;
 
     public function navTitle(): string
     {
@@ -249,7 +250,7 @@ final class Home extends NativeComponent
             $this->page = $page + 1;
             $this->hasMore = $result['hasMore'];
             $this->rememberFeed();
-        })->failed(function (\Throwable $exception) use ($accountId, $tab, $page, $revision): void {
+        })->failed(function (Throwable $exception) use ($accountId, $tab, $page, $revision): void {
             if ($this->isCurrentFeedRequest($accountId, $tab, $page, $revision)) {
                 $this->loadingMore = false;
                 $this->loadMoreError = 'Could not load more posts. Please try again.';
@@ -389,7 +390,7 @@ final class Home extends NativeComponent
             if ($result['success'] && AccountStore::activeToken() === $token) {
                 UnreadCount::store($result['count']);
             }
-        })->failed(static function (\Throwable $exception): void {});
+        })->failed(static function (Throwable $exception): void {});
     }
 
     private function refreshCurrentUser(?string $token): void

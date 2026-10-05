@@ -20,11 +20,6 @@ final class Register extends NativeComponent
 {
     use UsesCaptcha;
 
-    public function mount(): void
-    {
-        $this->loadCaptcha('register');
-    }
-
     public string $name = '';
 
     public string $username = '';
@@ -47,6 +42,11 @@ final class Register extends NativeComponent
     public bool $busy = false;
 
     public bool $showPassword = false;
+
+    public function mount(): void
+    {
+        $this->loadCaptcha('register');
+    }
 
     public function navTitle(): string
     {
@@ -186,7 +186,7 @@ final class Register extends NativeComponent
 
     private function openWebPage(string $path): void
     {
-        $url = rtrim((string) config('services.pinkary.url'), '/').$path;
+        $url = mb_rtrim((string) config('services.pinkary.url'), '/').$path;
 
         if (! preg_match('#^https?://#i', $url)) {
             return;

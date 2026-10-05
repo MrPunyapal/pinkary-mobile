@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\Support\AccountStore;
 use App\Support\DraftStore;
 use Tests\TestCase;

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\NativeComponents\Home;
 use App\Support\AccountStore;
 use Illuminate\Http\Client\Request;

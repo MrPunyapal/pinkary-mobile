@@ -1,31 +1,47 @@
 @php $viewerUsername = (string) data_get(\App\Support\AccountStore::active(), 'username', ''); @endphp
-<native:column class="w-full h-full bg-theme-surface">
-        <native:column class="w-full bg-theme-surface justify-center">
-            <native:row class="w-full items-center gap-3 px-4 py-4 min-h-14">
-                <native:text class="flex-1 text-xl font-bold text-theme-on-surface" max-lines="1">Pinkary</native:text>
+<native:column class="bg-theme-surface h-full w-full">
+    <native:column class="bg-theme-surface w-full justify-center">
+        <native:row class="min-h-14 w-full items-center gap-3 px-4 py-4">
+            <native:text class="text-theme-on-surface flex-1 text-xl font-bold" max-lines="1">Pinkary</native:text>
 
-                <native:pressable class="w-9 h-9 items-center justify-center rounded-full" @tap="openSearch" a11y-label="Search">
-                    <native:icon :ios="\App\Icons\Ios::Magnifyingglass" :android="\App\Icons\Android::Search" :size="20" color="#64748B" dark-color="#94A3B8" />
-                </native:pressable>
-            </native:row>
-            <native:rect class="w-full h-px bg-theme-outline-variant" />
-        </native:column>
+            <native:pressable
+                class="h-9 w-9 items-center justify-center rounded-full"
+                @tap="openSearch"
+                a11y-label="Search"
+            >
+                <native:icon
+                    :ios="\App\Icons\Ios::Magnifyingglass"
+                    :android="\App\Icons\Android::Search"
+                    :size="20"
+                    color="#64748B"
+                    dark-color="#94A3B8"
+                />
+            </native:pressable>
+        </native:row>
+        <native:rect class="bg-theme-outline-variant h-px w-full" />
+    </native:column>
 
-        <x-feed-tabs :tab="$tab" />
+    <x-feed-tabs :tab="$tab" />
 
-        @if ($refreshing ?? false)
-            <x-refresh-bar />
-        @endif
+    @if ($refreshing ?? false)
+        <x-refresh-bar />
+    @endif
 
     {{-- Only post rows belong in this list; native pagination counts child views. --}}
-    <native:list native:key="feed-list" on-refresh="refreshFeed" on-end-reached="prefetchMore" :end-reached-buffer="5" class="w-full flex-1 bg-theme-surface">
+    <native:list
+        native:key="feed-list"
+        on-refresh="refreshFeed"
+        on-end-reached="prefetchMore"
+        :end-reached-buffer="5"
+        class="bg-theme-surface w-full flex-1"
+    >
         @if ($loading)
             <x-skeleton-feed />
         @elseif ($errorMessage !== '')
-            <native:column class="mx-4 my-5 p-4 gap-3 rounded-md bg-theme-destructive/15 border border-theme-destructive">
-                <native:text class="text-sm text-theme-destructive">{{ $errorMessage }}</native:text>
+            <native:column class="bg-theme-destructive/15 border-theme-destructive mx-4 my-5 gap-3 rounded-md border p-4">
+                <native:text class="text-theme-destructive text-sm">{{ $errorMessage }}</native:text>
                 <native:pressable class="self-start py-1" @tap="retry" a11y-label="Try again">
-                    <native:text class="text-sm font-semibold text-theme-destructive">Try again</native:text>
+                    <native:text class="text-theme-destructive text-sm font-semibold">Try again</native:text>
                 </native:pressable>
             </native:column>
         @elseif (count($posts) === 0)
@@ -45,14 +61,25 @@
             @endphp
 
             @if ($guestFollowing)
-                <native:column class="w-full gap-3 mx-4 my-6 p-6 rounded-md bg-theme-surface-variant items-center">
-                    <native:text class="w-full text-xl font-semibold text-theme-on-surface text-center" max-lines="2">Sign in for a personalized feed</native:text>
-                    <native:text class="w-full text-sm leading-relaxed text-theme-on-surface-variant text-center">Log in or sign up to access personalized content. Following is already supported. You just need an account to see posts from the people you follow.</native:text>
+                <native:column class="bg-theme-surface-variant mx-4 my-6 w-full items-center gap-3 rounded-md p-6">
+                    <native:text class="text-theme-on-surface w-full text-center text-xl font-semibold" max-lines="2"
+                        >Sign in for a personalized feed</native:text>
+                    <native:text class="text-theme-on-surface-variant w-full text-center text-sm leading-relaxed"
+                        >Log in or sign up to access personalized content. Following is already supported. You just need
+                        an account to see posts from the people you follow.</native:text>
                     <native:row class="w-full items-center justify-center gap-3 pt-2">
-                        <native:pressable class="px-4 py-2 rounded-md bg-theme-primary" @tap="openLogin" a11y-label="Log in">
+                        <native:pressable
+                            class="bg-theme-primary rounded-md px-4 py-2"
+                            @tap="openLogin"
+                            a11y-label="Log in"
+                        >
                             <native:text class="text-sm font-semibold text-white">Log In</native:text>
                         </native:pressable>
-                        <native:pressable class="px-4 py-2 rounded-md bg-theme-primary" @tap="openRegister" a11y-label="Register">
+                        <native:pressable
+                            class="bg-theme-primary rounded-md px-4 py-2"
+                            @tap="openRegister"
+                            a11y-label="Register"
+                        >
                             <native:text class="text-sm font-semibold text-white">Register</native:text>
                         </native:pressable>
                     </native:row>
@@ -66,10 +93,15 @@
             @endforeach
 
         @endif
-
     </native:list>
     @if (! $loading && $errorMessage === '' && count($posts) > 0)
-        <x-list-footer :loading="$loadingMore" :error="$loadMoreError" tap="loadMore" :has-more="$hasMore" end-text="You're all caught up." />
+        <x-list-footer
+            :loading="$loadingMore"
+            :error="$loadMoreError"
+            tap="loadMore"
+            :has-more="$hasMore"
+            end-text="You're all caught up."
+        />
     @endif
 </native:column>
 

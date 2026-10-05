@@ -1,31 +1,42 @@
 @php $viewerUsername = (string) data_get(\App\Support\AccountStore::active(), 'username', ''); @endphp
-<native:list native:key="bookmarks-list" on-end-reached="loadMore" :end-reached-buffer="5" class="w-full h-full bg-theme-background">
-        <x-page-heading title="Bookmarks" size="3xl" />
+<native:list
+    native:key="bookmarks-list"
+    on-end-reached="loadMore"
+    :end-reached-buffer="5"
+    class="bg-theme-background h-full w-full"
+>
+    <x-page-heading title="Bookmarks" size="3xl" />
 
-        @if ($refreshing ?? false)
-            <x-refresh-bar />
-        @endif
+    @if ($refreshing ?? false)
+        <x-refresh-bar />
+    @endif
 
-        @if ($loading)
-            <x-skeleton-feed />
-        @elseif ($errorMessage !== '')
-            <native:column class="mx-4 my-5 p-4 gap-3 rounded-md bg-theme-destructive/15 border border-theme-destructive">
-                <native:text class="text-sm text-theme-destructive">{{ $errorMessage }}</native:text>
-                <native:pressable class="self-start py-1" @tap="retry" a11y-label="Try again">
-                    <native:text class="text-sm font-semibold text-theme-destructive">Try again</native:text>
-                </native:pressable>
-            </native:column>
-        @elseif (count($posts) === 0)
-            <x-empty-state title="No bookmarks yet." subtitle="Posts you save for later will show up here." />
-        @else
-            @foreach ($posts as $post)
-                <x-thread-post :post="$post" :expanded-ids="$expanded" :viewer-username="$viewerUsername" />
-            @endforeach
+    @if ($loading)
+        <x-skeleton-feed />
+    @elseif ($errorMessage !== '')
+        <native:column class="bg-theme-destructive/15 border-theme-destructive mx-4 my-5 gap-3 rounded-md border p-4">
+            <native:text class="text-theme-destructive text-sm">{{ $errorMessage }}</native:text>
+            <native:pressable class="self-start py-1" @tap="retry" a11y-label="Try again">
+                <native:text class="text-theme-destructive text-sm font-semibold">Try again</native:text>
+            </native:pressable>
+        </native:column>
+    @elseif (count($posts) === 0)
+        <x-empty-state title="No bookmarks yet." subtitle="Posts you save for later will show up here." />
+    @else
+        @foreach ($posts as $post)
+            <x-thread-post :post="$post" :expanded-ids="$expanded" :viewer-username="$viewerUsername" />
+        @endforeach
 
-            <x-list-footer :loading="$loadingMore" :error="$loadMoreError" tap="loadMore" :has-more="$hasMore" end-text="There are no more bookmarks to load, or you have scrolled too far." />
-        @endif
+        <x-list-footer
+            :loading="$loadingMore"
+            :error="$loadMoreError"
+            tap="loadMore"
+            :has-more="$hasMore"
+            end-text="There are no more bookmarks to load, or you have scrolled too far."
+        />
+    @endif
 
-        <native:column class="w-full h-20" />
+    <native:column class="h-20 w-full" />
 </native:list>
 
 @php

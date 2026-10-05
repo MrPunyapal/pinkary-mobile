@@ -327,7 +327,7 @@ final class Profile extends NativeComponent
             return;
         }
 
-        $base = rtrim((string) config('services.pinkary.url'), '/');
+        $base = mb_rtrim((string) config('services.pinkary.url'), '/');
 
         app(Share::class)->url('Pinkary profile', '@'.$username.' on Pinkary', $base.'/@'.$username);
     }

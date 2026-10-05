@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\NativeComponents\EditProfile;
 use App\Support\AccountStore;
 use Illuminate\Support\Facades\Http;

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
@@ -7,7 +9,7 @@ use MrPunyapal\Impressions\Providers\ImpressionsServiceProvider;
 use Native\Mobile\Providers\CameraServiceProvider;
 use Native\Mobile\UI\NativeUIServiceProvider;
 
-class NativeServiceProvider extends ServiceProvider
+final class NativeServiceProvider extends ServiceProvider
 {
     public function register(): void {}
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\NativeComponents\Login;
 use App\Support\AccountStore;
 use Native\Mobile\Facades\System;

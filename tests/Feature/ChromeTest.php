@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\NativeComponents\Home;
 use App\NativeComponents\Search;
 use App\NativeLayout\MobileLayout;
@@ -242,7 +244,7 @@ it('renders the feed tabs as pills with only a subtle section separator', functi
     expect($source)
         ->toContain('rounded-md')
         ->toContain('bg-theme-primary')
-        ->toContain('<native:rect class="w-full h-px bg-theme-outline-variant" />')
+        ->toContain('<native:rect class="bg-theme-outline-variant h-px w-full" />')
         ->not->toContain('border-b')
         ->not->toContain('flex-1 items-center');
 });

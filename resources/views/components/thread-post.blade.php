@@ -15,9 +15,17 @@
 @endphp
 
 @if (count($threadPosts) === 0)
-    <x-post :post="$post" :viewer-username="$viewerUsername" :full="$full" :expanded="$isExpanded(data_get($post, 'id'))" />
+    <x-post
+        :post="$post"
+        :viewer-username="$viewerUsername"
+        :full="$full"
+        :expanded="$isExpanded(data_get($post, 'id'))"
+    />
 @else
-    <native:column native:key="thread-{{ data_get($post, 'id') }}" class="w-full gap-0 bg-theme-surface border-b border-theme-outline-variant">
+    <native:column
+        native:key="thread-{{ data_get($post, 'id') }}"
+        class="bg-theme-surface border-theme-outline-variant w-full gap-0 border-b"
+    >
         @foreach ($threadPosts as $index => $ancestor)
             <x-post
                 :post="$ancestor"
@@ -28,8 +36,18 @@
                 :rail-top="$index > 0"
                 :flush-top="$index > 0"
                 :more-link="$linkAfterFirst && $index === 0 ? $threadMoreId : null"
-                :expanded="$isExpanded(data_get($ancestor, 'id'))" />
+                :expanded="$isExpanded(data_get($ancestor, 'id'))"
+            />
         @endforeach
-        <x-post :post="$post" :viewer-username="$viewerUsername" :full="$full" :bare="true" :rail="false" :rail-top="true" :flush-top="true" :expanded="$isExpanded(data_get($post, 'id'))" />
+        <x-post
+            :post="$post"
+            :viewer-username="$viewerUsername"
+            :full="$full"
+            :bare="true"
+            :rail="false"
+            :rail-top="true"
+            :flush-top="true"
+            :expanded="$isExpanded(data_get($post, 'id'))"
+        />
     </native:column>
 @endif

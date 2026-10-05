@@ -76,12 +76,12 @@ final class DraftStore
      */
     private static function isEmpty(array $draft): bool
     {
-        if (trim($draft['content']) !== '') {
+        if (mb_trim($draft['content']) !== '') {
             return false;
         }
 
         foreach ($draft['posts'] as $post) {
-            if (trim($post) !== '') {
+            if (mb_trim($post) !== '') {
                 return false;
             }
         }
@@ -90,7 +90,7 @@ final class DraftStore
             return false;
         }
 
-        if ($draft['channelId'] !== null || trim($draft['channelName']) !== '') {
+        if ($draft['channelId'] !== null || mb_trim($draft['channelName']) !== '') {
             return false;
         }
 
@@ -258,7 +258,7 @@ final class DraftStore
     private static function keyFor(?string $askUsername): string
     {
         $account = self::accountKey();
-        $target = mb_strtolower(trim((string) $askUsername));
+        $target = mb_strtolower(mb_trim((string) $askUsername));
         $slot = $target === '' ? 'thread' : 'ask_'.$target;
 
         return self::PREFIX.$account.'_'.$slot;
@@ -274,7 +274,7 @@ final class DraftStore
             $username = is_array($user) ? (string) ($user['username'] ?? '') : '';
         }
 
-        $username = mb_strtolower(trim($username));
+        $username = mb_strtolower(mb_trim($username));
 
         return $username !== '' ? $username : 'default';
     }
