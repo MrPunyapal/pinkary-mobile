@@ -133,3 +133,23 @@ it('defaults non-arrays to the fallback without decoding json', function (): voi
     expect(Payload::array(42))->toBe([]);
     expect(Payload::array(null, ['answer' => 'fallback']))->toBe(['answer' => 'fallback']);
 });
+
+it('keeps only string keys in a string map', function (): void {
+    expect(Payload::stringMap(['answer' => 'hi', 'id' => 1]))->toBe(['answer' => 'hi', 'id' => 1]);
+    expect(Payload::stringMap([]))->toBe([]);
+});
+
+it('drops integer keys rather than coercing them into a string-keyed shape', function (): void {
+    expect(Payload::stringMap([['id' => 'q1'], ['id' => 'q2']]))->toBe([]);
+    expect(Payload::stringMap([0 => 'a', 1 => 'b']))->toBe([]);
+});
+
+it('defaults a string map to the fallback for non-arrays', function (): void {
+    expect(Payload::stringMap(null))->toBe([]);
+    expect(Payload::stringMap('{"answer":"hi"}'))->toBe([]);
+    expect(Payload::stringMap(null, ['answer' => 'fallback']))->toBe(['answer' => 'fallback']);
+});
+
+it('applies the string key filter to the fallback too', function (): void {
+    expect(Payload::stringMap(null, [['id' => 'q1']]))->toBe([]);
+});

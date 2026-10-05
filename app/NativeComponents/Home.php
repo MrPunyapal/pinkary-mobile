@@ -265,17 +265,6 @@ final class Home extends NativeComponent
         return view('native.home');
     }
 
-    /**
-     * A decoded JSON object has string keys, which the untyped payload gives no
-     * way to express.
-     *
-     * @return array<string, mixed>
-     */
-    private static function payloadObject(mixed $value): array
-    {
-        return array_filter(Payload::array($value), 'is_string', ARRAY_FILTER_USE_KEY);
-    }
-
     private function switchTab(int $index): void
     {
         $index = isset(self::TABS[$index]) ? $index : 0;
@@ -423,7 +412,7 @@ final class Home extends NativeComponent
             $response = $api->attempt(fn (): Response => $api->profile($token));
 
             if ($response?->successful() && is_array($data = $response->json('data')) && ! empty($data['username'])) {
-                CurrentUser::store(self::payloadObject($data));
+                CurrentUser::store(Payload::stringMap($data));
                 $this->currentUser = CurrentUser::get();
             }
         }

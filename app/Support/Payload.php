@@ -79,4 +79,17 @@ final class Payload
     {
         return is_array($value) ? $value : $default;
     }
+
+    /**
+     * A decoded JSON object has string keys, which the untyped payload gives no
+     * way to express. A JSON list decodes to integer keys, so it is filtered
+     * out here rather than silently coerced into a string-keyed shape.
+     *
+     * @param  array<array-key, mixed>  $default
+     * @return array<string, mixed>
+     */
+    public static function stringMap(mixed $value, array $default = []): array
+    {
+        return array_filter(self::array($value, $default), 'is_string', ARRAY_FILTER_USE_KEY);
+    }
 }

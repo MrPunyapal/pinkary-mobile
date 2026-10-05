@@ -117,7 +117,7 @@ final class Register extends NativeComponent
         }
 
         if ($response->successful() && is_string($token = $response->json('token'))) {
-            $userData = self::payloadObject($response->json('data') ?? $response->json('user'));
+            $userData = Payload::stringMap($response->json('data') ?? $response->json('user'));
             $username = Payload::string($userData['username'] ?? $this->username);
 
             $previous = $username !== '' ? AccountStore::tokenForUsername($username) : null;
@@ -145,7 +145,7 @@ final class Register extends NativeComponent
         }
 
         $this->busy = false;
-        $this->applyFieldErrors(self::payloadObject($response->json('errors')), $fields, Payload::string($response->json('message') ?? 'We could not create your account. Please check your details and try again.'));
+        $this->applyFieldErrors(Payload::stringMap($response->json('errors')), $fields, Payload::string($response->json('message') ?? 'We could not create your account. Please check your details and try again.'));
     }
 
     public function login(): void
@@ -182,17 +182,6 @@ final class Register extends NativeComponent
     public function render(): View
     {
         return view('native.register');
-    }
-
-    /**
-     * A decoded JSON object has string keys, which the untyped payload gives no
-     * way to express.
-     *
-     * @return array<string, mixed>
-     */
-    private static function payloadObject(mixed $value): array
-    {
-        return array_filter(Payload::array($value), 'is_string', ARRAY_FILTER_USE_KEY);
     }
 
     private function openWebPage(string $path): void

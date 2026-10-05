@@ -205,7 +205,7 @@ final class EditProfile extends NativeComponent
         }
 
         if (! $response->successful()) {
-            $this->applyFieldErrors(self::payloadObject($response->json('errors')), [
+            $this->applyFieldErrors(Payload::stringMap($response->json('errors')), [
                 'name' => 'name',
                 'username' => 'username',
                 'email' => 'email',
@@ -510,17 +510,6 @@ final class EditProfile extends NativeComponent
     public function render(): View
     {
         return view('native.edit-profile');
-    }
-
-    /**
-     * A decoded JSON object has string keys, which the untyped payload gives no
-     * way to express.
-     *
-     * @return array<string, mixed>
-     */
-    private static function payloadObject(mixed $value): array
-    {
-        return array_filter(Payload::array($value), 'is_string', ARRAY_FILTER_USE_KEY);
     }
 
     private function load(string $token): void
