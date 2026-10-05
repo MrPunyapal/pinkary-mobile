@@ -67,6 +67,7 @@
             "pint --test --parallel"
         ],
         "test": [
+            "@test:lint",
             "@php artisan config:clear --ansi @no_additional_args",
             "@php artisan test"
         ],
