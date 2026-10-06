@@ -51,6 +51,7 @@
         class="w-full"
     >
 
+
 @endif
 <native:column native:key="post-{{ $postId }}" class="w-full {{ $bare ? '' : 'bg-theme-surface' }}">
     @unless ($sharedUpdate || $comment)
