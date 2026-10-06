@@ -77,7 +77,7 @@
             "@php vendor/bin/pest --type-coverage --min=100"
         ],
         "test:unit": [
-            "@php vendor/bin/pest --coverage --min=78"
+            "@php vendor/bin/pest --coverage --min=79"
         ],
         "test": [
             "@test:lint",
