@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 use App\NativeComponents\Settings;
 use App\Support\AccountStore;
+use App\Support\CurrentUser;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\Native;
 
 beforeEach(function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::clear();
+    CurrentUser::clear();
 });
 
 function settingsProfilePayload(array $overrides = []): array
@@ -71,4 +73,72 @@ it('says Log Out on its own and names the account when others are stored', funct
         ->assertSee('Log out of @pinkaryuser');
 
     AccountStore::clear();
+});
+
+it('replaces an unauthenticated visit with the login screen', function (): void {
+    Native::test(Settings::class)->assertReplacedWith('/login');
+});
+
+it('offers a retry that recovers once the profile request succeeds', function (): void {
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+
+    $attempt = 0;
+
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => function () use (&$attempt) {
+            $attempt++;
+
+            return $attempt === 1
+                ? Http::failedConnection()
+                : Http::response(['data' => settingsProfilePayload()]);
+        },
+    ]);
+
+    Native::test(Settings::class)
+        ->assertSet('loading', false)
+        ->assertSet('errorMessage', 'Settings could not be loaded. Please try again.')
+        ->assertSee('Try again')
+        ->tap('Try again')
+        ->assertSet('errorMessage', '')
+        ->assertSee('Edit profile');
+
+    expect($attempt)->toBe(2);
+});
+
+it('sends a retry without a token to login instead of loading', function (): void {
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::response(['data' => settingsProfilePayload()]),
+    ]);
+
+    $screen = Native::test(Settings::class)->assertSee('Edit profile');
+
+    AccountStore::clear();
+
+    $screen->call('retry')->assertNavigatedTo('/login');
+});
+
+it('drops the dead token and returns to login on unauthorized', function (): void {
+    AccountStore::add('ada', 'dead-token', ['username' => 'ada']);
+    CurrentUser::store(['username' => 'ada', 'name' => 'Ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::response(null, 401),
+    ]);
+
+    Native::test(Settings::class)->assertReplacedWith('/login');
+
+    expect(AccountStore::activeToken())->toBeNull()
+        ->and(CurrentUser::get())->toBeNull();
+});
+
+it('shows the load error on an unsuccessful profile response', function (): void {
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::response(['message' => 'Server error.'], 500),
+    ]);
+
+    Native::test(Settings::class)
+        ->assertSet('loading', false)
+        ->assertSee('Settings could not be loaded. Please try again.')
+        ->assertDontSee('Edit profile');
 });
