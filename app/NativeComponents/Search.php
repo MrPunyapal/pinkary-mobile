@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\NativeComponents;
 
+use App\NativeComponents\Concerns\OpensProfiles;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
 use App\Support\Payload;
@@ -12,6 +13,7 @@ use Native\Mobile\Edge\NativeComponent;
 
 final class Search extends NativeComponent
 {
+    use OpensProfiles;
     use UsesAppMenu;
 
     public string $query = '';
@@ -165,15 +167,6 @@ final class Search extends NativeComponent
         }
 
         $this->users[$index]['followed_by_me'] = (bool) $response->json('data.followed', ! $following);
-    }
-
-    public function openProfile(string $username): void
-    {
-        if ($username === '') {
-            return;
-        }
-
-        $this->navigate($this->route('mobile.user', ['username' => $username]));
     }
 
     public function openHashtag(string $name): void

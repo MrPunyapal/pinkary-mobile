@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\NativeComponents;
 
+use App\NativeComponents\Concerns\OpensProfiles;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
 use App\Support\AccountStore;
@@ -15,6 +16,7 @@ use Native\Mobile\Edge\NativeComponent;
 
 final class FollowList extends NativeComponent
 {
+    use OpensProfiles;
     use UsesAppMenu;
 
     public string $username = '';
@@ -80,15 +82,6 @@ final class FollowList extends NativeComponent
     public function retry(): void
     {
         $this->load($this->token());
-    }
-
-    public function openProfile(string $username): void
-    {
-        if ($username === '') {
-            return;
-        }
-
-        $this->navigate($this->route('mobile.user', ['username' => $username]));
     }
 
     public function toggleFollow(string $username): void
