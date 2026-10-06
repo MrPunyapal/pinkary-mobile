@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\NativeComponents;
 
+use App\NativeComponents\Concerns\OpensProfiles;
 use App\NativeComponents\Concerns\TogglesPostReactions;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
@@ -18,6 +19,7 @@ use Native\Mobile\Share;
 
 final class Profile extends NativeComponent
 {
+    use OpensProfiles;
     use TogglesPostReactions;
     use UsesAppMenu;
 
@@ -127,15 +129,6 @@ final class Profile extends NativeComponent
         }
 
         $this->navigate($this->route('mobile.detail', ['id' => $id]));
-    }
-
-    public function openProfile(string $username): void
-    {
-        if ($username === '') {
-            return;
-        }
-
-        $this->navigate($this->route('mobile.user', ['username' => $username]));
     }
 
     public function openLink(string $url): void

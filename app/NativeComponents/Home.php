@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\NativeComponents;
 
+use App\NativeComponents\Concerns\OpensProfiles;
 use App\NativeComponents\Concerns\TogglesPostReactions;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
@@ -19,6 +20,7 @@ use Throwable;
 
 final class Home extends NativeComponent
 {
+    use OpensProfiles;
     use TogglesPostReactions;
     use UsesAppMenu;
 
@@ -133,15 +135,6 @@ final class Home extends NativeComponent
     public function openLink(string $url): void
     {
         $this->openExternalLink($url);
-    }
-
-    public function openProfile(string $username): void
-    {
-        if ($username === '') {
-            return;
-        }
-
-        $this->navigate($this->route('mobile.user', ['username' => $username]));
     }
 
     public function translatePost(string $id, string $field = 'answer'): void

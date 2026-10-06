@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\NativeComponents;
 
+use App\NativeComponents\Concerns\OpensProfiles;
 use App\NativeComponents\Concerns\TogglesPostReactions;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\NativeComponents\Concerns\UsesCaptcha;
@@ -16,6 +17,7 @@ use Native\Mobile\Edge\NativeComponent;
 
 final class Detail extends NativeComponent
 {
+    use OpensProfiles;
     use TogglesPostReactions;
     use UsesAppMenu;
     use UsesCaptcha;
@@ -124,15 +126,6 @@ final class Detail extends NativeComponent
     public function openLink(string $url): void
     {
         $this->openExternalLink($url);
-    }
-
-    public function openProfile(string $username): void
-    {
-        if ($username === '') {
-            return;
-        }
-
-        $this->navigate($this->route('mobile.user', ['username' => $username]));
     }
 
     public function translatePost(string $id, string $field = 'answer'): void
