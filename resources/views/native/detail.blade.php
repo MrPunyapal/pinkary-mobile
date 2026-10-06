@@ -61,7 +61,7 @@
                     variant="primary"
                     :disabled="$commentBusy"
                     @tap="postComment"
-                >{{ $commentBusy ? 'Postingâ€¦' : 'Reply' }}</native:button>
+                >{{ $commentBusy ? 'Posting…' : 'Reply' }}</native:button>
             </native:column>
         @endif
 
