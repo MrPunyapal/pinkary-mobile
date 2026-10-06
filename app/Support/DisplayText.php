@@ -63,7 +63,7 @@ final class DisplayText
                     $prefix = '- ';
                     if ($node->parentNode?->nodeName === 'ol') {
                         $index = 1;
-                        for ($sibling = $node->previousSibling; $sibling !== null; $sibling = $sibling->previousSibling) {
+                        for ($sibling = $node->previousSibling; $sibling instanceof DOMNode; $sibling = $sibling->previousSibling) {
                             if ($sibling->nodeName === 'li') {
                                 $index++;
                             }

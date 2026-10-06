@@ -5,15 +5,15 @@ declare(strict_types=1);
 use App\Support\Payload;
 use Tests\TestCase;
 
-uses(TestCase::class);
+pest()->extend(TestCase::class);
 
 it('passes strings through unchanged', function (): void {
     expect(Payload::string('hello'))->toBe('hello');
-    expect(Payload::string(''))->toBe('');
+    expect(Payload::string(''))->toBeEmpty();
 });
 
 it('defaults null strings to the fallback', function (): void {
-    expect(Payload::string(null))->toBe('');
+    expect(Payload::string(null))->toBeEmpty();
     expect(Payload::string(null, 'fallback'))->toBe('fallback');
 });
 
@@ -21,13 +21,13 @@ it('casts scalar strings the way PHP would', function (): void {
     expect(Payload::string(42))->toBe('42');
     expect(Payload::string(4.5))->toBe('4.5');
     expect(Payload::string(true))->toBe('1');
-    expect(Payload::string(false))->toBe('');
+    expect(Payload::string(false))->toBeEmpty();
 });
 
 it('defaults non-representable strings rather than raising an error', function (): void {
-    expect(Payload::string([]))->toBe('');
-    expect(Payload::string(['answer' => 'hi']))->toBe('');
-    expect(Payload::string(new stdClass))->toBe('');
+    expect(Payload::string([]))->toBeEmpty();
+    expect(Payload::string(['answer' => 'hi']))->toBeEmpty();
+    expect(Payload::string(new stdClass))->toBeEmpty();
     expect(Payload::string([], 'fallback'))->toBe('fallback');
     expect(Payload::string(new stdClass, 'fallback'))->toBe('fallback');
 });
@@ -123,33 +123,33 @@ it('defaults non-representable booleans to the fallback', function (): void {
 
 it('passes real arrays through unchanged', function (): void {
     expect(Payload::array(['answer' => 'hi']))->toBe(['answer' => 'hi']);
-    expect(Payload::array([]))->toBe([]);
+    expect(Payload::array([]))->toBeEmpty();
     expect(Payload::array([['id' => 'q1']]))->toBe([['id' => 'q1']]);
 });
 
 it('defaults non-arrays to the fallback without decoding json', function (): void {
-    expect(Payload::array(null))->toBe([]);
-    expect(Payload::array('{"answer":"hi"}'))->toBe([]);
-    expect(Payload::array(42))->toBe([]);
+    expect(Payload::array(null))->toBeEmpty();
+    expect(Payload::array('{"answer":"hi"}'))->toBeEmpty();
+    expect(Payload::array(42))->toBeEmpty();
     expect(Payload::array(null, ['answer' => 'fallback']))->toBe(['answer' => 'fallback']);
 });
 
 it('keeps only string keys in a string map', function (): void {
     expect(Payload::stringMap(['answer' => 'hi', 'id' => 1]))->toBe(['answer' => 'hi', 'id' => 1]);
-    expect(Payload::stringMap([]))->toBe([]);
+    expect(Payload::stringMap([]))->toBeEmpty();
 });
 
 it('drops integer keys rather than coercing them into a string-keyed shape', function (): void {
-    expect(Payload::stringMap([['id' => 'q1'], ['id' => 'q2']]))->toBe([]);
-    expect(Payload::stringMap([0 => 'a', 1 => 'b']))->toBe([]);
+    expect(Payload::stringMap([['id' => 'q1'], ['id' => 'q2']]))->toBeEmpty();
+    expect(Payload::stringMap([0 => 'a', 1 => 'b']))->toBeEmpty();
 });
 
 it('defaults a string map to the fallback for non-arrays', function (): void {
-    expect(Payload::stringMap(null))->toBe([]);
-    expect(Payload::stringMap('{"answer":"hi"}'))->toBe([]);
+    expect(Payload::stringMap(null))->toBeEmpty();
+    expect(Payload::stringMap('{"answer":"hi"}'))->toBeEmpty();
     expect(Payload::stringMap(null, ['answer' => 'fallback']))->toBe(['answer' => 'fallback']);
 });
 
 it('applies the string key filter to the fallback too', function (): void {
-    expect(Payload::stringMap(null, [['id' => 'q1']]))->toBe([]);
+    expect(Payload::stringMap(null, [['id' => 'q1']]))->toBeEmpty();
 });

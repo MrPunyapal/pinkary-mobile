@@ -170,7 +170,7 @@ it('searches people and hashtags', function (): void {
         ->press("openProfile('ada')")
         ->assertNavigatedTo('/user/ada');
 
-    Http::assertSent(fn ($request) => str_contains((string) $request->url(), '/api/v1/search'));
+    Http::assertSent(fn ($request): bool => str_contains((string) $request->url(), '/api/v1/search'));
 });
 
 it('clears results when the query is emptied', function (): void {
@@ -550,7 +550,7 @@ it('lists following in following mode and resolves the routes', function (): voi
         ->assertSee('Grace Hopper')
         ->assertSee('@ada following');
 
-    Http::assertSent(fn ($request) => str_contains((string) $request->url(), '/api/v1/users/ada/following'));
+    Http::assertSent(fn ($request): bool => str_contains((string) $request->url(), '/api/v1/users/ada/following'));
 
     Native::visit('/user/ada/followers')->assertSee('Linus Torvalds');
     Native::visit('/user/ada/following')->assertSee('Grace Hopper');
@@ -589,7 +589,7 @@ it('follows and unfollows inline from the list', function (): void {
 
     expect($test->get('users')[0])->toMatchArray(['followed_by_me' => true]);
 
-    Http::assertSent(fn ($request) => $request->method() === 'POST'
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/v1/users/grace/follow'));
 });
 
@@ -623,7 +623,7 @@ it('edits the profile and refreshes the cached card', function (): void {
 
     expect($test->get('name'))->toBe('New Name');
 
-    Http::assertSent(fn ($request) => $request->method() === 'PATCH'
+    Http::assertSent(fn ($request): bool => $request->method() === 'PATCH'
         && str_ends_with($request->url(), '/api/v1/profile')
         && $request['name'] === 'New Name');
 });
@@ -674,7 +674,7 @@ it('adds and deletes profile links with a confirm tap', function (): void {
 
     expect($test->get('links'))->toHaveCount(1);
 
-    Http::assertSent(fn ($request) => $request->method() === 'DELETE'
+    Http::assertSent(fn ($request): bool => $request->method() === 'DELETE'
         && str_ends_with($request->url(), '/api/v1/links/9'));
 });
 
@@ -691,7 +691,7 @@ it('rejects non-https link URLs without sending', function (): void {
         ->call('addLink')
         ->assertSee('https://');
 
-    Http::assertNotSent(fn ($request) => $request->method() === 'POST'
+    Http::assertNotSent(fn ($request): bool => $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/v1/links'));
 });
 
@@ -730,9 +730,9 @@ it('deletes a notification when opening it', function (): void {
         ->assertDontSee('Opened snippet.')
         ->assertNavigatedTo('/question/q9');
 
-    Http::assertSent(fn ($request) => $request->method() === 'DELETE'
+    Http::assertSent(fn ($request): bool => $request->method() === 'DELETE'
         && str_ends_with($request->url(), '/api/v1/notifications/n1'));
-    Http::assertNotSent(fn ($request) => str_ends_with((string) $request->url(), '/api/v1/notifications/read'));
+    Http::assertNotSent(fn ($request): bool => str_ends_with((string) $request->url(), '/api/v1/notifications/read'));
 });
 
 it('treats a missing notification as already gone', function (): void {
@@ -752,7 +752,7 @@ it('treats a missing notification as already gone', function (): void {
         ->assertDontSee('Gone snippet.')
         ->assertNavigatedTo('/question/q9');
 
-    Http::assertNotSent(fn ($request) => str_ends_with((string) $request->url(), '/api/v1/notifications/read'));
+    Http::assertNotSent(fn ($request): bool => str_ends_with((string) $request->url(), '/api/v1/notifications/read'));
 });
 
 it('keeps cached bookmarks when a remount cannot reach the api', function (): void {

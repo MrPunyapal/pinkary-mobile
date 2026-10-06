@@ -34,7 +34,7 @@ function findNode(Element $node, string $type, ?string $text = null): ?Element
     }
 
     foreach ($node->getChildren() as $child) {
-        if (($found = findNode($child, $type, $text)) !== null) {
+        if (($found = findNode($child, $type, $text)) instanceof Element) {
             return $found;
         }
     }
@@ -48,12 +48,11 @@ function markupOf(string $component): string
 
     $source = (string) preg_replace('/\{\{--.*?--\}\}/s', '', $source);
     $source = (string) preg_replace('#/\*.*?\*/#s', '', $source);
-    $source = implode("\n", array_filter(
+
+    return implode("\n", array_filter(
         explode("\n", $source),
         fn (string $line): bool => ! str_starts_with(mb_trim($line), '//'),
     ));
-
-    return $source;
 }
 
 function parityPollPost(array $overrides = []): array
@@ -120,7 +119,7 @@ it('sends a guest poll tap to login before any api call', function (): void {
         ->call('votePoll', 'q1', 1)
         ->assertNavigatedTo('/login');
 
-    Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/poll/vote'));
+    Http::assertNotSent(fn ($request): bool => str_ends_with($request->url(), '/poll/vote'));
 });
 
 it('abbreviates comments and views at precision 0 and likes at precision 1', function (): void {

@@ -224,7 +224,7 @@ it('votes in a poll and reconciles with the server', function (): void {
 
     expect($test->get('posts')[0]['poll'])->toMatchArray(['total_votes' => 1, 'user_vote_option_id' => 1]);
 
-    Http::assertSent(fn ($request) => $request->method() === 'POST'
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/v1/questions/q1/poll/vote'));
 });
 
@@ -526,7 +526,7 @@ it('likes a post through the action row', function (): void {
 
     expect($test->get('posts')[0]['metrics'])->toMatchArray(['liked' => true, 'likes' => 6]);
 
-    Http::assertSent(fn ($request) => $request->method() === 'POST'
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/v1/questions/q1/like'));
 });
 
@@ -571,7 +571,7 @@ it('unlikes an already liked post', function (): void {
 
     expect($test->get('posts')[0]['metrics'])->toMatchArray(['liked' => false, 'likes' => 5]);
 
-    Http::assertSent(fn ($request) => $request->method() === 'DELETE'
+    Http::assertSent(fn ($request): bool => $request->method() === 'DELETE'
         && str_ends_with($request->url(), '/api/v1/questions/q1/like'));
 });
 
@@ -1091,7 +1091,7 @@ it('pins a feed post and shows the pinned chip', function (): void {
 
     expect($test->get('posts')[0]['pinned'])->toBeTrue();
 
-    Http::assertSent(fn ($request) => $request->method() === 'POST'
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/v1/questions/q1/pin'));
 });
 
@@ -1137,7 +1137,7 @@ it('removes a feed post after confirming deletion', function (): void {
 
     expect(array_column($test->get('posts'), 'id'))->toBe(['q2']);
 
-    Http::assertSent(fn ($request) => $request->method() === 'POST'
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/v1/questions/q1/ignore'));
 });
 

@@ -8,7 +8,7 @@ use Native\Mobile\SecureStorageResult;
 use Native\Mobile\Testing\FakeBridge;
 use Tests\TestCase;
 
-uses(TestCase::class);
+pest()->extend(TestCase::class);
 
 beforeEach(function (): void {
     UnreadCount::clear();

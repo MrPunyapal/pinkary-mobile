@@ -250,7 +250,7 @@ final class DraftStore
         return [
             'isPoll' => (bool) ($poll['isPoll'] ?? false),
             'options' => $options,
-            'duration' => $duration < 1 ? 1 : $duration,
+            'duration' => max(1, $duration),
         ];
     }
 

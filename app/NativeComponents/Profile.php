@@ -506,7 +506,7 @@ final class Profile extends NativeComponent
 
         Arr::set($profile, $path, $value);
 
-        $this->profile = array_filter($profile, 'is_string', ARRAY_FILTER_USE_KEY);
+        $this->profile = array_filter($profile, is_string(...), ARRAY_FILTER_USE_KEY);
     }
 
     private function loadQuestions(?string $token, string $username): void

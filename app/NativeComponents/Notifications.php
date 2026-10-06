@@ -70,7 +70,7 @@ final class Notifications extends NativeComponent
 
         $target = null;
 
-        foreach ($this->items as $index => $item) {
+        foreach ($this->items as $item) {
             if (Payload::string(data_get($item, 'id')) === $id) {
                 $target = data_get($item, 'target');
 

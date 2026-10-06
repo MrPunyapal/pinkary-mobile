@@ -6,7 +6,7 @@ use App\Support\AccountStore;
 use App\Support\DraftStore;
 use Tests\TestCase;
 
-uses(TestCase::class);
+pest()->extend(TestCase::class);
 
 beforeEach(function (): void {
     AccountStore::clear();
@@ -14,7 +14,7 @@ beforeEach(function (): void {
 });
 
 afterEach(function (): void {
-    DraftStore::clear(null);
+    DraftStore::clear();
     DraftStore::clear('grace');
     AccountStore::clear();
 });
@@ -31,7 +31,7 @@ it('stores and restores a thread draft', function (): void {
         'anonymous' => false,
     ]);
 
-    $draft = DraftStore::get(null);
+    $draft = DraftStore::get();
 
     expect($draft)->not->toBeNull()
         ->and($draft['content'])->toBe('Half-written thought')
@@ -47,7 +47,7 @@ it('does not restore a thread draft into an ask target', function (): void {
     DraftStore::put(null, ['content' => 'Thread only']);
 
     expect(DraftStore::get('grace'))->toBeNull()
-        ->and(DraftStore::get(null)['content'])->toBe('Thread only');
+        ->and(DraftStore::get()['content'])->toBe('Thread only');
 });
 
 it('keeps ask drafts per target username', function (): void {
@@ -57,25 +57,25 @@ it('keeps ask drafts per target username', function (): void {
     expect(DraftStore::get('grace')['content'])->toBe('Ask Grace')
         ->and(DraftStore::get('grace')['anonymous'])->toBeTrue()
         ->and(DraftStore::get('linus')['content'])->toBe('Ask Linus')
-        ->and(DraftStore::get(null))->toBeNull();
+        ->and(DraftStore::get())->toBeNull();
 });
 
 it('ignores empty drafts', function (): void {
     DraftStore::put(null, ['content' => '   ', 'posts' => ['', '']]);
 
-    expect(DraftStore::get(null))->toBeNull();
+    expect(DraftStore::get())->toBeNull();
 });
 
 it('clears a stored draft', function (): void {
     DraftStore::put(null, ['content' => 'Keep me']);
-    DraftStore::clear(null);
+    DraftStore::clear();
 
-    expect(DraftStore::get(null))->toBeNull();
+    expect(DraftStore::get())->toBeNull();
 });
 
 it('replaces a draft with empty content by clearing it', function (): void {
     DraftStore::put(null, ['content' => 'Keep me']);
     DraftStore::put(null, ['content' => '']);
 
-    expect(DraftStore::get(null))->toBeNull();
+    expect(DraftStore::get())->toBeNull();
 });

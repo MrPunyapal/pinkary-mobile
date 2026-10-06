@@ -6,7 +6,7 @@ use App\Support\FeedCache;
 use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
-uses(TestCase::class);
+pest()->extend(TestCase::class);
 
 it('builds feed keys for signed-in users and guests', function (): void {
     expect(FeedCache::feedKey('ada', 'recent'))->toBe('pinkary:feed:ada:recent');

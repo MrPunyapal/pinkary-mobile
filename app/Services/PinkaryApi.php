@@ -436,7 +436,7 @@ final class PinkaryApi
         $request = $this->request();
 
         if ($token !== null) {
-            $request = $request->withToken($token);
+            return $request->withToken($token);
         }
 
         return $request;

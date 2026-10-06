@@ -95,7 +95,7 @@ function asGuest(): void
 
 function assertSentWithoutAuthorization(string $urlFragment): void
 {
-    Http::assertSent(fn ($request) => str_contains($request->url(), $urlFragment));
+    Http::assertSent(fn ($request): bool => str_contains($request->url(), $urlFragment));
 
     expect(Http::recorded(fn ($request) => $request->hasHeader('Authorization')))->toBeEmpty();
 }
@@ -144,7 +144,7 @@ it('sends a guest bookmark to login', function (): void {
         ->press("toggleBookmark('q1')")
         ->assertNavigatedTo('/login');
 
-    Http::assertNotSent(fn ($request) => $request->method() === 'POST');
+    Http::assertNotSent(fn ($request): bool => $request->method() === 'POST');
 });
 
 it('sends a guest comment submit to login', function (): void {
@@ -157,7 +157,7 @@ it('sends a guest comment submit to login', function (): void {
         ->call('postComment')
         ->assertNavigatedTo('/login');
 
-    Http::assertNotSent(fn ($request) => $request->method() === 'POST');
+    Http::assertNotSent(fn ($request): bool => $request->method() === 'POST');
 });
 
 it('sends a guest poll vote to login', function (): void {
@@ -168,7 +168,7 @@ it('sends a guest poll vote to login', function (): void {
         ->call('votePoll', 'q1', 7)
         ->assertNavigatedTo('/login');
 
-    Http::assertNotSent(fn ($request) => $request->method() === 'POST');
+    Http::assertNotSent(fn ($request): bool => $request->method() === 'POST');
 });
 
 it('opens another user profile for guests without an Authorization header', function (): void {
@@ -196,7 +196,7 @@ it('sends a guest follow to login and keeps the card as-is', function (): void {
 
     expect($test->get('profile')['followed_by_me'])->toBeFalse();
 
-    Http::assertNotSent(fn ($request) => $request->method() === 'POST');
+    Http::assertNotSent(fn ($request): bool => $request->method() === 'POST');
 });
 
 it('keeps guests off their own profile', function (): void {
@@ -239,7 +239,7 @@ it('sends a guest follow from the list to login', function (): void {
         ->press("toggleFollow('grace')")
         ->assertNavigatedTo('/login');
 
-    Http::assertNotSent(fn ($request) => $request->method() === 'POST');
+    Http::assertNotSent(fn ($request): bool => $request->method() === 'POST');
 });
 
 it('never renders the legacy shared-update marker', function (): void {

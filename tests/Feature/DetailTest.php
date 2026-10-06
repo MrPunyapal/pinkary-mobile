@@ -391,7 +391,7 @@ it('toggles bookmarks on the detail post', function (): void {
 
     expect($test->get('post')['metrics']['bookmarked'])->toBeTrue();
 
-    Http::assertSent(fn ($request) => $request->method() === 'POST'
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/v1/questions/q1/bookmark'));
 });
 
@@ -432,7 +432,7 @@ it('hides the reply composer on unanswered questions', function (): void {
 
     expect($test->get('commentError'))->toContain('once this question has an answer');
 
-    Http::assertNotSent(fn ($request) => $request->method() === 'POST'
+    Http::assertNotSent(fn ($request): bool => $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/v1/questions/q1/comments'));
 });
 
@@ -609,7 +609,7 @@ it('pins the post and shows the pinned chip', function (): void {
 
     $test->assertSee('Pinned');
 
-    Http::assertSent(fn ($request) => $request->method() === 'POST'
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/v1/questions/q1/pin'));
 });
 
@@ -630,7 +630,7 @@ it('unpins the post and drops the pinned chip', function (): void {
 
     $test->assertDontSee('Pinned');
 
-    Http::assertSent(fn ($request) => $request->method() === 'DELETE'
+    Http::assertSent(fn ($request): bool => $request->method() === 'DELETE'
         && str_ends_with($request->url(), '/api/v1/questions/q1/pin'));
 });
 
@@ -676,7 +676,7 @@ it('edits the answer inline and updates the post', function (): void {
     expect($test->get('post')['answer'])->toBe('<p>An even better answer.</p>')
         ->and($test->get('menuPostId'))->toBe('');
 
-    Http::assertSent(fn ($request) => $request->method() === 'PUT'
+    Http::assertSent(fn ($request): bool => $request->method() === 'PUT'
         && str_ends_with($request->url(), '/api/v1/questions/q1/answer'));
 });
 
@@ -732,7 +732,7 @@ it('confirms deletion and navigates back to the feed', function (): void {
         ->call('ignoreMenuPost')
         ->assertNavigatedTo('/feed');
 
-    Http::assertSent(fn ($request) => $request->method() === 'POST'
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/v1/questions/q1/ignore'));
 });
 
@@ -751,7 +751,7 @@ it('hard-deletes the post and navigates back to the feed', function (): void {
         ->call('deleteMenuPost')
         ->assertNavigatedTo('/feed');
 
-    Http::assertSent(fn ($request) => $request->method() === 'DELETE'
+    Http::assertSent(fn ($request): bool => $request->method() === 'DELETE'
         && str_ends_with($request->url(), '/api/v1/questions/q1')
         && ! str_ends_with($request->url(), '/pin'));
 });
@@ -804,7 +804,7 @@ it('hides the likes entry when the count is zero', function (): void {
         ->call('openMenu', 'q1')
         ->assertDontSee('View likes');
 
-    Http::assertNotSent(fn ($request) => str_contains($request->url(), '/likes'));
+    Http::assertNotSent(fn ($request): bool => str_contains($request->url(), '/likes'));
 });
 
 it('hides the likes entry after a likers 403', function (): void {

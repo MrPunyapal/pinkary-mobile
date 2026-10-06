@@ -91,8 +91,8 @@ return [
     */
 
     'deeplink_paths' => array_values(array_filter(
-        array_map('trim', explode(',', (string) env('NATIVEPHP_DEEPLINK_PATHS', ''))),
-        fn ($path) => $path !== '',
+        array_map(trim(...), explode(',', (string) env('NATIVEPHP_DEEPLINK_PATHS', ''))),
+        fn ($path): bool => $path !== '',
     )),
 
     /*

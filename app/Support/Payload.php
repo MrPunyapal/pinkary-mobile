@@ -90,6 +90,6 @@ final class Payload
      */
     public static function stringMap(mixed $value, array $default = []): array
     {
-        return array_filter(self::array($value, $default), 'is_string', ARRAY_FILTER_USE_KEY);
+        return array_filter(self::array($value, $default), is_string(...), ARRAY_FILTER_USE_KEY);
     }
 }

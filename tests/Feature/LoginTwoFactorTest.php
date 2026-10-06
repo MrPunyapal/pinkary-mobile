@@ -28,7 +28,7 @@ it('asks for a code when the account needs two factor', function (): void {
         ->and($test->get('twoFactorChallenge'))->toBe('a-challenge')
         ->and($test->get('errorMessage'))->toBe('');
 
-    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/api/v1/auth/login'));
+    Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/api/v1/auth/login'));
 });
 
 it('does not call the challenge endpoint before a code is entered', function (): void {
@@ -48,7 +48,7 @@ it('does not call the challenge endpoint before a code is entered', function ():
 
     expect($test->get('errorMessage'))->toContain('Enter the code');
 
-    Http::assertNotSent(fn ($request) => str_contains($request->url(), 'two-factor-challenge'));
+    Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'two-factor-challenge'));
 });
 
 it('shows the server message when the code is refused', function (): void {
@@ -72,7 +72,7 @@ it('shows the server message when the code is refused', function (): void {
 
     expect($test->get('errorMessage'))->toContain('invalid or has expired');
 
-    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/api/v1/auth/login/two-factor-challenge'));
+    Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/api/v1/auth/login/two-factor-challenge'));
 });
 
 it('sends the challenge and the code together', function (): void {

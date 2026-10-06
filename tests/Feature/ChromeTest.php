@@ -23,7 +23,7 @@ afterEach(function (): void {
 /**
  * @return list<string>
  */
-function tabBarLabels(MobileLayout $layout, $screen): array
+function tabBarLabels(MobileLayout $layout, \Native\Mobile\Edge\NativeComponent $screen): array
 {
     $labels = [];
 
@@ -154,13 +154,13 @@ it('routes destructive app menu actions through a confirm step', function (): vo
 
     expect(AccountStore::count())->toBe(1);
 
-    Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/api/v1/auth/logout'));
+    Http::assertNotSent(fn ($request): bool => str_ends_with($request->url(), '/api/v1/auth/logout'));
 
     $test->call('confirm');
 
     expect(AccountStore::count())->toBe(0);
 
-    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/api/v1/auth/logout'));
+    Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/api/v1/auth/logout'));
 });
 
 it('cancels a destructive confirm without touching the account', function (): void {
@@ -182,7 +182,7 @@ it('cancels a destructive confirm without touching the account', function (): vo
 
     expect(AccountStore::count())->toBe(1);
 
-    Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/api/v1/auth/logout'));
+    Http::assertNotSent(fn ($request): bool => str_ends_with($request->url(), '/api/v1/auth/logout'));
 });
 
 it('treats a stray confirm as a no-op', function (): void {
@@ -198,7 +198,7 @@ it('treats a stray confirm as a no-op', function (): void {
 
     expect(AccountStore::count())->toBe(1);
 
-    Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/api/v1/auth/logout'));
+    Http::assertNotSent(fn ($request): bool => str_ends_with($request->url(), '/api/v1/auth/logout'));
 });
 
 it('confirms removing a second account only on the second tap', function (): void {
@@ -235,7 +235,7 @@ it('opens the about page in the in-app browser', function (): void {
     Native::test(Home::class)
         ->call('openAppMenu')
         ->call('openAbout')
-        ->assertNativeCalled('Browser.OpenInApp', fn (array $params) => ($params['url'] ?? null) === 'https://pinkary.test/about');
+        ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => ($params['url'] ?? null) === 'https://pinkary.test/about');
 });
 
 it('renders the feed tabs as pills with only a subtle section separator', function (): void {

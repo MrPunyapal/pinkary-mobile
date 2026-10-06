@@ -78,7 +78,7 @@ it('follows and unfollows from the card', function (): void {
         'stats' => ['followers' => 1, 'following' => 0, 'posts' => 3, 'views' => 10],
     ]);
 
-    Http::assertSent(fn ($request) => $request->method() === 'POST'
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/v1/users/ada/follow'));
 });
 
@@ -95,7 +95,7 @@ it('records link visits when opening them', function (): void {
         ->call('openUserLink', 7)
         ->assertSee('Website');
 
-    Http::assertSent(fn ($request) => $request->method() === 'POST'
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/v1/links/7/click'));
 });
 
@@ -117,7 +117,7 @@ it('records link visits for guests too', function (): void {
     Native::test(Profile::class, ['username' => 'pinkaryuser'])
         ->call('openUserLink', 7);
 
-    Http::assertSent(fn ($request) => $request->method() === 'POST'
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/v1/links/7/click'));
 });
 

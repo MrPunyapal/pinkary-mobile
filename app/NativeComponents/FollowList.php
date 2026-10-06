@@ -155,7 +155,7 @@ final class FollowList extends NativeComponent
         $this->loadMoreError = '';
 
         $api = app(PinkaryApi::class);
-        $response = $api->attempt(fn () => $this->fetchPage($api, $token, $this->page + 1));
+        $response = $api->attempt(fn (): Response => $this->fetchPage($api, $token, $this->page + 1));
 
         $this->loadingMore = false;
 
@@ -193,7 +193,7 @@ final class FollowList extends NativeComponent
         $this->errorMessage = '';
 
         $api = app(PinkaryApi::class);
-        $response = $api->attempt(fn () => $this->fetchPage($api, $token, 1));
+        $response = $api->attempt(fn (): Response => $this->fetchPage($api, $token, 1));
 
         if ($response === null) {
             $this->loading = false;

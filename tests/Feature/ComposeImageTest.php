@@ -80,7 +80,7 @@ it('says so plainly when the picked file cannot be read', function (): void {
 
     expect($test->get('errorMessage'))->toBe('That image could not be read from this device.');
 
-    Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/api/v1/images'));
+    Http::assertNotSent(fn ($request): bool => str_ends_with($request->url(), '/api/v1/images'));
 });
 
 it('blames the jump split rather than the device', function (): void {
@@ -145,7 +145,7 @@ it('inserts image markdown into the post', function (): void {
     expect($test->get('content'))->toBe("Look at this\n![a.png](images/2026/a.png)")
         ->and($test->get('images'))->toHaveCount(1);
 
-    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/api/v1/images')
+    Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/api/v1/images')
         && $request->method() === 'POST');
 });
 
@@ -171,7 +171,7 @@ it('says nothing when the pick is cancelled', function (): void {
     expect($test->get('errorMessage'))->toBe('')
         ->and($test->get('images'))->toBe([]);
 
-    Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/api/v1/images'));
+    Http::assertNotSent(fn ($request): bool => str_ends_with($request->url(), '/api/v1/images'));
 });
 
 it('reports a picker that failed outright', function (): void {
@@ -319,5 +319,5 @@ it('carries staged images through a draft', function (): void {
 
     $test->call('removeImage', 0);
 
-    expect(DraftStore::get()['images'])->toBe([]);
+    expect(DraftStore::get()['images'])->toBeEmpty();
 });

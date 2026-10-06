@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Tests\TestCase;
 
-uses(TestCase::class);
+pest()->extend(TestCase::class);
 
 /**
  * A UTF-8 byte sequence decoded as cp1252 and re-encoded: â€™, â€œ, â€¦, Ã©.
@@ -39,11 +39,11 @@ function mojibakeOffenders(string $directory, string $suffix): array
 }
 
 it('ships blade views without windows-1252 mojibake', function (): void {
-    expect(mojibakeOffenders(resource_path('views'), '.blade.php'))->toBe([]);
+    expect(mojibakeOffenders(resource_path('views'), '.blade.php'))->toBeEmpty();
 });
 
 it('ships php sources without windows-1252 mojibake', function (): void {
-    expect(mojibakeOffenders(app_path(), '.php'))->toBe([]);
+    expect(mojibakeOffenders(app_path(), '.php'))->toBeEmpty();
 });
 
 it('ships blade views and php sources as utf-8 without a byte order mark', function (): void {
@@ -69,5 +69,5 @@ it('ships blade views and php sources as utf-8 without a byte order mark', funct
 
     sort($withBom);
 
-    expect($withBom)->toBe([]);
+    expect($withBom)->toBeEmpty();
 });

@@ -13,8 +13,6 @@ final class NativeServiceProvider extends ServiceProvider
 {
     public function register(): void {}
 
-    public function boot(): void {}
-
     /**
      * @return array<int, class-string<ServiceProvider>>
      */

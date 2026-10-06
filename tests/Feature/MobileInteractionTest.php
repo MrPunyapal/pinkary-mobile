@@ -151,7 +151,7 @@ it('keeps each feed post as an individual native list item', function (): void {
     $screen->call('openMenu', 'missing');
 
     expect($postIds)->toHaveCount(2)
-        ->and(count(array_unique($postIds)))->toBe(2)
+        ->and(array_unique($postIds))->toHaveCount(2)
         ->and(array_column(array_slice(interactionNode($screen->tree(), 'list')['children'], 0, 2), 'id'))->toBe($postIds);
 });
 
@@ -208,7 +208,7 @@ it('assigns distinct node identities to linked questions and answers', function 
     $screen = Native::test(Home::class);
     $nodeIds = array_column(interactionNodes($screen->tree()), 'id');
 
-    expect(array_unique($nodeIds))->toHaveCount(count($nodeIds));
+    expect(array_unique($nodeIds))->toHaveSameSize($nodeIds);
     $screen->tap('@grace')->assertNavigatedTo('/user/grace');
 });
 

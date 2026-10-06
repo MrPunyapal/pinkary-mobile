@@ -185,7 +185,7 @@ final class Compose extends NativeComponent
         $users = Payload::array($response->json('data.users'));
 
         $mentions = array_filter(array_map(
-            fn (mixed $user): array => is_array($user) ? array_filter($user, 'is_string', ARRAY_FILTER_USE_KEY) : [],
+            fn (mixed $user): array => is_array($user) ? array_filter($user, is_string(...), ARRAY_FILTER_USE_KEY) : [],
             $users
         ), fn (array $user): bool => preg_match('/^[A-Za-z0-9_-]+$/D', Payload::string($user['username'] ?? '')) === 1);
 
@@ -252,13 +252,7 @@ final class Compose extends NativeComponent
             return false;
         }
 
-        foreach ($this->postPolls as $poll) {
-            if ($poll['isPoll'] && ! $this->pollOptionsAreValid($poll['options'])) {
-                return false;
-            }
-        }
-
-        return true;
+        return array_all($this->postPolls, fn (array $poll): bool => ! $poll['isPoll'] || $this->pollOptionsAreValid($poll['options']));
     }
 
     public function validateState(): void
@@ -272,13 +266,7 @@ final class Compose extends NativeComponent
             return false;
         }
 
-        foreach ($this->posts as $post) {
-            if (mb_trim($post) === '') {
-                return false;
-            }
-        }
-
-        return true;
+        return array_all($this->posts, fn (string $post): bool => mb_trim($post) !== '');
     }
 
     public function addPost(): void
@@ -414,13 +402,7 @@ final class Compose extends NativeComponent
             return false;
         }
 
-        foreach ($this->channelResults as $channel) {
-            if (mb_strtolower(Payload::string(data_get($channel, 'name', ''))) === mb_strtolower($query)) {
-                return false;
-            }
-        }
-
-        return true;
+        return array_all($this->channelResults, fn (array $channel): bool => mb_strtolower(Payload::string(data_get($channel, 'name', ''))) !== mb_strtolower($query));
     }
 
     public function selectChannel(int $id): void
@@ -587,7 +569,7 @@ final class Compose extends NativeComponent
             return;
         }
 
-        $readable = array_values(array_filter($paths, 'is_readable'));
+        $readable = array_values(array_filter($paths, is_readable(...)));
 
         if ($readable === []) {
             $this->errorMessage = $this->unreadableImageMessage();

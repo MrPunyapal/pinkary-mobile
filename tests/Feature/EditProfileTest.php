@@ -88,7 +88,7 @@ it('sends the three preference fields the web owns', function (): void {
 
     expect($test->get('mailPreferenceTime'))->toBe('weekly');
 
-    Http::assertSent(fn ($request) => $request->method() === 'PATCH'
+    Http::assertSent(fn ($request): bool => $request->method() === 'PATCH'
         && str_ends_with($request->url(), '/api/v1/profile')
         && $request['mail_preference_time'] === 'weekly'
         && $request['default_feed'] === 'trending'
@@ -132,7 +132,7 @@ it('patches the link shape like the web link settings form', function (): void {
 
     expect($test->get('linkShape'))->toBe('rounded-full');
 
-    Http::assertSent(fn ($request) => $request->method() === 'PATCH'
+    Http::assertSent(fn ($request): bool => $request->method() === 'PATCH'
         && str_ends_with($request->url(), '/api/v1/profile')
         && $request['link_shape'] === 'rounded-full');
 });

@@ -721,7 +721,7 @@ trait TogglesPostReactions
      */
     private static function payloadRow(mixed $row): array
     {
-        return is_array($row) ? array_filter($row, 'is_string', ARRAY_FILTER_USE_KEY) : [];
+        return is_array($row) ? array_filter($row, is_string(...), ARRAY_FILTER_USE_KEY) : [];
     }
 
     /**
@@ -1045,7 +1045,7 @@ trait TogglesPostReactions
             return;
         }
 
-        $expanded = array_values(array_filter(Payload::array($this->expanded), 'is_string'));
+        $expanded = array_values(array_filter(Payload::array($this->expanded), is_string(...)));
 
         $this->expanded = in_array($id, $expanded, true)
             ? array_values(array_diff($expanded, [$id]))

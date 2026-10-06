@@ -84,11 +84,11 @@ it('hides a link from the world with the owner eye toggle', function (): void {
         ->press('toggleLinkVisibility(7)')
         ->assertSee('Hide link');
 
-    Http::assertSent(fn ($request) => $request->method() === 'PATCH'
+    Http::assertSent(fn ($request): bool => $request->method() === 'PATCH'
         && str_ends_with($request->url(), '/api/v1/links/7')
         && $request['is_visible'] === false);
 
-    Http::assertSent(fn ($request) => $request->method() === 'PATCH'
+    Http::assertSent(fn ($request): bool => $request->method() === 'PATCH'
         && str_ends_with($request->url(), '/api/v1/links/7')
         && $request['is_visible'] === true);
 });
@@ -113,7 +113,7 @@ it('refuses to toggle a link that is not yours', function (): void {
 
     expect($test->get('linkError'))->toBe('');
 
-    Http::assertNotSent(fn ($request) => $request->method() === 'PATCH');
+    Http::assertNotSent(fn ($request): bool => $request->method() === 'PATCH');
 });
 
 it('puts the eye back and explains a failed visibility toggle', function (): void {
@@ -189,7 +189,7 @@ it('shows the follow pill on search result rows like the web', function (): void
         ->press("toggleFollow('ada')")
         ->assertSee('Follow');
 
-    Http::assertSent(fn ($request) => $request->method() === 'DELETE'
+    Http::assertSent(fn ($request): bool => $request->method() === 'DELETE'
         && str_ends_with($request->url(), '/api/v1/users/ada/follow'));
 
     expect($test->get('users')[0]['followed_by_me'])->toBeFalse();
@@ -237,7 +237,7 @@ it('ignores a follow tap on your own row', function (): void {
 
     expect($test->get('users')[0]['followed_by_me'])->toBeFalse();
 
-    Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/follow'));
+    Http::assertNotSent(fn ($request): bool => str_ends_with($request->url(), '/follow'));
 });
 
 it('follows and unfollows a liker row in the post sheet', function (): void {
@@ -271,7 +271,7 @@ it('follows and unfollows a liker row in the post sheet', function (): void {
 
     expect($test->get('likers')[0]['followed_by_me'])->toBeTrue();
 
-    Http::assertSent(fn ($request) => $request->method() === 'POST'
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/v1/users/ada/follow'));
 });
 

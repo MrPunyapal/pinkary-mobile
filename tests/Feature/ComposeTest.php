@@ -12,7 +12,7 @@ use Native\Mobile\Testing\TestableComponent;
 
 function assertQuestionNotPublished(): void
 {
-    Http::assertNotSent(fn ($request) => $request->method() === 'POST'
+    Http::assertNotSent(fn ($request): bool => $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/v1/questions'));
 }
 
@@ -89,7 +89,7 @@ it('requires content before publishing', function (): void {
         ->call('publish')
         ->assertSee('Write something first');
 
-    Http::assertNotSent(fn ($request) => $request->method() === 'POST'
+    Http::assertNotSent(fn ($request): bool => $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/v1/questions'));
 });
 
@@ -149,7 +149,7 @@ it('publishes a thread and returns to the feed', function (): void {
         ->call('publish')
         ->assertNavigatedTo('/feed');
 
-    Http::assertSent(fn ($request) => $request->url() === 'https://pinkary.test/api/v1/questions'
+    Http::assertSent(fn ($request): bool => $request->url() === 'https://pinkary.test/api/v1/questions'
         && $request['content'] === 'First post.'
         && $request['thread_posts'] === ['Second post.']);
 });
@@ -181,7 +181,7 @@ it('rejects overlong follow-up posts without sending', function (): void {
         ->call('publish')
         ->assertSee('Post 2 may not be greater than');
 
-    Http::assertNotSent(fn ($request) => $request->method() === 'POST'
+    Http::assertNotSent(fn ($request): bool => $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/v1/questions'));
 });
 
@@ -245,7 +245,6 @@ it('searches and selects a channel', function (): void {
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
-        'https://pinkary.test/api/v1/channels*' => Http::response(['data' => []]),
         'https://pinkary.test/api/v1/channels*' => Http::response(['data' => [
             ['id' => 3, 'name' => 'Laravel', 'slug' => 'laravel'],
         ]]),
@@ -271,7 +270,7 @@ it('toggles a poll and validates its options locally', function (): void {
         ->call('publish')
         ->assertSee('at least 2 options');
 
-    Http::assertNotSent(fn ($request) => $request->method() === 'POST'
+    Http::assertNotSent(fn ($request): bool => $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/v1/questions'));
 });
 
@@ -295,7 +294,7 @@ it('publishes a poll with a channel and duration', function (): void {
         ->call('publish')
         ->assertNavigatedTo('/feed');
 
-    Http::assertSent(fn ($request) => $request->url() === 'https://pinkary.test/api/v1/questions'
+    Http::assertSent(fn ($request): bool => $request->url() === 'https://pinkary.test/api/v1/questions'
         && $request['channel_id'] === 3
         && $request['poll_options'] === ['Laravel', 'Rails']
         && (int) $request['poll_duration'] === 3);
@@ -314,7 +313,7 @@ it('rejects overlong poll options without sending', function (): void {
         ->call('publish')
         ->assertSee('cannot exceed 40 characters');
 
-    Http::assertNotSent(fn ($request) => $request->method() === 'POST'
+    Http::assertNotSent(fn ($request): bool => $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/v1/questions'));
 });
 
@@ -336,7 +335,7 @@ it('stages a new channel name for creation at publish', function (): void {
         ->call('publish')
         ->assertNavigatedTo('/feed');
 
-    Http::assertSent(fn ($request) => $request->url() === 'https://pinkary.test/api/v1/questions'
+    Http::assertSent(fn ($request): bool => $request->url() === 'https://pinkary.test/api/v1/questions'
         && $request['channel_name'] === 'Brand New');
 });
 
@@ -350,7 +349,7 @@ it('rejects invalid staged channel names without sending', function (): void {
         ->call('stageChannel')
         ->assertSee('between 2 and 50 characters');
 
-    Http::assertNotSent(fn ($request) => $request->method() === 'POST'
+    Http::assertNotSent(fn ($request): bool => $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/v1/questions'));
 });
 
@@ -375,7 +374,7 @@ it('publishes a follow-up poll aligned with its post', function (): void {
         ->call('publish')
         ->assertNavigatedTo('/feed');
 
-    Http::assertSent(fn ($request) => $request->url() === 'https://pinkary.test/api/v1/questions'
+    Http::assertSent(fn ($request): bool => $request->url() === 'https://pinkary.test/api/v1/questions'
         && $request['thread_polls'][0]['options'] === ['Laravel', 'Rails']
         && (int) $request['thread_polls'][0]['duration'] === 7);
 });
@@ -392,7 +391,7 @@ it('validates follow-up polls locally without sending', function (): void {
         ->call('publish')
         ->assertSee('at least 2 options');
 
-    Http::assertNotSent(fn ($request) => $request->method() === 'POST'
+    Http::assertNotSent(fn ($request): bool => $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/v1/questions'));
 });
 
@@ -424,7 +423,7 @@ it('renders ask mode for another user without thread UI', function (): void {
         ->assertDontSee('Add another post')
         ->assertDontSee('Channel');
 
-    Http::assertNotSent(fn ($request) => str_contains((string) $request->url(), '/api/v1/channels'));
+    Http::assertNotSent(fn ($request): bool => str_contains((string) $request->url(), '/api/v1/channels'));
 });
 
 it('stitches thread posts onto one avatar rail, like the web composer', function (): void {
@@ -432,7 +431,7 @@ it('stitches thread posts onto one avatar rail, like the web composer', function
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake();
 
-    DraftStore::clear(null);
+    DraftStore::clear();
 
     $test = Native::test(Compose::class)
         ->set('content', 'Opening post.')
@@ -473,10 +472,10 @@ it('sends the question and opens the asked profile', function (): void {
         ->call('publish')
         ->assertNavigatedTo('/user/ada');
 
-    Http::assertSent(fn ($request) => $request->url() === 'https://pinkary.test/api/v1/questions'
+    Http::assertSent(fn ($request): bool => $request->url() === 'https://pinkary.test/api/v1/questions'
         && $request['content'] === 'What are you building?'
         && $request['to_username'] === 'ada'
-        && (bool) $request['anonymously'] === true);
+        && (bool) $request['anonymously']);
 });
 
 it('requires a question before asking', function (): void {
@@ -532,7 +531,7 @@ it('opens the composer without waiting on a profile response', function (): void
     Native::test(Compose::class)
         ->assertSee('Share an update');
 
-    Http::assertNotSent(fn ($request) => str_contains((string) $request->url(), '/api/v1/profile'));
+    Http::assertNotSent(fn ($request): bool => str_contains((string) $request->url(), '/api/v1/profile'));
 });
 
 it('restores a thread draft when the composer is reopened', function (): void {
@@ -584,7 +583,7 @@ it('shows live over-limit validation without publishing', function (): void {
 
     $test->call('publish');
 
-    Http::assertNotSent(fn ($request) => $request->method() === 'POST'
+    Http::assertNotSent(fn ($request): bool => $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/v1/questions'));
 });
 

@@ -576,7 +576,7 @@ final class EditProfile extends NativeComponent
         /** @var list<array<string, mixed>> $links */
         $links = array_values(array_filter(
             (array) data_get($profile, 'links', []),
-            fn (mixed $link): bool => is_array($link)
+            is_array(...)
         ));
         $this->links = $links;
     }
