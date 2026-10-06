@@ -56,11 +56,6 @@ final class Home extends NativeComponent
 
     private int $feedRevision = 0;
 
-    public function navTitle(): string
-    {
-        return 'Feed';
-    }
-
     public function signedIn(): bool
     {
         return $this->token() !== null;

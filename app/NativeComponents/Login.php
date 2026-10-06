@@ -51,11 +51,6 @@ final class Login extends NativeComponent
         $this->activeAccountUsername = Payload::string($active['username'] ?? '');
     }
 
-    public function navTitle(): string
-    {
-        return $this->addingAccount ? 'Add Account' : 'Log in';
-    }
-
     public function authenticate(): void
     {
         if ($this->busy) {

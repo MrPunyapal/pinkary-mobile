@@ -22,11 +22,6 @@ final class Settings extends NativeComponent
 
     public bool $loading = true;
 
-    public function navTitle(): string
-    {
-        return 'Settings';
-    }
-
     public function mount(): void
     {
         $token = $this->requireToken(replaceScreen: true);

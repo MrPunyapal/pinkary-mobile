@@ -113,11 +113,6 @@ final class Compose extends NativeComponent
 
     protected bool $hidesDrawer = true;
 
-    public function navTitle(): string
-    {
-        return $this->askUsername !== '' ? 'Ask @'.$this->askUsername : 'New Thread';
-    }
-
     public function mount(): void
     {
         $this->askUsername = Payload::string($this->param('username'));

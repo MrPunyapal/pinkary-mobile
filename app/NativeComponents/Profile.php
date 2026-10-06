@@ -56,11 +56,6 @@ final class Profile extends NativeComponent
     /** @var list<string> */
     public array $expanded = [];
 
-    public function navTitle(): string
-    {
-        return $this->username !== '' ? '@'.$this->username : 'Profile';
-    }
-
     public function hidesDrawer(): bool
     {
         return $this->username !== '';

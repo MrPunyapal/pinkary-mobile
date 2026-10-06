@@ -49,11 +49,6 @@ final class Register extends NativeComponent
         $this->loadCaptcha('register');
     }
 
-    public function navTitle(): string
-    {
-        return 'Create account';
-    }
-
     public function createAccount(): void
     {
         if ($this->busy) {

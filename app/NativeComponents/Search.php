@@ -33,11 +33,6 @@ final class Search extends NativeComponent
      */
     public array $recentSearches = [];
 
-    public function navTitle(): string
-    {
-        return 'Search';
-    }
-
     public function updatedQuery(): void
     {
         $this->search();

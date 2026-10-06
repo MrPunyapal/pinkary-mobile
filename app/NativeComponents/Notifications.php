@@ -38,11 +38,6 @@ final class Notifications extends NativeComponent
 
     public bool $markingRead = false;
 
-    public function navTitle(): string
-    {
-        return 'Notifications';
-    }
-
     public function mount(): void
     {
         $token = $this->requireToken(replaceScreen: true);

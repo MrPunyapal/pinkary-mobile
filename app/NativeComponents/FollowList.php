@@ -46,13 +46,6 @@ final class FollowList extends NativeComponent
         return true;
     }
 
-    public function navTitle(): string
-    {
-        $label = $this->mode === 'following' ? 'Following' : 'Followers';
-
-        return $this->username !== '' ? '@'.$this->username.' · '.$label : $label;
-    }
-
     public function mount(): void
     {
         $this->username = Payload::string($this->param('username'));

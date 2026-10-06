@@ -60,11 +60,6 @@ final class Detail extends NativeComponent
 
     protected bool $hidesDrawer = true;
 
-    public function navTitle(): string
-    {
-        return 'Post';
-    }
-
     public function mount(): void
     {
         $this->id = Payload::string($this->param('id'));

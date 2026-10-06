@@ -38,11 +38,6 @@ final class Bookmarks extends NativeComponent
     /** @var list<string> */
     public array $expanded = [];
 
-    public function navTitle(): string
-    {
-        return 'Bookmarks';
-    }
-
     public function mount(): void
     {
         $token = $this->requireToken(replaceScreen: true);
