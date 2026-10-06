@@ -113,11 +113,6 @@ final class EditProfile extends NativeComponent
         return true;
     }
 
-    public function navTitle(): string
-    {
-        return 'Edit profile';
-    }
-
     public function mount(): void
     {
         $token = $this->requireToken();
@@ -624,7 +619,7 @@ final class EditProfile extends NativeComponent
             return false;
         }
 
-        if (! preg_match('#^https?://#i', $url)) {
+        if (! preg_match('#^https://#i', $url)) {
             return false;
         }
 
