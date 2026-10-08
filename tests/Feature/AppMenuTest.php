@@ -128,7 +128,7 @@ it('confirms before logging out and can be cancelled', function (): void {
     expect(AccountStore::activeToken())->toBe('test-token');
 });
 
-it('logs the account out and returns to the feed', function (): void {
+it('logs the account out and returns to the login screen', function (): void {
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     CurrentUser::store(['username' => 'ada', 'name' => 'Ada']);
     Http::fake(['https://pinkary.test/api/v1/auth/logout' => Http::response(null, 204)]);
@@ -152,7 +152,7 @@ it('logs every account out after one confirmation', function (): void {
         ->tap('Log out of all accounts')
         ->assertSee('Log out of all accounts?')
         ->tap('Log Out')
-        ->assertReplacedWith('/feed');
+        ->assertReplacedWith('/login');
 
     expect(AccountStore::count())->toBe(0)
         ->and(CurrentUser::get())->toBeNull()

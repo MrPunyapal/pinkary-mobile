@@ -155,7 +155,7 @@ trait UsesAppMenu
         AccountStore::clear();
         CurrentUser::clear();
         UnreadCount::clear();
-        $this->replace($this->route('mobile.feed'));
+        $this->replace($this->route('mobile.login'));
     }
 
     public function switchAccount(string $id): void
