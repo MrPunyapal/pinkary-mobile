@@ -68,7 +68,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.npm-cache.outputs.cache-hit != 'true'
-        run: npm install
+        run: npm ci
 
       - name: Build dependencies
         run: npm run build
