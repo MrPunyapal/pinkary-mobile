@@ -61,7 +61,7 @@
                     @endif
                 </native:column>
             @else
-                @if (\App\Support\DisplayText::plain(data_get($this->menuPostData(), 'answer')) !== '')
+                @if (\App\Support\DisplayText::plain(data_get($menuPost, 'answer')) !== '')
                     <native:pressable
                         class="w-full py-3"
                         @tap="translatePost('{{ $menuPostId }}', 'answer')"
@@ -79,7 +79,7 @@
                         </native:row>
                     </native:pressable>
                 @endif
-                @if (\App\Support\DisplayText::plain(data_get($this->menuPostData(), 'content')) !== '')
+                @if (\App\Support\DisplayText::plain(data_get($menuPost, 'content')) !== '')
                     <native:pressable
                         class="w-full py-3"
                         @tap="translatePost('{{ $menuPostId }}', 'content')"
