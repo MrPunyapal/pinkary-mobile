@@ -530,6 +530,41 @@ it('likes a post through the action row', function (): void {
         && str_ends_with($request->url(), '/api/v1/questions/q1/like'));
 });
 
+it('reposts and unreposts a post through the action row', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
+            'id' => 'q1',
+            'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+            'to' => ['name' => 'Pinkary'],
+            'content' => 'Repost this?',
+            'answer' => 'Repostable answer.',
+            'metrics' => ['likes' => 0, 'comments' => 0, 'reposts' => 0],
+            'views' => 10,
+        ]]]),
+        'https://pinkary.test/api/v1/questions/q1/repost' => Http::sequence()
+            ->push(['data' => ['reposted' => true, 'reposts' => 1]])
+            ->push(['data' => ['reposted' => false, 'reposts' => 0]]),
+    ]);
+
+    $test = Native::test(Home::class)
+        ->assertSee('Repost this post')
+        ->press("toggleRepost('q1')")
+        ->assertSee('Undo repost');
+
+    expect($test->get('posts')[0]['metrics'])->toMatchArray(['reposted' => true, 'reposts' => 1]);
+
+    $test->press("toggleRepost('q1')");
+
+    expect($test->get('posts')[0]['metrics'])->toMatchArray(['reposted' => false, 'reposts' => 0]);
+
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/api/v1/questions/q1/repost'));
+    Http::assertSent(fn ($request): bool => $request->method() === 'DELETE'
+        && str_ends_with($request->url(), '/api/v1/questions/q1/repost'));
+});
+
 it('opens the detail screen from the comments row', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);

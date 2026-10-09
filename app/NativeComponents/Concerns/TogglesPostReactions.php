@@ -47,7 +47,7 @@ trait TogglesPostReactions
     /** @var array<string, true> postId:action entries hidden after a 403. */
     public array $menuDenied = [];
 
-    /** @var array<string, true> In-flight like/bookmark/vote locks per post+action. */
+    /** @var array<string, true> In-flight reaction locks per post+action. */
     private array $reactionLocks = [];
 
     public function recordPostView(string $id): void
@@ -840,6 +840,66 @@ trait TogglesPostReactions
     /**
      * @param  array<string, mixed>  $post
      */
+    private function reactRepost(array &$post, string $id, ?string $token): void
+    {
+        if ($token === null) {
+            $this->navigate($this->route('mobile.login'));
+
+            return;
+        }
+
+        if (! $this->acquireReactionLock('repost:'.$id)) {
+            return;
+        }
+
+        try {
+            $reposted = (bool) data_get($post, 'metrics.reposted', false);
+            $count = Payload::int(data_get($post, 'metrics.reposts'));
+
+            $this->setPostMetric($post, 'reposted', ! $reposted);
+            $this->setPostMetric($post, 'reposts', max(0, $count + ($reposted ? -1 : 1)));
+
+            $api = app(PinkaryApi::class);
+            $response = $reposted
+                ? $api->attempt(fn () => $api->unrepost($token, $id))
+                : $api->attempt(fn () => $api->repost($token, $id));
+
+            if ($response === null) {
+                $this->setPostMetric($post, 'reposted', $reposted);
+                $this->setPostMetric($post, 'reposts', $count);
+
+                return;
+            }
+
+            if ($response->unauthorized()) {
+                app(TokenStorage::class)->clear();
+                $this->replace($this->route('mobile.login'));
+
+                return;
+            }
+
+            if (! $response->successful()) {
+                $this->setPostMetric($post, 'reposted', $reposted);
+                $this->setPostMetric($post, 'reposts', $count);
+
+                return;
+            }
+
+            $this->setPostMetric($post, 'reposted', (bool) $response->json('data.reposted', ! $reposted));
+
+            $reposts = $response->json('data.reposts');
+
+            if (is_int($reposts)) {
+                $this->setPostMetric($post, 'reposts', $reposts);
+            }
+        } finally {
+            $this->releaseReactionLock('repost:'.$id);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $post
+     */
     private function reactBookmark(array &$post, string $id, ?string $token): void
     {
         if ($token === null) {
@@ -1003,6 +1063,8 @@ trait TogglesPostReactions
 
         if ($kind === 'like') {
             $this->reactLike($post, $id, $token);
+        } elseif ($kind === 'repost') {
+            $this->reactRepost($post, $id, $token);
         } elseif ($kind === 'bookmark') {
             $this->reactBookmark($post, $id, $token);
         } else {

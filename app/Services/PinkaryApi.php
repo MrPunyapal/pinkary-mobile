@@ -182,6 +182,16 @@ final class PinkaryApi
         return $this->request()->withToken($token)->delete(self::PREFIX."/questions/{$id}/like");
     }
 
+    public function repost(string $token, string $id): Response
+    {
+        return $this->request()->withToken($token)->post(self::PREFIX."/questions/{$id}/repost");
+    }
+
+    public function unrepost(string $token, string $id): Response
+    {
+        return $this->request()->withToken($token)->delete(self::PREFIX."/questions/{$id}/repost");
+    }
+
     public function bookmark(string $token, string $id): Response
     {
         return $this->request()->withToken($token)->post(self::PREFIX."/questions/{$id}/bookmark");

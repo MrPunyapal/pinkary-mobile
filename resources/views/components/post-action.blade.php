@@ -37,6 +37,7 @@
     $tap = match ($type) {
         'comments' => "openDetail('{$postId}')",
         'like' => "toggleLike('{$postId}')",
+        'repost' => "toggleRepost('{$postId}')",
         'bookmark' => "toggleBookmark('{$postId}')",
         'translate' => "translatePost('{$postId}', '{$field}')",
         'share' => "sharePost('{$postId}')",
@@ -47,6 +48,7 @@
     $label = match ($type) {
         'comments' => 'Open comments',
         'like' => $active ? 'Unlike this post' : 'Like this post',
+        'repost' => $active ? 'Undo repost' : 'Repost this post',
         'bookmark' => $active ? 'Remove bookmark' : 'Bookmark this post',
         'translate' => $field === 'content' ? 'Translate question' : 'Translate answer',
         'share' => 'Share this post',
@@ -101,6 +103,15 @@
                             dark-color="{{ $mutedDark }}"
                         />
                     @endif
+                    @break
+                @case ('repost')
+                    <native:icon
+                        :ios="\App\Icons\Ios::Arrow2Circlepath"
+                        :android="\App\Icons\AndroidOutlined::Autorenew"
+                        :size="16"
+                        color="{{ $active ? $pink : $muted }}"
+                        dark-color="{{ $active ? $pink : $mutedDark }}"
+                    />
                     @break
                 @case ('bookmark')
                     @if ($active)

@@ -148,6 +148,7 @@ final class Home extends NativeComponent implements HasWebHead
             return;
         }
 
+        $this->closeMenu();
         $this->translateHtml(Payload::string(data_get($post, $field)));
     }
 
@@ -167,6 +168,11 @@ final class Home extends NativeComponent implements HasWebHead
     public function toggleLike(string $id): void
     {
         $this->reactOnPostPayload($this->posts, $id, 'like', $this->token());
+    }
+
+    public function toggleRepost(string $id): void
+    {
+        $this->reactOnPostPayload($this->posts, $id, 'repost', $this->token());
     }
 
     public function toggleBookmark(string $id): void

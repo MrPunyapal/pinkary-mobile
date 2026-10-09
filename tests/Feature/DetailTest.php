@@ -332,6 +332,22 @@ it('toggles likes on the detail post', function (): void {
     expect($test->get('post')['metrics'])->toMatchArray(['liked' => true, 'likes' => 6]);
 });
 
+it('toggles reposts on the detail post', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake(array_merge(detailFakes(), [
+        'https://pinkary.test/api/v1/questions/q1/repost' => Http::response(['data' => ['reposted' => true, 'reposts' => 1]]),
+    ]));
+
+    $test = Native::test(Detail::class, ['id' => 'q1'])
+        ->press("toggleRepost('q1')");
+
+    expect($test->get('post')['metrics'])->toMatchArray(['reposted' => true, 'reposts' => 1]);
+
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/api/v1/questions/q1/repost'));
+});
+
 it('toggles likes on the answered post', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);

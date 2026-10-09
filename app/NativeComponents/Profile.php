@@ -149,6 +149,11 @@ final class Profile extends NativeComponent implements HasWebHead
         $this->reactOnPostPayload($this->questions, $id, 'like', $this->token());
     }
 
+    public function toggleRepost(string $id): void
+    {
+        $this->reactOnPostPayload($this->questions, $id, 'repost', $this->token());
+    }
+
     public function toggleBookmark(string $id): void
     {
         $this->reactOnPostPayload($this->questions, $id, 'bookmark', $this->token());
@@ -162,6 +167,7 @@ final class Profile extends NativeComponent implements HasWebHead
             return;
         }
 
+        $this->closeMenu();
         $this->translateHtml(Payload::string(data_get($post, $field)));
     }
 

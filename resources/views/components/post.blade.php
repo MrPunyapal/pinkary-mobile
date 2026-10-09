@@ -17,8 +17,10 @@
     $postId = (string) data_get($post, 'id', '');
     $liked = (bool) data_get($post, 'metrics.liked', false);
     $bookmarked = (bool) data_get($post, 'metrics.bookmarked', false);
+    $reposted = (bool) data_get($post, 'metrics.reposted', false);
     $commentsCount = (int) data_get($post, 'metrics.comments', 0);
     $likesCount = (int) data_get($post, 'metrics.likes', 0);
+    $repostsCount = (int) data_get($post, 'metrics.reposts', 0);
     $bookmarksCount = (int) data_get($post, 'metrics.bookmarks', 0);
     $viewsCount = (int) data_get($post, 'views', 0);
 
@@ -68,29 +70,22 @@
                             <x-post-author :author="data_get($post, 'from', [])" />
                         @endif
                     </native:column>
-                    @if ($questionText !== '' || $pinned)
+                    @if ($pinned)
                         <native:row class="shrink-0 items-center gap-2">
-                            @if ($questionText !== '')
-                                <native:row class="bg-theme-surface-variant items-center gap-1.5 rounded-full px-2.5 py-1.5">
-                                    <x-post-action type="translate" :post-id="$postId" field="content" />
-                                </native:row>
-                            @endif
-                            @if ($pinned)
-                                <native:row class="bg-theme-surface-variant items-center gap-1.5 rounded-full px-2.5 py-1.5">
-                                    <native:icon
-                                        :ios="\App\Icons\Ios::Pin"
-                                        :android="\App\Icons\Android::PushPin"
-                                        :size="16"
-                                        color="#64748B"
-                                        dark-color="#94A3B8"
-                                    />
-                                    {{-- Arbitrary font sizes use points; rem units are not supported. --}}
-                                    <native:text
-                                        class="text-theme-on-surface-variant font-medium text-[11.52]"
-                                        max-lines="1"
-                                    >Pinned</native:text>
-                                </native:row>
-                            @endif
+                            <native:row class="bg-theme-surface-variant items-center gap-1.5 rounded-full px-2.5 py-1.5">
+                                <native:icon
+                                    :ios="\App\Icons\Ios::Pin"
+                                    :android="\App\Icons\Android::PushPin"
+                                    :size="16"
+                                    color="#64748B"
+                                    dark-color="#94A3B8"
+                                />
+                                {{-- Arbitrary font sizes use points; rem units are not supported. --}}
+                                <native:text
+                                    class="text-theme-on-surface-variant font-medium text-[11.52]"
+                                    max-lines="1"
+                                >Pinned</native:text>
+                            </native:row>
                         </native:row>
                     @endif
                 </native:row>
@@ -139,9 +134,6 @@
                                 </native:row>
                             </native:pressable>
                             <native:row class="shrink-0 items-center gap-1.5">
-                                @if ($comment)
-                                    <x-post-action type="translate" :post-id="$postId" field="content" />
-                                @endif
                                 @if (is_array($channel) && ($channel['name'] ?? '') !== '')
                                     <native:row class="bg-theme-surface-variant items-center gap-1 rounded-md px-1.5 py-0.5">
                                         <native:icon
@@ -227,9 +219,9 @@
                                 <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
                                 <x-post-action type="like" :post-id="$postId" :count="$likesCount" :active="$liked" />
                                 <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
-                                <x-post-action type="views" :count="$viewsCount" />
+                                <x-post-action type="repost" :post-id="$postId" :count="$repostsCount" :active="$reposted" />
                                 <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
-                                <x-post-action type="translate" :post-id="$postId" />
+                                <x-post-action type="views" :count="$viewsCount" />
                                 <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
                                 <x-post-action
                                     type="bookmark"

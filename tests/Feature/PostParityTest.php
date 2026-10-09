@@ -296,7 +296,7 @@ it('offers the Show more toggle only past the 972 character answer budget', func
     expect(parityCount($test->tree(), fn (array $n): bool => ($n['props']['text'] ?? null) === 'Show more'))->toBe(1);
 });
 
-it('renders the pinned chip in the question header next to Translate', function (): void {
+it('renders the pinned chip in the question header', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     parityFakeFeed([parityPost('A pinnable answer.', ['pinned' => true])]);
@@ -335,39 +335,33 @@ it('renders the pinned chip in the question header next to Translate', function 
         ->and($icons[0]['props']['color'] ?? null)->toBe('#64748B')
         ->and($icons[0]['props']['dark_color'] ?? null)->toBe('#94A3B8');
 
-    $translateChain = parityAncestors($tree, fn (array $n): bool => ($n['props']['a11y_label'] ?? null) === 'Translate question');
     $pinnedChain = parityAncestors($tree, fn (array $n): bool => ($n['props']['text'] ?? null) === 'Pinned');
 
-    $translateGroup = $translateChain === null ? null : $translateChain[count($translateChain) - 2];
     $pinnedGroup = $pinnedChain === null ? null : $pinnedChain[count($pinnedChain) - 2];
 
-    expect($translateGroup)->not->toBeNull()
-        ->and($pinnedGroup)->toBe($translateGroup)
-        ->and(parityCount($translateGroup, fn (array $n): bool => ($n['props']['text'] ?? null) === 'Pinned'))->toBe(1)
-        ->and(parityCount($translateGroup, fn (array $n): bool => ($n['props']['a11y_label'] ?? null) === 'Translate question'))->toBe(1);
+    expect($pinnedGroup)->not->toBeNull()
+        ->and(parityCount($pinnedGroup, fn (array $n): bool => ($n['props']['text'] ?? null) === 'Pinned'))->toBe(1);
 });
 
-it('wraps the question Translate action in a web pill chip', function (): void {
+it('puts post translation actions in the options menu', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
-    parityFakeFeed([parityPost('Translatable question.')]);
+    parityFakeFeed([parityPost('Translatable answer.')]);
 
-    $tree = Native::test(Home::class)->assertSee('Translatable question.')->tree();
+    $tree = Native::test(Home::class)
+        ->call('openMenu', 'q1')
+        ->assertSee('Translate answer')
+        ->assertSee('Translate question')
+        ->tree();
 
-    $pill = parityParent($tree, fn (array $n): bool => ($n['props']['a11y_label'] ?? null) === 'Translate question');
-
-    expect($pill['type'] ?? null)->toBe('row')
-        ->and($pill['style']['bg_color'] ?? null)->toBe('#F1F5F9')
-        ->and($pill['style']['border_radius'] ?? null)->toEqual(9999.0)
-        ->and($pill['layout']['padding'] ?? null)->toEqual([6.0, 10.0, 6.0, 10.0]);
-
+    $translateAnswer = parityByA11y($tree, 'Translate answer');
+    $translateQuestion = parityByA11y($tree, 'Translate question');
     $actionRow = parityParent($tree, fn (array $n): bool => ($n['props']['a11y_label'] ?? null) === 'Share this post');
 
-    expect(in_array(
-        parityByA11y($tree, 'Translate answer'),
-        $actionRow['children'] ?? [],
-        true
-    ))->toBeTrue();
+    expect($translateAnswer)->not->toBeNull()
+        ->and($translateQuestion)->not->toBeNull()
+        ->and(in_array($translateAnswer, $actionRow['children'] ?? [], true))->toBeFalse()
+        ->and(in_array($translateQuestion, $actionRow['children'] ?? [], true))->toBeFalse();
 });
 
 it('renders body text in the web body tone with the web line heights', function (): void {
