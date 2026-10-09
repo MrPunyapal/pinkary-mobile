@@ -213,7 +213,7 @@ it('hides the post menu from guests because every entry is an owner action', fun
         ->assertDontSee('Open post menu');
 });
 
-it('hides the post menu from a signed-in viewer who does not own the post', function (): void {
+it('shows the post menu to a signed-in viewer who does not own the post', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     parityFakeFeed([parityPost('Someone else answered.', [
@@ -224,7 +224,9 @@ it('hides the post menu from a signed-in viewer who does not own the post', func
 
     Native::test(Home::class)
         ->assertSee('Someone else answered.')
-        ->assertDontSee('Open post menu');
+        ->assertSee('Open post menu')
+        ->press("openMenu('q1')")
+        ->assertSee('Translate answer');
 });
 
 it('shows the post menu to the signed-in owner of the post', function (): void {

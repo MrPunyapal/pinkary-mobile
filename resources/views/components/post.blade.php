@@ -25,8 +25,6 @@
     $viewsCount = (int) data_get($post, 'views', 0);
 
     $viewerUsername = mb_strtolower(mb_trim((string) ($viewerUsername ?? data_get(\App\Support\AccountStore::active(), 'username', ''))));
-    $postOwnerUsername = mb_strtolower(mb_trim((string) data_get($post, 'to.username', '')));
-    $viewerOwnsPost = $postOwnerUsername !== '' && $viewerUsername !== '' && $postOwnerUsername === $viewerUsername;
 
     // Native views cannot measure text height; approximate 640px with 27 lines of 36 characters.
     $answerLimit = 972;
@@ -232,7 +230,7 @@
                                 {{-- Use a native spacer because ml-auto is unreliable in this renderer. --}}
                                 <native:spacer class="flex-1" />
                                 <x-post-action type="share" :post-id="$postId" />
-                                @if ($viewerOwnsPost)
+                                @if ($viewerUsername !== '')
                                     <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
                                     <x-post-action type="menu" :post-id="$postId" />
                                 @endif
