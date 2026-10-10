@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\NativeComponents;
 
 use App\NativeComponents\Concerns\OpensProfiles;
+use App\NativeComponents\Concerns\ProvidesWebPreviewStyles;
 use App\NativeComponents\Concerns\TogglesPostReactions;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
@@ -15,11 +16,13 @@ use Illuminate\Support\Arr;
 use Illuminate\View\View;
 use Native\Mobile\Browser;
 use Native\Mobile\Edge\NativeComponent;
+use Native\Mobile\Edge\Web\Contracts\HasWebHead;
 use Native\Mobile\Share;
 
-final class Profile extends NativeComponent
+final class Profile extends NativeComponent implements HasWebHead
 {
     use OpensProfiles;
+    use ProvidesWebPreviewStyles;
     use TogglesPostReactions;
     use UsesAppMenu;
 
