@@ -115,6 +115,11 @@
                 @if ($questionText !== '')
                     {{-- Numeric line-height classes are unsupported; leading-loose gives 28px at text-sm. --}}
                     <x-post-text :html="data_get($post, 'content')" :post-id="$postId" :question="true" />
+                    @if ($viewerUsername === '')
+                        <native:row class="w-full items-center pt-1">
+                            <x-post-action type="translate" :post-id="$postId" field="content" />
+                        </native:row>
+                    @endif
                 @endif
             </native:column>
         </native:column>
@@ -185,6 +190,13 @@
 
                         @if ($comment)
                             <x-post-images :images="$images" />
+                            <native:row class="w-full items-center pt-1">
+                                <x-post-action
+                                    type="translate"
+                                    :post-id="$postId"
+                                    :field="$answerText === '' ? 'content' : 'answer'"
+                                />
+                            </native:row>
                         @endif
 
                         @unless ($comment)
@@ -260,6 +272,10 @@
                                     :count="$bookmarksCount"
                                     :active="$bookmarked"
                                 />
+                                @if ($viewerUsername === '')
+                                    <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
+                                    <x-post-action type="translate" :post-id="$postId" />
+                                @endif
                                 {{-- Use a native spacer because ml-auto is unreliable in this renderer. --}}
                                 <native:spacer class="flex-1" />
                                 <x-post-action type="share" :post-id="$postId" />

@@ -99,6 +99,21 @@ it('renders images attached to comments', function (): void {
         ->assertSee('Open image fullscreen');
 });
 
+it('lets guests translate replies from the thread', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::clear();
+    Http::fake(detailFakes(comments: [commentRow('c1', 'A public comment.')]));
+
+    Native::test(Detail::class, ['id' => 'q1'])
+        ->assertSee('A public comment.')
+        ->assertSee('Translate answer')
+        ->press("translatePost('c1', 'answer')")
+        ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => str_contains(
+            (string) ($params['url'] ?? ''),
+            urlencode('A public comment.')
+        ));
+});
+
 it('resolves through the native route', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);

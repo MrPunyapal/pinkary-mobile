@@ -210,6 +210,8 @@ it('hides the post menu from guests because every entry is an owner action', fun
 
     Native::test(Home::class)
         ->assertSee('A public answer.')
+        ->assertSee('Translate question')
+        ->assertSee('Translate answer')
         ->assertDontSee('Open post menu');
 });
 
