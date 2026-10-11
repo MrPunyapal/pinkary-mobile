@@ -182,6 +182,10 @@
                             :limit="! $comment && ! $full && ! $expanded && $answerLong ? $answerLimit : null"
                         />
 
+                        @if ($comment)
+                            <x-post-images :images="$images" />
+                        @endif
+
                         @unless ($comment)
                             @if ($answerLong && ! $full && ! $expanded)
                                 <x-view-more :post-id="$postId" />

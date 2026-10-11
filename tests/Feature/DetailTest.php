@@ -87,6 +87,18 @@ it('renders the post with its comments', function (): void {
         ->assertSee('Second comment.');
 });
 
+it('renders images attached to comments', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake(detailFakes(comments: [array_merge(commentRow('c1', 'Comment with an image.'), [
+        'images' => ['https://pinkary.test/storage/comment-image.jpg'],
+    ])]));
+
+    Native::test(Detail::class, ['id' => 'q1'])
+        ->assertSee('Comment with an image.')
+        ->assertSee('Open image fullscreen');
+});
+
 it('resolves through the native route', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
