@@ -27,7 +27,7 @@ trait TogglesPostReactions
 {
     public string $menuPostId = '';
 
-    /** @var 'menu'|'confirm-delete'|'edit'|'likers' */
+    /** @var 'menu'|'confirm-delete'|'answer'|'edit'|'likers' */
     public string $menuStep = 'menu';
 
     public string $menuError = '';
@@ -171,6 +171,16 @@ trait TogglesPostReactions
         }
     }
 
+    public function canAnswerMenuPost(): bool
+    {
+        $post = $this->menuPostData();
+
+        return $post !== null
+            && $this->viewerOwnsPost($post)
+            && DisplayText::plain(data_get($post, 'answer')) === ''
+            && ! $this->menuDeniedFor($this->menuPostId, 'answer');
+    }
+
     public function canDeleteMenuPost(): bool
     {
         $post = $this->menuPostData();
@@ -286,17 +296,34 @@ trait TogglesPostReactions
         $this->menuStep = 'edit';
     }
 
+    public function startAnswerMenu(): void
+    {
+        if (! $this->canAnswerMenuPost()) {
+            return;
+        }
+
+        $this->editAnswer = '';
+        $this->menuError = '';
+        $this->menuStep = 'answer';
+    }
+
     public function saveAnswerMenu(): void
     {
         $id = $this->menuPostId;
+        $isEditing = $this->menuStep === 'edit';
 
-        if ($id === '' || $this->menuBusy) {
+        if ($id === '' || ! in_array($this->menuStep, ['answer', 'edit'], true) || $this->menuBusy) {
             return;
         }
 
         $token = $this->menuToken();
+        $post = $this->findPostForMenu($id);
 
-        if ($token === null) {
+        if ($token === null || ! $this->viewerOwnsPost($post)) {
+            return;
+        }
+
+        if (! $isEditing && DisplayText::plain(data_get($post, 'answer')) !== '') {
             return;
         }
 
@@ -341,7 +368,7 @@ trait TogglesPostReactions
                 $this->menuError = ApiErrors::first($response, 'Your answer could not be saved. Please try again.');
 
                 if ($response->forbidden()) {
-                    $this->hideMenuEntry($id, 'edit');
+                    $this->hideMenuEntry($id, $isEditing ? 'edit' : 'answer');
                     $this->menuStep = 'menu';
                 }
 
@@ -349,7 +376,7 @@ trait TogglesPostReactions
             }
 
             $saved = $response->json('data.answer');
-            $values = ['edited' => (bool) $response->json('data.edited', true)];
+            $values = ['edited' => (bool) $response->json('data.edited', $isEditing)];
 
             if (is_string($saved)) {
                 $values['answer'] = $saved;
@@ -372,61 +399,6 @@ trait TogglesPostReactions
 
         $this->menuError = '';
         $this->menuStep = 'confirm-delete';
-    }
-
-    public function ignoreMenuPost(): void
-    {
-        $id = $this->menuPostId;
-
-        if ($id === '' || $this->menuBusy) {
-            return;
-        }
-
-        $token = $this->menuToken();
-
-        if ($token === null || ! $this->viewerOwnsPost($this->findPostForMenu($id))) {
-            return;
-        }
-
-        if (! $this->acquireReactionLock('ignore:'.$id)) {
-            return;
-        }
-
-        $this->menuBusy = true;
-
-        try {
-            $api = app(PinkaryApi::class);
-            $response = $api->attempt(fn () => $api->ignoreQuestion($token, $id));
-
-            if ($response === null) {
-                $this->menuError = 'This post could not be deleted. Please try again.';
-
-                return;
-            }
-
-            if ($response->unauthorized()) {
-                app(TokenStorage::class)->clear();
-                $this->replace($this->route('mobile.login'));
-
-                return;
-            }
-
-            if (! $response->successful()) {
-                $this->menuError = ApiErrors::first($response, 'This post could not be deleted. Please try again.');
-
-                if ($response->forbidden()) {
-                    $this->hideMenuEntry($id, 'delete');
-                    $this->menuStep = 'menu';
-                }
-
-                return;
-            }
-
-            $this->afterMenuRemoval($id);
-        } finally {
-            $this->menuBusy = false;
-            $this->releaseReactionLock('ignore:'.$id);
-        }
     }
 
     public function deleteMenuPost(): void

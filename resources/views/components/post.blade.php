@@ -190,13 +190,6 @@
 
                         @if ($comment)
                             <x-post-images :images="$images" />
-                            <native:row class="w-full items-center pt-1">
-                                <x-post-action
-                                    type="translate"
-                                    :post-id="$postId"
-                                    :field="$answerText === '' ? 'content' : 'answer'"
-                                />
-                            </native:row>
                         @endif
 
                         @unless ($comment)
@@ -252,42 +245,47 @@
                                 <x-post-poll :poll="$poll" :post-id="$postId" />
                             @endif
 
-                            <native:row class="w-full items-center gap-3 pt-3">
-                                <x-post-action type="comments" :post-id="$postId" :count="$commentsCount" />
-                                <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
-                                <x-post-action type="like" :post-id="$postId" :count="$likesCount" :active="$liked" />
-                                <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
-                                <x-post-action
-                                    type="repost"
-                                    :post-id="$postId"
-                                    :count="$repostsCount"
-                                    :active="$reposted"
-                                />
-                                <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
-                                <x-post-action type="views" :count="$viewsCount" />
-                                <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
-                                <x-post-action
-                                    type="bookmark"
-                                    :post-id="$postId"
-                                    :count="$bookmarksCount"
-                                    :active="$bookmarked"
-                                />
-                                @if ($viewerUsername === '')
-                                    <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
-                                    <x-post-action type="translate" :post-id="$postId" />
-                                @endif
-                                {{-- Use a native spacer because ml-auto is unreliable in this renderer. --}}
-                                <native:spacer class="flex-1" />
-                                <x-post-action type="share" :post-id="$postId" />
-                                @if ($viewerUsername !== '')
-                                    <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
-                                    <x-post-action type="menu" :post-id="$postId" />
-                                @endif
-                            </native:row>
-                            @if ($reactionError !== '')
-                                <native:text class="text-theme-destructive w-full text-xs">{{ $reactionError }}</native:text>
-                            @endif
                         @endunless
+
+                        <native:row class="w-full items-center gap-3 pt-3">
+                            <x-post-action type="comments" :post-id="$postId" :count="$commentsCount" />
+                            <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
+                            <x-post-action type="like" :post-id="$postId" :count="$likesCount" :active="$liked" />
+                            <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
+                            <x-post-action
+                                type="repost"
+                                :post-id="$postId"
+                                :count="$repostsCount"
+                                :active="$reposted"
+                            />
+                            <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
+                            <x-post-action type="views" :count="$viewsCount" />
+                            <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
+                            <x-post-action
+                                type="bookmark"
+                                :post-id="$postId"
+                                :count="$bookmarksCount"
+                                :active="$bookmarked"
+                            />
+                            @if ($viewerUsername === '')
+                                <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
+                                <x-post-action
+                                    type="translate"
+                                    :post-id="$postId"
+                                    :field="$comment && $answerText === '' ? 'content' : 'answer'"
+                                />
+                            @endif
+                            {{-- Use a native spacer because ml-auto is unreliable in this renderer. --}}
+                            <native:spacer class="flex-1" />
+                            <x-post-action type="share" :post-id="$postId" />
+                            @if ($viewerUsername !== '')
+                                <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
+                                <x-post-action type="menu" :post-id="$postId" />
+                            @endif
+                        </native:row>
+                        @if ($reactionError !== '')
+                            <native:text class="text-theme-destructive w-full text-xs">{{ $reactionError }}</native:text>
+                        @endif
                     </native:column>
                 </native:column>
             </native:row>

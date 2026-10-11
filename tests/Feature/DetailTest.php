@@ -87,6 +87,28 @@ it('renders the post with its comments', function (): void {
         ->assertSee('Second comment.');
 });
 
+it('renders working post actions for comments', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake(array_merge(detailFakes(comments: [commentRow('c1', 'Comment with actions.')]), [
+        'https://pinkary.test/api/v1/questions/c1/like' => Http::response(['data' => ['liked' => true, 'likes' => 1]]),
+    ]));
+
+    $test = Native::test(Detail::class, ['id' => 'q1'])
+        ->assertSee('Open comments')
+        ->assertSee('Like this post')
+        ->assertSee('Repost this post')
+        ->assertSee('Bookmark this post')
+        ->assertSee('Share this post')
+        ->assertSee('Open post menu')
+        ->press("toggleLike('c1')");
+
+    expect($test->get('comments.0.metrics'))->toMatchArray(['liked' => true, 'likes' => 1]);
+
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/api/v1/questions/c1/like'));
+});
+
 it('renders images attached to comments', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
@@ -723,6 +745,68 @@ it('edits the answer inline and updates the post', function (): void {
         && str_ends_with($request->url(), '/api/v1/questions/q1/answer'));
 });
 
+it('lets the owner answer an unanswered post', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake(menuFakes(menuPost(overrides: ['answer' => null]), [
+        'https://pinkary.test/api/v1/questions/q1/answer' => Http::response(['data' => [
+            'id' => 'q1',
+            'answer' => '<p>A first answer.</p>',
+            'edited' => false,
+        ]]),
+    ]));
+
+    $test = Native::test(Detail::class, ['id' => 'q1'])
+        ->call('openMenu', 'q1')
+        ->assertSee('Answer this question')
+        ->assertDontSee('Edit answer')
+        ->press('startAnswerMenu')
+        ->assertSee('Answer question')
+        ->set('editAnswer', 'A first answer.')
+        ->press('saveAnswerMenu')
+        ->assertSee('A first answer.');
+
+    expect($test->get('post'))->toMatchArray([
+        'answer' => '<p>A first answer.</p>',
+        'edited' => false,
+    ]);
+
+    Http::assertSent(fn ($request): bool => $request->method() === 'PUT'
+        && str_ends_with($request->url(), '/api/v1/questions/q1/answer')
+        && $request['answer'] === 'A first answer.');
+});
+
+it('does not offer the answer action on another users unanswered post', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake(menuFakes(menuPost(overrides: [
+        'answer' => null,
+        'to' => ['name' => 'Grace Hopper', 'username' => 'grace'],
+    ])));
+
+    Native::test(Detail::class, ['id' => 'q1'])
+        ->call('openMenu', 'q1')
+        ->assertDontSee('Answer this question');
+});
+
+it('hides the answer action after the api rejects answering the post', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake(menuFakes(menuPost(overrides: ['answer' => null]), [
+        'https://pinkary.test/api/v1/questions/q1/answer' => Http::response(['message' => 'This action is unauthorized.'], 403),
+    ]));
+
+    $test = Native::test(Detail::class, ['id' => 'q1'])
+        ->call('openMenu', 'q1')
+        ->press('startAnswerMenu')
+        ->set('editAnswer', 'Not allowed.')
+        ->press('saveAnswerMenu')
+        ->assertSee('unauthorized')
+        ->assertDontSee('Answer this question');
+
+    expect($test->get('menuDenied'))->toMatchArray(['q1:answer' => true]);
+});
+
 it('surfaces answer validation errors from the API', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
@@ -764,24 +848,6 @@ it('hides the edit entry after an answer 403', function (): void {
 it('confirms deletion and navigates back to the feed', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
-    Http::fake(menuFakes(menuPost(), [
-        'https://pinkary.test/api/v1/questions/q1/ignore' => Http::response(['data' => ['ignored' => true]]),
-    ]));
-
-    Native::test(Detail::class, ['id' => 'q1'])
-        ->call('openMenu', 'q1')
-        ->call('askDeleteMenu')
-        ->assertSee('Delete this post?')
-        ->call('ignoreMenuPost')
-        ->assertNavigatedTo('/feed');
-
-    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
-        && str_ends_with($request->url(), '/api/v1/questions/q1/ignore'));
-});
-
-it('hard-deletes the post and navigates back to the feed', function (): void {
-    config(['services.pinkary.url' => 'https://pinkary.test']);
-    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
         'https://pinkary.test/api/v1/questions/q1' => Http::sequence()
             ->push(['data' => menuPost()])
@@ -791,25 +857,50 @@ it('hard-deletes the post and navigates back to the feed', function (): void {
 
     Native::test(Detail::class, ['id' => 'q1'])
         ->call('openMenu', 'q1')
-        ->call('deleteMenuPost')
+        ->call('askDeleteMenu')
+        ->assertSee('Delete this post?')
+        ->press('deleteMenuPost')
         ->assertNavigatedTo('/feed');
 
+    Http::assertNotSent(fn ($request): bool => str_ends_with($request->url(), '/api/v1/questions/q1/ignore'));
     Http::assertSent(fn ($request): bool => $request->method() === 'DELETE'
-        && str_ends_with($request->url(), '/api/v1/questions/q1')
-        && ! str_ends_with($request->url(), '/pin'));
+        && str_ends_with($request->url(), '/api/v1/questions/q1'));
 });
 
-it('hides the delete entry after an ignore 403', function (): void {
+it('shows the api error when post deletion fails', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
-    Http::fake(menuFakes(menuPost(), [
-        'https://pinkary.test/api/v1/questions/q1/ignore' => Http::response(['message' => 'This action is unauthorized.'], 403),
-    ]));
+    Http::fake([
+        'https://pinkary.test/api/v1/questions/q1' => Http::sequence()
+            ->push(['data' => menuPost()])
+            ->push(['message' => 'The delete failed.'], 500),
+        'https://pinkary.test/api/v1/questions/q1/comments*' => Http::response(['data' => []]),
+    ]);
+
+    Native::test(Detail::class, ['id' => 'q1'])
+        ->call('openMenu', 'q1')
+        ->call('askDeleteMenu')
+        ->press('deleteMenuPost')
+        ->assertSee('The delete failed.')
+        ->assertSee('Delete this post?');
+
+    Http::assertNotSent(fn ($request): bool => str_ends_with($request->url(), '/api/v1/questions/q1/ignore'));
+});
+
+it('hides the delete entry after a delete 403', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/questions/q1' => Http::sequence()
+            ->push(['data' => menuPost()])
+            ->push(['message' => 'This action is unauthorized.'], 403),
+        'https://pinkary.test/api/v1/questions/q1/comments*' => Http::response(['data' => []]),
+    ]);
 
     $test = Native::test(Detail::class, ['id' => 'q1'])
         ->call('openMenu', 'q1')
         ->call('askDeleteMenu')
-        ->call('ignoreMenuPost')
+        ->call('deleteMenuPost')
         ->assertSee('unauthorized')
         ->assertDontSee('Delete this post?');
 

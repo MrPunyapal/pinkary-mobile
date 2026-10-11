@@ -1250,21 +1250,22 @@ it('removes a feed post after confirming deletion', function (): void {
             homeFeedPost('q1', 'Going away.'),
             homeFeedPost('q2', 'Staying put.'),
         ]]),
-        'https://pinkary.test/api/v1/questions/q1/ignore' => Http::response(['data' => ['ignored' => true]]),
+        'https://pinkary.test/api/v1/questions/q1' => Http::response(null, 204),
     ]);
 
     $test = Native::test(Home::class)
         ->call('openMenu', 'q1')
         ->call('askDeleteMenu')
         ->assertSee('Delete this post?')
-        ->call('ignoreMenuPost')
+        ->press('deleteMenuPost')
         ->assertDontSee('Going away.')
         ->assertSee('Staying put.');
 
     expect(array_column($test->get('posts'), 'id'))->toBe(['q2']);
 
-    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
-        && str_ends_with($request->url(), '/api/v1/questions/q1/ignore'));
+    Http::assertSent(fn ($request): bool => $request->method() === 'DELETE'
+        && str_ends_with($request->url(), '/api/v1/questions/q1'));
+    Http::assertNotSent(fn ($request): bool => str_ends_with($request->url(), '/api/v1/questions/q1/ignore'));
 });
 
 it('lists likers from the feed menu with pagination', function (): void {

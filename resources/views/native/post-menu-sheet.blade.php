@@ -14,13 +14,13 @@
                         <native:button
                             variant="primary"
                             :disabled="$menuBusy"
-                            @tap="ignoreMenuPost"
+                            @tap="deleteMenuPost"
                         >{{ $menuBusy ? 'Deleting…' : 'Delete' }}</native:button>
                     </native:row>
                 </native:column>
-            @elseif ($menuStep === 'edit')
+            @elseif ($menuStep === 'edit' || $menuStep === 'answer')
                 <native:column class="w-full gap-3 py-2">
-                    <native:text class="text-theme-on-surface text-base font-semibold">Edit answer</native:text>
+                    <native:text class="text-theme-on-surface text-base font-semibold">{{ $menuStep === 'answer' ? 'Answer question' : 'Edit answer' }}</native:text>
                     <native:column class="w-full gap-1">
                         <native:outlined-text-input
                             label="Answer"
@@ -38,7 +38,7 @@
                             variant="primary"
                             :disabled="$menuBusy"
                             @tap="saveAnswerMenu"
-                        >{{ $menuBusy ? 'Saving…' : 'Save answer' }}</native:button>
+                        >{{ $menuBusy ? ($menuStep === 'answer' ? 'Answering…' : 'Saving…') : ($menuStep === 'answer' ? 'Post answer' : 'Save answer') }}</native:button>
                     </native:row>
                 </native:column>
             @elseif ($menuStep === 'likers')
@@ -112,6 +112,20 @@
                                 dark-color="#EC4899"
                             />
                             <native:text class="text-theme-on-surface text-sm font-medium">{{ $menuPinned ? 'Unpin' : 'Pin' }}</native:text>
+                        </native:row>
+                    </native:pressable>
+                @endif
+                @if ($canAnswerMenu)
+                    <native:pressable class="w-full py-3" @tap="startAnswerMenu" a11y-label="Answer this question">
+                        <native:row class="w-full items-center gap-3">
+                            <native:icon
+                                :ios="\App\Icons\Ios::Pencil"
+                                :android="\App\Icons\AndroidOutlined::Edit"
+                                :size="20"
+                                color="#64748B"
+                                dark-color="#94A3B8"
+                            />
+                            <native:text class="text-theme-on-surface text-sm font-medium">Answer</native:text>
                         </native:row>
                     </native:pressable>
                 @endif

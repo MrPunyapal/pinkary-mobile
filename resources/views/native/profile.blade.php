@@ -94,6 +94,7 @@
     $menuPinned = (bool) data_get($menuPost, 'pinned', false);
     $canPinMenu = $menuPostId !== '' && $this->canPinMenuPost();
     $canEditMenu = $menuPostId !== '' && $this->canEditMenuPost();
+    $canAnswerMenu = $menuPostId !== '' && $this->canAnswerMenuPost();
     $canDeleteMenu = $menuPostId !== '' && $this->canDeleteMenuPost();
     $canViewMenuLikes = $menuPostId !== '' && $this->canViewMenuLikes();
 @endphp
