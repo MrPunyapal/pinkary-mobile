@@ -108,8 +108,9 @@ final class Profile extends NativeComponent implements HasWebHead
     public function askUser(): void
     {
         $username = Payload::string(data_get($this->profile, 'username', ''));
+        $canAskQuestion = data_get($this->profile, 'can_ask_question');
 
-        if ($username === '' || (bool) data_get($this->profile, 'is_me', false)) {
+        if ($username === '' || (bool) data_get($this->profile, 'is_me', false) || $canAskQuestion === false) {
             return;
         }
 

@@ -266,6 +266,22 @@ it('asks other users from their profile', function (): void {
         ->assertNavigatedTo('/ask/ada');
 });
 
+it('does not offer to ask a user who has closed questions', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/users/ada' => Http::response(['data' => array_merge(otherProfile(), [
+            'can_ask_question' => false,
+        ])]),
+        'https://pinkary.test/api/v1/users/ada/questions*' => Http::response(['data' => []]),
+    ]);
+
+    Native::test(Profile::class, ['username' => 'ada'])
+        ->assertDontSee('Ask @ada')
+        ->call('askUser')
+        ->assertNoNavigation();
+});
+
 it('edits your own profile from the profile screen', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);

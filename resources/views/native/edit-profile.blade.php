@@ -87,6 +87,15 @@
                     </native:column>
 
                     <native:column class="w-full gap-1">
+                        <native:text class="text-theme-on-surface text-sm font-medium">Who can ask you questions?</native:text>
+                        <native:select
+                            label="Who can ask you questions?"
+                            :options="$questionPreferenceOptions"
+                            native:model="questionPreference"
+                        />
+                    </native:column>
+
+                    <native:column class="w-full gap-1">
                         <native:text class="text-theme-on-surface text-sm font-medium">How would you like to do questions by default?</native:text>
                         <native:select
                             label="How would you like to do questions by default?"

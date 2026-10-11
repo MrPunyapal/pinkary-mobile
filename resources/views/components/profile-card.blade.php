@@ -90,13 +90,15 @@
 
         <native:row class="items-center gap-2">
             @unless ($isMe)
-                <native:pressable
-                    class="border-theme-primary rounded-full border px-3 py-2"
-                    @tap="askUser"
-                    a11y-label="Ask {{ '@'.$username }}"
-                >
-                    <native:text class="text-theme-primary text-sm font-medium">Ask {{ '@'.$username }}</native:text>
-                </native:pressable>
+                @if (data_get($profile, 'can_ask_question') !== false)
+                    <native:pressable
+                        class="border-theme-primary rounded-full border px-3 py-2"
+                        @tap="askUser"
+                        a11y-label="Ask {{ '@'.$username }}"
+                    >
+                        <native:text class="text-theme-primary text-sm font-medium">Ask {{ '@'.$username }}</native:text>
+                    </native:pressable>
+                @endif
                 <native:pressable
                     class="px-4 py-2 rounded-full bg-theme-primary {{ $followBusy ? 'opacity-40' : '' }}"
                     @tap="toggleFollow"

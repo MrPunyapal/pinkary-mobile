@@ -47,6 +47,8 @@ final class EditProfile extends NativeComponent implements HasWebHead
 
     public string $questionVisibility = 'true';
 
+    public string $questionPreference = 'everyone';
+
     /**
      * @var array<string, string>
      */
@@ -102,6 +104,13 @@ final class EditProfile extends NativeComponent implements HasWebHead
     public array $questionVisibilityOptions = [
         'true' => 'Anonymously',
         'false' => 'Publicly',
+    ];
+
+    /** @var array<string, string> */
+    public array $questionPreferenceOptions = [
+        'everyone' => 'Everyone',
+        'following' => 'Following',
+        'no_one' => 'No one',
     ];
 
     /** @var array<string, string> */
@@ -569,11 +578,13 @@ final class EditProfile extends NativeComponent implements HasWebHead
             'prefers_anonymous_questions' => is_bool($anonymous)
                 ? ($anonymous ? 'true' : 'false')
                 : $this->questionVisibility,
+            'question_preference' => $this->optionOr(data_get($profile, 'question_preference'), $this->questionPreferenceOptions, $this->questionPreference),
         ];
 
         $this->mailPreferenceTime = $preferences['mail_preference_time'];
         $this->defaultFeed = $preferences['default_feed'];
         $this->questionVisibility = $preferences['prefers_anonymous_questions'];
+        $this->questionPreference = $preferences['question_preference'];
         $this->loadedPreferences = $preferences;
 
         /** @var list<array<string, mixed>> $links */
@@ -601,6 +612,10 @@ final class EditProfile extends NativeComponent implements HasWebHead
 
         if ($this->questionVisibility !== ($this->loadedPreferences['prefers_anonymous_questions'] ?? $this->questionVisibility)) {
             $changed['prefers_anonymous_questions'] = $this->questionVisibility === 'true';
+        }
+
+        if ($this->questionPreference !== ($this->loadedPreferences['question_preference'] ?? $this->questionPreference)) {
+            $changed['question_preference'] = $this->questionPreference;
         }
 
         return $changed;

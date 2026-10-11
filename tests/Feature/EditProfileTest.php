@@ -23,6 +23,7 @@ function editedProfilePayload(array $overrides = []): array
         'bio' => 'Building in public.',
         'avatar' => null,
         'link_shape' => 'rounded-lg',
+        'question_preference' => 'everyone',
         'links' => [],
     ], $overrides);
 }
@@ -67,6 +68,7 @@ it('uses the web profile information heading and field order', function (): void
         'Bio',
         'Mail Preference Time',
         'Default Feed',
+        'Who can ask you questions?',
         'How would you like to do questions by default?',
         'Link Shape',
         'Description',
@@ -74,7 +76,7 @@ it('uses the web profile information heading and field order', function (): void
     ]);
 });
 
-it('sends the three preference fields the web owns', function (): void {
+it('sends the changed preference fields the web owns', function (): void {
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::response(['data' => editedProfilePayload()]),
     ]);
@@ -82,6 +84,7 @@ it('sends the three preference fields the web owns', function (): void {
     $test = Native::test(EditProfile::class)
         ->set('mailPreferenceTime', 'weekly')
         ->set('defaultFeed', 'trending')
+        ->set('questionPreference', 'following')
         ->set('questionVisibility', 'false')
         ->call('save')
         ->assertSee('Your profile has been saved.');
@@ -92,6 +95,7 @@ it('sends the three preference fields the web owns', function (): void {
         && str_ends_with($request->url(), '/api/v1/profile')
         && $request['mail_preference_time'] === 'weekly'
         && $request['default_feed'] === 'trending'
+        && $request['question_preference'] === 'following'
         && $request['prefers_anonymous_questions'] === false);
 });
 
@@ -112,8 +116,23 @@ it('never sends a preference the user did not touch', function (): void {
 
         return ! array_key_exists('mail_preference_time', $request->data())
             && ! array_key_exists('default_feed', $request->data())
+            && ! array_key_exists('question_preference', $request->data())
             && ! array_key_exists('prefers_anonymous_questions', $request->data());
     });
+});
+
+it('loads the question preference from the profile response', function (): void {
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::response(['data' => editedProfilePayload([
+            'question_preference' => 'no_one',
+        ])]),
+    ]);
+
+    $test = Native::test(EditProfile::class)
+        ->assertSee('Who can ask you questions?')
+        ->assertSee('No one');
+
+    expect($test->get('questionPreference'))->toBe('no_one');
 });
 
 it('patches the link shape like the web link settings form', function (): void {
