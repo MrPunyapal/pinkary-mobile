@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use App\NativeComponents\EditProfile;
 use App\Support\AccountStore;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Native\Mobile\Events\Gallery\MediaSelected;
 use Native\Mobile\Testing\Native;
 
 beforeEach(function (): void {
@@ -201,6 +203,51 @@ it('loads and saves the selected link color', function (): void {
     Http::assertSent(fn ($request): bool => $request->method() === 'PATCH'
         && str_ends_with($request->url(), '/api/v1/profile')
         && $request['gradient'] === 'from-red-500 to-orange-600');
+});
+
+it('uploads a valid profile photo as multipart form data', function (): void {
+    $file = UploadedFile::fake()->image('avatar.png');
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::sequence()
+            ->push(['data' => editedProfilePayload()])
+            ->push(['data' => editedProfilePayload(['avatar' => 'https://pinkary.test/storage/avatars/ada.png'])]),
+    ]);
+
+    $test = Native::test(EditProfile::class)
+        ->call('onAvatarSelected', new MediaSelected(
+            success: true,
+            files: [['path' => $file->getPathname()]],
+            count: 1,
+        ))
+        ->assertSee('Profile photo updated.');
+
+    expect($test->get('avatar'))->toBe('https://pinkary.test/storage/avatars/ada.png');
+
+    Http::assertSent(function ($request): bool {
+        if ($request->method() !== 'POST' || ! str_ends_with($request->url(), '/api/v1/profile')) {
+            return false;
+        }
+
+        return str_contains($request->header('Content-Type')[0] ?? '', 'multipart/form-data')
+            && $request->hasFile('avatar');
+    });
+});
+
+it('rejects unsupported profile photo files before upload', function (): void {
+    $file = UploadedFile::fake()->create('avatar.gif', 1, 'image/gif');
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::response(['data' => editedProfilePayload()]),
+    ]);
+
+    $test = Native::test(EditProfile::class)
+        ->call('onAvatarSelected', new MediaSelected(
+            success: true,
+            files: [['path' => $file->getPathname()]],
+            count: 1,
+        ));
+
+    expect($test->get('avatarMessage'))->toBe('Choose a JPG or PNG photo up to 2 MB.');
+    Http::assertNotSent(fn ($request): bool => str_ends_with($request->url(), '/api/v1/profile') && $request->method() === 'POST');
 });
 
 it('warns that editing a link URL resets its clicks', function (): void {

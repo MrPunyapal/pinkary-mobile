@@ -336,6 +336,17 @@ final class PinkaryApi
         return $this->request()->withToken($token)->patch(self::PREFIX.'/profile', $attributes);
     }
 
+    /**
+     * @param  resource  $file
+     */
+    public function updateAvatar(string $token, mixed $file, string $filename): Response
+    {
+        return $this->multipartRequest()
+            ->withToken($token)
+            ->attach('avatar', $file, $filename)
+            ->post(self::PREFIX.'/profile', ['_method' => 'PATCH']);
+    }
+
     public function createLink(string $token, string $description, string $url): Response
     {
         return $this->request()->withToken($token)->post(self::PREFIX.'/links', [

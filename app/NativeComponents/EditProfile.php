@@ -12,8 +12,10 @@ use App\Support\CurrentUser;
 use App\Support\Payload;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
+use Native\Mobile\Camera;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Edge\Web\Contracts\HasWebHead;
+use Native\Mobile\Events\Gallery\MediaSelected;
 
 final class EditProfile extends NativeComponent implements HasWebHead
 {
@@ -40,6 +42,10 @@ final class EditProfile extends NativeComponent implements HasWebHead
     public string $email = '';
 
     public ?string $avatar = null;
+
+    public bool $avatarBusy = false;
+
+    public string $avatarMessage = '';
 
     public string $mailPreferenceTime = 'daily';
 
@@ -298,6 +304,95 @@ final class EditProfile extends NativeComponent implements HasWebHead
         }
 
         $this->linkMessage = 'Link shape saved.';
+    }
+
+    public function pickAvatar(): void
+    {
+        if ($this->avatarBusy || ! nativephp_can('Camera.PickMedia')) {
+            return;
+        }
+
+        Camera::pickImages('image', false, 1)
+            ->mediaSelected(function (MediaSelected $event): void {
+                $this->onAvatarSelected($event);
+            })
+            ->start();
+    }
+
+    public function onAvatarSelected(MediaSelected $event): void
+    {
+        if ($event->cancelled) {
+            return;
+        }
+
+        $file = $event->files[0] ?? null;
+        $path = is_array($file) ? ($file['path'] ?? null) : null;
+
+        if (! is_string($path) || $path === '' || ! is_readable($path)) {
+            $this->avatarMessage = $event->error ?? 'That photo could not be read from this device.';
+
+            return;
+        }
+
+        $size = filesize($path);
+        $image = @getimagesize($path);
+
+        if ($size === false || $size > 2_097_152 || $image === false || ! in_array($image['mime'] ?? null, ['image/jpeg', 'image/png'], true)) {
+            $this->avatarMessage = 'Choose a JPG or PNG photo up to 2 MB.';
+
+            return;
+        }
+
+        $token = $this->requireToken();
+
+        if ($token === null) {
+            return;
+        }
+
+        $handle = @fopen($path, 'rb');
+
+        if ($handle === false) {
+            $this->avatarMessage = 'That photo could not be read from this device.';
+
+            return;
+        }
+
+        $this->avatarBusy = true;
+        $this->avatarMessage = '';
+
+        try {
+            $api = app(PinkaryApi::class);
+            $response = $api->attempt(fn () => $api->updateAvatar($token, $handle, basename($path)));
+        } finally {
+            fclose($handle);
+            $this->avatarBusy = false;
+        }
+
+        if ($response === null) {
+            $this->avatarMessage = 'Your profile photo could not be uploaded. Please try again.';
+
+            return;
+        }
+
+        if ($this->handleUnauthorized($response)) {
+            return;
+        }
+
+        if (! $response->successful()) {
+            $this->avatarMessage = ApiErrors::first($response, 'Your profile photo could not be uploaded. Please try again.');
+
+            return;
+        }
+
+        /** @var array<string, mixed>|null $data */
+        $data = $response->json('data');
+
+        if (is_array($data)) {
+            CurrentUser::store($data);
+            $this->fillFromProfile($data);
+        }
+
+        $this->successMessage = 'Profile photo updated.';
     }
 
     public function saveLinkGradient(): void
