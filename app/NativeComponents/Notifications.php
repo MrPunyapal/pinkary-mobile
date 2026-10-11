@@ -248,13 +248,14 @@ final class Notifications extends NativeComponent implements HasWebHead
         $payload = FeedCache::get(FeedCache::notificationsKey($this->cacheUsername()));
 
         if ($payload !== null) {
-            $this->items = $payload['items'];
+            $this->items = app(PinkaryApi::class)->normalizeNotifications($payload['items']);
             $this->page = $payload['page'];
             $this->hasMore = $payload['hasMore'];
             $this->unreadCount = $payload['unreadCount'] ?? $this->unreadCount;
             UnreadCount::store($this->unreadCount);
             $this->loading = false;
             $this->refreshing = true;
+            $this->rememberNotifications();
 
             return;
         }
