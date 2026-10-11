@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\NativeComponents;
 
 use App\NativeComponents\Concerns\OpensProfiles;
+use App\NativeComponents\Concerns\ProvidesWebPreviewStyles;
 use App\NativeComponents\Concerns\TogglesPostReactions;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
@@ -13,10 +14,12 @@ use App\Support\FeedCache;
 use App\Support\Payload;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
+use Native\Mobile\Edge\Web\Contracts\HasWebHead;
 
-final class Bookmarks extends NativeComponent
+final class Bookmarks extends NativeComponent implements HasWebHead
 {
     use OpensProfiles;
+    use ProvidesWebPreviewStyles;
     use TogglesPostReactions;
     use UsesAppMenu;
 

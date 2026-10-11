@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\NativeComponents;
 
+use App\NativeComponents\Concerns\ProvidesWebPreviewStyles;
 use App\NativeComponents\Concerns\UsesCaptcha;
 use App\Services\PinkaryApi;
 use App\Services\TokenStorage;
@@ -15,10 +16,12 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 use Native\Mobile\Browser;
 use Native\Mobile\Edge\NativeComponent;
+use Native\Mobile\Edge\Web\Contracts\HasWebHead;
 use Native\Mobile\Platform;
 
-final class Register extends NativeComponent
+final class Register extends NativeComponent implements HasWebHead
 {
+    use ProvidesWebPreviewStyles;
     use UsesCaptcha;
 
     public string $name = '';

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\NativeComponents;
 
+use App\NativeComponents\Concerns\ProvidesWebPreviewStyles;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
 use App\Support\AccountStore;
@@ -12,9 +13,11 @@ use App\Support\Payload;
 use App\Support\UnreadCount;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
+use Native\Mobile\Edge\Web\Contracts\HasWebHead;
 
-final class Notifications extends NativeComponent
+final class Notifications extends NativeComponent implements HasWebHead
 {
+    use ProvidesWebPreviewStyles;
     use UsesAppMenu;
 
     /** @var list<array<string, mixed>> */

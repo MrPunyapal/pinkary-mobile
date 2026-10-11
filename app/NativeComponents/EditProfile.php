@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\NativeComponents;
 
+use App\NativeComponents\Concerns\ProvidesWebPreviewStyles;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
 use App\Support\ApiErrors;
@@ -12,9 +13,11 @@ use App\Support\Payload;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
+use Native\Mobile\Edge\Web\Contracts\HasWebHead;
 
-final class EditProfile extends NativeComponent
+final class EditProfile extends NativeComponent implements HasWebHead
 {
+    use ProvidesWebPreviewStyles;
     use UsesAppMenu;
 
     /**

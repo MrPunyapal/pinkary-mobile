@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\NativeComponents;
 
 use App\NativeComponents\Concerns\OpensProfiles;
+use App\NativeComponents\Concerns\ProvidesWebPreviewStyles;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
 use App\Support\AccountStore;
@@ -13,10 +14,12 @@ use App\Support\Payload;
 use Illuminate\Http\Client\Response;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
+use Native\Mobile\Edge\Web\Contracts\HasWebHead;
 
-final class FollowList extends NativeComponent
+final class FollowList extends NativeComponent implements HasWebHead
 {
     use OpensProfiles;
+    use ProvidesWebPreviewStyles;
     use UsesAppMenu;
 
     public string $username = '';

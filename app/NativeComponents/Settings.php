@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 namespace App\NativeComponents;
 
+use App\NativeComponents\Concerns\ProvidesWebPreviewStyles;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
 use App\Services\TokenStorage;
 use App\Support\CurrentUser;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
+use Native\Mobile\Edge\Web\Contracts\HasWebHead;
 
-final class Settings extends NativeComponent
+final class Settings extends NativeComponent implements HasWebHead
 {
+    use ProvidesWebPreviewStyles;
     use UsesAppMenu;
 
     /** @var array<string, mixed>|null */
