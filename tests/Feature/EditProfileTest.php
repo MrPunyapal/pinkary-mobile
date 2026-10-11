@@ -135,6 +135,31 @@ it('loads the question preference from the profile response', function (): void 
     expect($test->get('questionPreference'))->toBe('no_one');
 });
 
+it('reorders links and saves the new order through the API', function (): void {
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::response(['data' => editedProfilePayload([
+            'links' => [
+                ['id' => 7, 'description' => 'Website', 'url' => 'https://example.com'],
+                ['id' => 8, 'description' => 'Blog', 'url' => 'https://blog.example.com'],
+            ],
+        ])]),
+        'https://pinkary.test/api/v1/links/sort' => Http::response(['data' => ['sorted' => true]]),
+    ]);
+
+    $test = Native::test(EditProfile::class)
+        ->call('moveLinkDown', 7)
+        ->assertSee('Save order')
+        ->call('saveLinkOrder')
+        ->assertSee('Link order saved.');
+
+    expect(array_column($test->get('links'), 'id'))->toBe([8, 7])
+        ->and($test->get('linkOrderDirty'))->toBeFalse();
+
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/api/v1/links/sort')
+        && $request['sort'] === [8, 7]);
+});
+
 it('patches the link shape like the web link settings form', function (): void {
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::sequence()

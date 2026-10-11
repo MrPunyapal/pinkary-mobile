@@ -76,6 +76,8 @@ final class EditProfile extends NativeComponent implements HasWebHead
 
     public bool $linkBusy = false;
 
+    public bool $linkOrderDirty = false;
+
     public ?int $editingLinkId = null;
 
     public string $editDescription = '';
@@ -284,6 +286,67 @@ final class EditProfile extends NativeComponent implements HasWebHead
         }
 
         $this->linkMessage = 'Link shape saved.';
+    }
+
+    public function moveLinkUp(int $id): void
+    {
+        $this->moveLink($id, -1);
+    }
+
+    public function moveLinkDown(int $id): void
+    {
+        $this->moveLink($id, 1);
+    }
+
+    public function saveLinkOrder(): void
+    {
+        if ($this->linkBusy || ! $this->linkOrderDirty) {
+            return;
+        }
+
+        $token = $this->requireToken();
+
+        if ($token === null) {
+            return;
+        }
+
+        $ids = array_values(array_map(
+            static fn (array $link): int => Payload::int(data_get($link, 'id')),
+            $this->links,
+        ));
+
+        if (count(array_filter($ids, static fn (int $id): bool => $id > 0)) !== count($this->links)) {
+            $this->linkMessage = 'The link order could not be saved. Please reload your profile and try again.';
+
+            return;
+        }
+
+        $this->linkBusy = true;
+        $this->linkMessage = '';
+
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->sortLinks($token, $ids));
+
+        $this->linkBusy = false;
+
+        if ($response === null) {
+            $this->linkMessage = 'The link order could not be saved. Please try again.';
+
+            return;
+        }
+
+        if ($this->handleUnauthorized($response)) {
+            return;
+        }
+
+        if (! $response->successful()) {
+            $this->linkMessage = ApiErrors::first($response, 'The link order could not be saved. Please try again.');
+
+            return;
+        }
+
+        $this->linkOrderDirty = false;
+        $this->linkMessage = 'Link order saved.';
     }
 
     public function addLink(): void
@@ -593,6 +656,7 @@ final class EditProfile extends NativeComponent implements HasWebHead
             is_array(...)
         ));
         $this->links = $links;
+        $this->linkOrderDirty = false;
     }
 
     /**
@@ -642,6 +706,41 @@ final class EditProfile extends NativeComponent implements HasWebHead
         }
 
         return (bool) filter_var($url, FILTER_VALIDATE_URL);
+    }
+
+    private function moveLink(int $id, int $offset): void
+    {
+        if ($this->linkBusy || $this->editingLinkId !== null) {
+            return;
+        }
+
+        $sourceIndex = null;
+
+        foreach ($this->links as $index => $link) {
+            if (Payload::int(data_get($link, 'id')) === $id) {
+                $sourceIndex = $index;
+
+                break;
+            }
+        }
+
+        if (! is_int($sourceIndex)) {
+            return;
+        }
+
+        $targetIndex = $sourceIndex + $offset;
+
+        if (! array_key_exists($targetIndex, $this->links)) {
+            return;
+        }
+
+        $links = $this->links;
+        $moving = $links[$sourceIndex];
+        array_splice($links, $sourceIndex, 1);
+        array_splice($links, $targetIndex, 0, [$moving]);
+        $this->links = $links;
+        $this->linkOrderDirty = true;
+        $this->linkMessage = '';
     }
 
     private function bareUrl(string $url): string

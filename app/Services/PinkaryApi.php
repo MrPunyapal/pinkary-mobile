@@ -364,6 +364,14 @@ final class PinkaryApi
         ]);
     }
 
+    /** @param list<int> $ids */
+    public function sortLinks(string $token, array $ids): Response
+    {
+        return $this->request()->withToken($token)->post(self::PREFIX.'/links/sort', [
+            'sort' => $ids,
+        ]);
+    }
+
     public function followers(?string $token, string $username, int $page = 1): Response
     {
         return $this->authed($token)->get(self::PREFIX."/users/{$username}/followers", [

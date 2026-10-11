@@ -114,6 +114,16 @@
                         <native:text class="text-theme-on-surface-variant text-sm">{{ $linkMessage }}</native:text>
                     @endif
 
+                    @if ($linkOrderDirty)
+                        <native:pressable
+                            class="self-start px-4 py-2 rounded-full bg-theme-primary {{ $linkBusy ? 'opacity-40' : '' }}"
+                            @tap="saveLinkOrder"
+                            a11y-label="Save link order"
+                        >
+                            <native:text class="text-sm font-medium text-white">Save order</native:text>
+                        </native:pressable>
+                    @endif
+
                     @if (count($links) === 0)
                         <native:text class="text-theme-on-surface-variant text-sm">No links yet. Add your first one below.</native:text>
                     @else
@@ -165,6 +175,28 @@
                                             <native:text class="text-xs font-medium {{ ($confirmingDeleteId ?? null) === $linkId ? 'text-white' : 'text-theme-destructive' }}">{{ ($confirmingDeleteId ?? null) === $linkId ? 'Tap again to confirm' : 'Delete' }}</native:text>
                                         </native:pressable>
                                     </native:row>
+                                    @if (count($links) > 1)
+                                        <native:row class="w-full items-center gap-3">
+                                            @if (! $loop->first)
+                                                <native:pressable
+                                                    class="py-1"
+                                                    @tap="moveLinkUp({{ $linkId }})"
+                                                    a11y-label="Move {{ data_get($link, 'description', 'link') }} up"
+                                                >
+                                                    <native:text class="text-theme-primary text-xs font-medium">Move up</native:text>
+                                                </native:pressable>
+                                            @endif
+                                            @if (! $loop->last)
+                                                <native:pressable
+                                                    class="py-1"
+                                                    @tap="moveLinkDown({{ $linkId }})"
+                                                    a11y-label="Move {{ data_get($link, 'description', 'link') }} down"
+                                                >
+                                                    <native:text class="text-theme-primary text-xs font-medium">Move down</native:text>
+                                                </native:pressable>
+                                            @endif
+                                        </native:row>
+                                    @endif
                                 @endif
                             </native:column>
                         @endforeach
