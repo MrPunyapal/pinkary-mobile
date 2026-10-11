@@ -12,10 +12,10 @@ use App\Support\CurrentUser;
 use App\Support\Payload;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
-use Native\Mobile\Camera;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Edge\Web\Contracts\HasWebHead;
 use Native\Mobile\Events\Gallery\MediaSelected;
+use Native\Mobile\Facades\Camera;
 
 final class EditProfile extends NativeComponent implements HasWebHead
 {
@@ -337,7 +337,7 @@ final class EditProfile extends NativeComponent implements HasWebHead
         $size = filesize($path);
         $image = @getimagesize($path);
 
-        if ($size === false || $size > 2_097_152 || $image === false || ! in_array($image['mime'] ?? null, ['image/jpeg', 'image/png'], true)) {
+        if ($size === false || $size > 2_097_152 || $image === false || ! in_array($image['mime'], ['image/jpeg', 'image/png'], true)) {
             $this->avatarMessage = 'Choose a JPG or PNG photo up to 2 MB.';
 
             return;
@@ -466,10 +466,10 @@ final class EditProfile extends NativeComponent implements HasWebHead
             return;
         }
 
-        $ids = array_values(array_map(
+        $ids = array_map(
             static fn (array $link): int => Payload::int(data_get($link, 'id')),
             $this->links,
-        ));
+        );
 
         if (count(array_filter($ids, static fn (int $id): bool => $id > 0)) !== count($this->links)) {
             $this->linkMessage = 'The link order could not be saved. Please reload your profile and try again.';

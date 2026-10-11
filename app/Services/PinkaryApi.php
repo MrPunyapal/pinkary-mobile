@@ -102,11 +102,17 @@ final class PinkaryApi
                 continue;
             }
 
-            if (($item['snippet'] ?? null) === self::UPDATE_MARKER) {
-                $item['snippet'] = null;
+            $normalizedItem = [];
+
+            foreach ($item as $key => $value) {
+                $normalizedItem[(string) $key] = $value;
             }
 
-            $normalized[] = $item;
+            if (($normalizedItem['snippet'] ?? null) === self::UPDATE_MARKER) {
+                $normalizedItem['snippet'] = null;
+            }
+
+            $normalized[] = $normalizedItem;
         }
 
         return $normalized;
