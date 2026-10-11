@@ -106,12 +106,12 @@ final class PinkaryApi
         ]);
     }
 
-    public function twoFactorChallenge(string $challenge, string $code): Response
+    public function twoFactorChallenge(string $challenge, string $code, bool $useRecoveryCode = false): Response
     {
-        return $this->request()->post(self::PREFIX.'/auth/login/two-factor-challenge', [
-            'challenge' => $challenge,
-            'code' => $code,
-        ]);
+        $payload = ['challenge' => $challenge];
+        $payload[$useRecoveryCode ? 'recovery_code' : 'code'] = $code;
+
+        return $this->request()->post(self::PREFIX.'/auth/login/two-factor-challenge', $payload);
     }
 
     /**

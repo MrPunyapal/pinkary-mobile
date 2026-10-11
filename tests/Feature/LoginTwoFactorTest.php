@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\NativeComponents\Login;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\Native;
 
@@ -102,6 +103,52 @@ it('sends the challenge and the code together', function (): void {
         return $request['challenge'] === 'a-challenge'
             && $request['code'] === '123456';
     });
+});
+
+it('sends a recovery code under the recovery_code field', function (): void {
+    Http::fake([
+        'https://pinkary.test/api/v1/auth/login' => Http::response([
+            'code' => 'two_factor_required',
+            'challenge' => 'a-challenge',
+        ], 422),
+        'https://pinkary.test/api/v1/auth/login/two-factor-challenge' => Http::response([
+            'message' => 'The recovery code is invalid.',
+        ], 422),
+    ]);
+
+    $test = Native::test(Login::class)
+        ->set('email', 'pinkary@example.com')
+        ->set('password', 'password')
+        ->call('authenticate')
+        ->call('toggleTwoFactorMethod')
+        ->assertSee('Enter one of your recovery codes.')
+        ->set('twoFactorCode', 'abcd-efgh')
+        ->call('submitTwoFactor')
+        ->assertSee('The recovery code is invalid.');
+
+    expect($test->get('usingRecoveryCode'))->toBeTrue();
+
+    Http::assertSent(function ($request): bool {
+        if (! str_ends_with($request->url(), '/api/v1/auth/login/two-factor-challenge')) {
+            return false;
+        }
+
+        return $request['challenge'] === 'a-challenge'
+            && $request['recovery_code'] === 'abcd-efgh'
+            && ! array_key_exists('code', $request->data());
+    });
+});
+
+it('shows a connection error when login cannot reach the API', function (): void {
+    Http::fake(fn () => throw new ConnectionException('Connection failed.'));
+
+    $test = Native::test(Login::class)
+        ->set('email', 'pinkary@example.com')
+        ->set('password', 'password')
+        ->call('authenticate');
+
+    expect($test->get('busy'))->toBeFalse()
+        ->and($test->get('errorMessage'))->toContain('could not connect');
 });
 
 it('goes back to the password form when the challenge is abandoned', function (): void {
