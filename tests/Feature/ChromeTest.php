@@ -296,7 +296,8 @@ it('labels the edit row as the web menu item does', function (): void {
 
     expect($source)
         ->toContain('>Edit</native:text>')
-        ->toContain('>Edit answer</native:text>')
+        ->toContain('Answer question')
+        ->toContain('Edit answer')
         ->toContain('a11y-label="Edit answer"');
 });
 
