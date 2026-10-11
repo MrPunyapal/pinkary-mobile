@@ -33,15 +33,25 @@
 
             <native:column class="w-full gap-5">
                 @if ($needsTwoFactor)
-                    <native:text class="text-theme-on-surface text-sm">Enter the 6-digit code from your authenticator app, or one of your recovery codes.</native:text>
+                    <native:text class="text-theme-on-surface text-sm">
+                        {{ $usingRecoveryCode ? 'Enter one of your recovery codes.' : 'Enter the 6-digit code from your authenticator app.' }}
+                    </native:text>
 
                     <native:outlined-text-input
-                        label="Code"
-                        keyboard="numeric"
+                        :label="$usingRecoveryCode ? 'Recovery code' : 'Code'"
+                        :keyboard="$usingRecoveryCode ? 'text' : 'numeric'"
                         native:model="twoFactorCode"
                         :supporting="$errorMessage"
                         :error="$errorMessage !== ''"
                     />
+
+                    <native:pressable
+                        class="self-end py-1"
+                        @tap="toggleTwoFactorMethod"
+                        a11y-label="{{ $usingRecoveryCode ? 'Use an authenticator code' : 'Use a recovery code' }}"
+                    >
+                        <native:text class="text-theme-accent text-sm font-medium">{{ $usingRecoveryCode ? 'Use an authenticator code' : 'Use a recovery code' }}</native:text>
+                    </native:pressable>
 
                     <native:pressable class="self-end py-1" @tap="cancelTwoFactor" a11y-label="Use a different account">
                         <native:text class="text-theme-accent text-sm font-medium">Use a different account</native:text>

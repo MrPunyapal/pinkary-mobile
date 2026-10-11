@@ -108,8 +108,9 @@ final class Profile extends NativeComponent implements HasWebHead
     public function askUser(): void
     {
         $username = Payload::string(data_get($this->profile, 'username', ''));
+        $canAskQuestion = data_get($this->profile, 'can_ask_question');
 
-        if ($username === '' || (bool) data_get($this->profile, 'is_me', false)) {
+        if ($username === '' || (bool) data_get($this->profile, 'is_me', false) || $canAskQuestion === false) {
             return;
         }
 
@@ -139,14 +140,19 @@ final class Profile extends NativeComponent implements HasWebHead
         $this->openExternalLink($url);
     }
 
-    public function toggleShowMore(string $id): void
+    public function showMore(string $id): void
     {
-        $this->toggleExpandedId($id);
+        $this->expandPost($id);
     }
 
     public function toggleLike(string $id): void
     {
         $this->reactOnPostPayload($this->questions, $id, 'like', $this->token());
+    }
+
+    public function toggleRepost(string $id): void
+    {
+        $this->reactOnPostPayload($this->questions, $id, 'repost', $this->token());
     }
 
     public function toggleBookmark(string $id): void
@@ -162,6 +168,7 @@ final class Profile extends NativeComponent implements HasWebHead
             return;
         }
 
+        $this->closeMenu();
         $this->translateHtml(Payload::string(data_get($post, $field)));
     }
 

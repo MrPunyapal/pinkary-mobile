@@ -194,8 +194,7 @@ final class Notifications extends NativeComponent implements HasWebHead
             return;
         }
 
-        /** @var list<array<string, mixed>> $next */
-        $next = $response->json('data', []);
+        $next = $api->normalizeNotifications($response->json('data', []));
         $this->items = [...$this->items, ...$next];
         $this->page++;
         $this->hasMore = $response->json('links.next') !== null;
@@ -233,9 +232,7 @@ final class Notifications extends NativeComponent implements HasWebHead
             return;
         }
 
-        /** @var list<array<string, mixed>> $items */
-        $items = $response->json('data', []);
-        $this->items = $items;
+        $this->items = $api->normalizeNotifications($response->json('data', []));
         $this->unreadCount = Payload::int($response->json('meta.unread_count'));
         UnreadCount::store($this->unreadCount);
         $this->page = 1;
@@ -251,13 +248,14 @@ final class Notifications extends NativeComponent implements HasWebHead
         $payload = FeedCache::get(FeedCache::notificationsKey($this->cacheUsername()));
 
         if ($payload !== null) {
-            $this->items = $payload['items'];
+            $this->items = app(PinkaryApi::class)->normalizeNotifications($payload['items']);
             $this->page = $payload['page'];
             $this->hasMore = $payload['hasMore'];
             $this->unreadCount = $payload['unreadCount'] ?? $this->unreadCount;
             UnreadCount::store($this->unreadCount);
             $this->loading = false;
             $this->refreshing = true;
+            $this->rememberNotifications();
 
             return;
         }

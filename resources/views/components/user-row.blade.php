@@ -8,7 +8,9 @@
 
     $isMe = (bool) data_get($user, 'is_me', false);
     $following = (bool) data_get($user, 'followed_by_me', false);
+    $followsMe = (bool) data_get($user, 'follows_me', false);
     $followBusy = (bool) data_get($user, '_busy', false);
+    $followLabel = $following ? 'Unfollow' : ($followsMe ? 'Follow Back' : 'Follow');
 @endphp
 
 <native:row class="bg-theme-background border-theme-outline-variant w-full items-center border-b">
@@ -46,9 +48,9 @@
         <native:pressable
             class="shrink-0 mr-4 px-3 py-1.5 rounded-full {{ $following ? 'border border-theme-outline-variant' : 'bg-theme-primary' }} {{ $followBusy ? 'opacity-40' : '' }}"
             @tap="toggleFollow('{{ $username }}')"
-            a11y-label="{{ $following ? 'Unfollow' : 'Follow' }}"
+            a11y-label="{{ $followLabel }}"
         >
-            <native:text class="text-xs font-medium {{ $following ? 'text-theme-on-surface-variant' : 'text-white' }}">{{ $following ? 'Unfollow' : 'Follow' }}</native:text>
+            <native:text class="text-xs font-medium {{ $following ? 'text-theme-on-surface-variant' : 'text-white' }}">{{ $followLabel }}</native:text>
         </native:pressable>
     @endunless
 </native:row>

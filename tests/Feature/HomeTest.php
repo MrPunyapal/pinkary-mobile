@@ -45,6 +45,8 @@ it('reverts optimistic likes when the api is unreachable', function (): void {
 
     $test = Native::test(Home::class)->call('toggleLike', 'q1');
 
+    $test->assertSee('Your like could not be updated. Please try again.');
+
     expect(data_get($test->get('posts'), '0.metrics.liked'))->toBeFalse()
         ->and(data_get($test->get('posts'), '0.metrics.likes'))->toBe(0);
 });
@@ -96,6 +98,31 @@ it('shows the recent feed to guests without redirecting to login', function (): 
         ->call('retry')
         ->assertSee('Public recent post.')
         ->assertDontSee('Log in');
+});
+
+it('opens the saved default feed tab', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', [
+        'username' => 'ada',
+        'avatar' => 'https://example.com/ada.png',
+        'default_feed' => 'trending',
+        'prefers_anonymous_questions' => false,
+    ]);
+    CurrentUser::store([
+        'username' => 'ada',
+        'avatar' => 'https://example.com/ada.png',
+        'default_feed' => 'trending',
+        'prefers_anonymous_questions' => false,
+    ]);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => []]),
+    ]);
+
+    Native::test(Home::class)
+        ->assertSet('tab', 'trending')
+        ->assertSet('selectedTab', 2);
+
+    Http::assertSent(fn ($request): bool => str_contains($request->url(), 'tab=trending'));
 });
 
 it('renders the Pinkary feed from the API', function (): void {
@@ -530,6 +557,63 @@ it('likes a post through the action row', function (): void {
         && str_ends_with($request->url(), '/api/v1/questions/q1/like'));
 });
 
+it('reposts and unreposts a post through the action row', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
+            'id' => 'q1',
+            'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+            'to' => ['name' => 'Pinkary'],
+            'content' => 'Repost this?',
+            'answer' => 'Repostable answer.',
+            'metrics' => ['likes' => 0, 'comments' => 0, 'reposts' => 0],
+            'views' => 10,
+        ]]]),
+        'https://pinkary.test/api/v1/questions/q1/repost' => Http::sequence()
+            ->push(['data' => ['reposted' => true, 'reposts' => 1]])
+            ->push(['data' => ['reposted' => false, 'reposts' => 0]]),
+    ]);
+
+    $test = Native::test(Home::class)
+        ->assertSee('Repost this post')
+        ->press("toggleRepost('q1')")
+        ->assertSee('Undo repost');
+
+    expect($test->get('posts')[0]['metrics'])->toMatchArray(['reposted' => true, 'reposts' => 1]);
+
+    $test->press("toggleRepost('q1')");
+
+    expect($test->get('posts')[0]['metrics'])->toMatchArray(['reposted' => false, 'reposts' => 0]);
+
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/api/v1/questions/q1/repost'));
+    Http::assertSent(fn ($request): bool => $request->method() === 'DELETE'
+        && str_ends_with($request->url(), '/api/v1/questions/q1/repost'));
+});
+
+it('invalidates cached post lists after a successful repost without refreshing the open feed', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    $cachedPayload = ['items' => [homeFeedPost('q1', 'Cached post.')], 'page' => 1, 'hasMore' => true];
+    FeedCache::put(FeedCache::feedKey('ada', 'following'), $cachedPayload);
+    FeedCache::put(FeedCache::feedKey('ada', 'trending'), $cachedPayload);
+    FeedCache::put(FeedCache::bookmarksKey('ada'), $cachedPayload);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [homeFeedPost('q1', 'Cached post.')]]),
+        'https://pinkary.test/api/v1/questions/q1/repost' => Http::response(['data' => ['reposted' => true, 'reposts' => 1]]),
+    ]);
+
+    $test = Native::test(Home::class)
+        ->press("toggleRepost('q1')");
+
+    expect(data_get($test->get('posts'), '0.metrics.reposted'))->toBeTrue()
+        ->and(FeedCache::get(FeedCache::feedKey('ada', 'recent')))->toBeNull()
+        ->and(FeedCache::get(FeedCache::feedKey('ada', 'following')))->toBeNull()
+        ->and(FeedCache::get(FeedCache::feedKey('ada', 'trending')))->toBeNull()
+        ->and(FeedCache::get(FeedCache::bookmarksKey('ada')))->toBeNull();
+});
+
 it('opens the detail screen from the comments row', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
@@ -630,22 +714,22 @@ it('toggles bookmarks through the action row', function (): void {
             'to' => ['name' => 'Pinkary'],
             'content' => 'Save this?',
             'answer' => 'Bookmarkable answer.',
-            'metrics' => ['likes' => 0, 'comments' => 0],
+            'metrics' => ['likes' => 0, 'comments' => 0, 'bookmarks' => 4],
             'views' => 0,
         ]]]),
         'https://pinkary.test/api/v1/questions/q1/bookmark' => Http::sequence()
-            ->push(['data' => ['bookmarked' => true, 'bookmarks' => 1]])
-            ->push(['data' => ['bookmarked' => false, 'bookmarks' => 0]]),
+            ->push(['data' => ['bookmarked' => true, 'bookmarks' => 5]])
+            ->push(['data' => ['bookmarked' => false, 'bookmarks' => 4]]),
     ]);
 
     $test = Native::test(Home::class)
         ->press("toggleBookmark('q1')");
 
-    expect($test->get('posts')[0]['metrics']['bookmarked'])->toBeTrue();
+    expect($test->get('posts')[0]['metrics'])->toMatchArray(['bookmarked' => true, 'bookmarks' => 5]);
 
     $test->press("toggleBookmark('q1')");
 
-    expect($test->get('posts')[0]['metrics']['bookmarked'])->toBeFalse();
+    expect($test->get('posts')[0]['metrics'])->toMatchArray(['bookmarked' => false, 'bookmarks' => 4]);
 
     Http::assertSentCount(3);
 });
@@ -754,14 +838,52 @@ it('reverts the bookmark when the server rejects it', function (): void {
             'metrics' => ['likes' => 0, 'comments' => 0],
             'views' => 0,
         ]]]),
-        'https://pinkary.test/api/v1/questions/q1/bookmark' => Http::response(null, 500),
+        'https://pinkary.test/api/v1/questions/q1/bookmark' => Http::response(['message' => 'Reaction failed.'], 500),
     ]);
 
     $test = Native::test(Home::class)
         ->press("toggleBookmark('q1')");
 
-    expect($test->get('posts')[0]['metrics']['bookmarked'])->toBeFalse();
+    $test->assertSee('Reaction failed.');
+
+    expect($test->get('posts')[0]['metrics'])->toMatchArray(['bookmarked' => false, 'bookmarks' => 0]);
 });
+
+it('shows the api error when a like or repost is rejected', function (string $action, string $likedMetric, string $countMetric): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
+            'id' => 'q1',
+            'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+            'to' => ['name' => 'Pinkary'],
+            'content' => 'React to this?',
+            'answer' => 'The reaction should roll back.',
+            'metrics' => [
+                'likes' => 2,
+                'liked' => false,
+                'reposts' => 3,
+                'reposted' => false,
+                'bookmarks' => 4,
+                'bookmarked' => false,
+            ],
+            'views' => 0,
+        ]]]),
+        'https://pinkary.test/api/v1/questions/q1/*' => Http::response(['message' => 'Reaction failed.'], 500),
+    ]);
+
+    $test = Native::test(Home::class)->call($action, 'q1');
+
+    $test->assertSee('Reaction failed.');
+
+    expect($test->get('posts')[0]['metrics'])->toMatchArray([
+        $likedMetric => false,
+        $countMetric => $likedMetric === 'liked' ? 2 : 3,
+    ]);
+})->with([
+    'like' => ['toggleLike', 'liked', 'likes'],
+    'repost' => ['toggleRepost', 'reposted', 'reposts'],
+]);
 
 it('resets the list when switching tabs so the change is always visible', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
@@ -845,7 +967,7 @@ it('toggles likes on nested thread ancestors like the web', function (): void {
     expect($test->get('posts')[0]['thread']['posts'][0]['metrics'])->toMatchArray(['liked' => true, 'likes' => 1]);
 });
 
-it('clamps long answers with Show more and Show less like the web', function (): void {
+it('expands long answers with a one-way View more control', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     $long = mb_rtrim(str_repeat('Long answer sentence. ', 60));
@@ -861,13 +983,17 @@ it('clamps long answers with Show more and Show less like the web', function ():
     ]);
 
     Native::test(Home::class)
-        ->assertSee('Show more')
+        ->assertSee('View more')
+        ->assertDontSee('Show more')
+        ->assertDontSee('Show less')
         ->assertDontSee($long)
-        ->call('toggleShowMore', 'q9')
-        ->assertSee('Show less')
+        ->call('showMore', 'q9')
         ->assertSee($long)
-        ->call('toggleShowMore', 'q9')
-        ->assertSee('Show more');
+        ->assertDontSee('View more')
+        ->assertDontSee('Show less')
+        ->call('showMore', 'q9')
+        ->assertSee($long)
+        ->assertDontSee('View more');
 });
 
 it('opens post images fullscreen through the in-app browser link handler', function (): void {

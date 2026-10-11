@@ -75,6 +75,7 @@ final class Home extends NativeComponent implements HasWebHead
     {
         $token = $this->token();
         $this->refreshCurrentUser($token);
+        $this->selectDefaultFeed();
         $this->loadFeed($token);
         $this->refreshUnreadBadge($token);
     }
@@ -94,9 +95,9 @@ final class Home extends NativeComponent implements HasWebHead
         $this->switchTab(2);
     }
 
-    public function toggleShowMore(string $id): void
+    public function showMore(string $id): void
     {
-        $this->toggleExpandedId($id);
+        $this->expandPost($id);
     }
 
     public function retry(): void
@@ -148,6 +149,7 @@ final class Home extends NativeComponent implements HasWebHead
             return;
         }
 
+        $this->closeMenu();
         $this->translateHtml(Payload::string(data_get($post, $field)));
     }
 
@@ -167,6 +169,11 @@ final class Home extends NativeComponent implements HasWebHead
     public function toggleLike(string $id): void
     {
         $this->reactOnPostPayload($this->posts, $id, 'like', $this->token());
+    }
+
+    public function toggleRepost(string $id): void
+    {
+        $this->reactOnPostPayload($this->posts, $id, 'repost', $this->token());
     }
 
     public function toggleBookmark(string $id): void
@@ -394,7 +401,12 @@ final class Home extends NativeComponent implements HasWebHead
             return;
         }
 
-        if ($this->currentUser === null || empty($this->currentUser['avatar'])) {
+        $needsProfile = $this->currentUser === null
+            || empty($this->currentUser['avatar'])
+            || ! in_array(data_get($this->currentUser, 'default_feed'), self::TABS, true)
+            || ! is_bool(data_get($this->currentUser, 'prefers_anonymous_questions'));
+
+        if ($needsProfile) {
             if (app()->runningUnitTests()) {
                 return;
             }
@@ -407,5 +419,18 @@ final class Home extends NativeComponent implements HasWebHead
                 $this->currentUser = CurrentUser::get();
             }
         }
+    }
+
+    private function selectDefaultFeed(): void
+    {
+        $defaultFeed = data_get($this->currentUser, 'default_feed');
+
+        if (! is_string($defaultFeed) || ! in_array($defaultFeed, self::TABS, true)) {
+            return;
+        }
+
+        $this->tab = $defaultFeed;
+        $selectedTab = array_search($defaultFeed, self::TABS, true);
+        $this->selectedTab = is_int($selectedTab) ? $selectedTab : 0;
     }
 }

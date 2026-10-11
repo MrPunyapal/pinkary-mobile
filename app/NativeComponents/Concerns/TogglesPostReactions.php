@@ -10,6 +10,7 @@ use App\Support\AccountStore;
 use App\Support\ApiErrors;
 use App\Support\CurrentUser;
 use App\Support\DisplayText;
+use App\Support\FeedCache;
 use App\Support\Payload;
 use App\Support\PostViews;
 use Illuminate\Support\Carbon;
@@ -47,7 +48,7 @@ trait TogglesPostReactions
     /** @var array<string, true> postId:action entries hidden after a 403. */
     public array $menuDenied = [];
 
-    /** @var array<string, true> In-flight like/bookmark/vote locks per post+action. */
+    /** @var array<string, true> In-flight reaction locks per post+action. */
     private array $reactionLocks = [];
 
     public function recordPostView(string $id): void
@@ -796,6 +797,7 @@ trait TogglesPostReactions
             $liked = (bool) data_get($post, 'metrics.liked', false);
             $count = Payload::int(data_get($post, 'metrics.likes'));
 
+            $this->setReactionError($post, '');
             $this->setPostMetric($post, 'liked', ! $liked);
             $this->setPostMetric($post, 'likes', max(0, $count + ($liked ? -1 : 1)));
 
@@ -807,13 +809,14 @@ trait TogglesPostReactions
             if ($response === null) {
                 $this->setPostMetric($post, 'liked', $liked);
                 $this->setPostMetric($post, 'likes', $count);
+                $this->setReactionError($post, 'Your like could not be updated. Please try again.');
 
                 return;
             }
 
-            if ($response->unauthorized()) {
-                app(TokenStorage::class)->clear();
-                $this->replace($this->route('mobile.login'));
+            if ($this->handleUnauthorized($response)) {
+                $this->setPostMetric($post, 'liked', $liked);
+                $this->setPostMetric($post, 'likes', $count);
 
                 return;
             }
@@ -821,10 +824,12 @@ trait TogglesPostReactions
             if (! $response->successful()) {
                 $this->setPostMetric($post, 'liked', $liked);
                 $this->setPostMetric($post, 'likes', $count);
+                $this->setReactionError($post, ApiErrors::first($response, 'Your like could not be updated. Please try again.'));
 
                 return;
             }
 
+            $this->setReactionError($post, '');
             $this->setPostMetric($post, 'liked', (bool) $response->json('data.liked', ! $liked));
 
             $likes = $response->json('data.likes');
@@ -832,8 +837,76 @@ trait TogglesPostReactions
             if (is_int($likes)) {
                 $this->setPostMetric($post, 'likes', $likes);
             }
+
+            $this->forgetPostListCaches();
         } finally {
             $this->releaseReactionLock('like:'.$id);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $post
+     */
+    private function reactRepost(array &$post, string $id, ?string $token): void
+    {
+        if ($token === null) {
+            $this->navigate($this->route('mobile.login'));
+
+            return;
+        }
+
+        if (! $this->acquireReactionLock('repost:'.$id)) {
+            return;
+        }
+
+        try {
+            $reposted = (bool) data_get($post, 'metrics.reposted', false);
+            $count = Payload::int(data_get($post, 'metrics.reposts'));
+
+            $this->setReactionError($post, '');
+            $this->setPostMetric($post, 'reposted', ! $reposted);
+            $this->setPostMetric($post, 'reposts', max(0, $count + ($reposted ? -1 : 1)));
+
+            $api = app(PinkaryApi::class);
+            $response = $reposted
+                ? $api->attempt(fn () => $api->unrepost($token, $id))
+                : $api->attempt(fn () => $api->repost($token, $id));
+
+            if ($response === null) {
+                $this->setPostMetric($post, 'reposted', $reposted);
+                $this->setPostMetric($post, 'reposts', $count);
+                $this->setReactionError($post, 'Your repost could not be updated. Please try again.');
+
+                return;
+            }
+
+            if ($this->handleUnauthorized($response)) {
+                $this->setPostMetric($post, 'reposted', $reposted);
+                $this->setPostMetric($post, 'reposts', $count);
+
+                return;
+            }
+
+            if (! $response->successful()) {
+                $this->setPostMetric($post, 'reposted', $reposted);
+                $this->setPostMetric($post, 'reposts', $count);
+                $this->setReactionError($post, ApiErrors::first($response, 'Your repost could not be updated. Please try again.'));
+
+                return;
+            }
+
+            $this->setReactionError($post, '');
+            $this->setPostMetric($post, 'reposted', (bool) $response->json('data.reposted', ! $reposted));
+
+            $reposts = $response->json('data.reposts');
+
+            if (is_int($reposts)) {
+                $this->setPostMetric($post, 'reposts', $reposts);
+            }
+
+            $this->forgetPostListCaches();
+        } finally {
+            $this->releaseReactionLock('repost:'.$id);
         }
     }
 
@@ -854,8 +927,11 @@ trait TogglesPostReactions
 
         try {
             $bookmarked = (bool) data_get($post, 'metrics.bookmarked', false);
+            $count = Payload::int(data_get($post, 'metrics.bookmarks'));
 
+            $this->setReactionError($post, '');
             $this->setPostMetric($post, 'bookmarked', ! $bookmarked);
+            $this->setPostMetric($post, 'bookmarks', max(0, $count + ($bookmarked ? -1 : 1)));
 
             $api = app(PinkaryApi::class);
             $response = $bookmarked
@@ -864,24 +940,37 @@ trait TogglesPostReactions
 
             if ($response === null) {
                 $this->setPostMetric($post, 'bookmarked', $bookmarked);
+                $this->setPostMetric($post, 'bookmarks', $count);
+                $this->setReactionError($post, 'Your bookmark could not be updated. Please try again.');
 
                 return;
             }
 
-            if ($response->unauthorized()) {
-                app(TokenStorage::class)->clear();
-                $this->replace($this->route('mobile.login'));
+            if ($this->handleUnauthorized($response)) {
+                $this->setPostMetric($post, 'bookmarked', $bookmarked);
+                $this->setPostMetric($post, 'bookmarks', $count);
 
                 return;
             }
 
             if (! $response->successful()) {
                 $this->setPostMetric($post, 'bookmarked', $bookmarked);
+                $this->setPostMetric($post, 'bookmarks', $count);
+                $this->setReactionError($post, ApiErrors::first($response, 'Your bookmark could not be updated. Please try again.'));
 
                 return;
             }
 
+            $this->setReactionError($post, '');
             $this->setPostMetric($post, 'bookmarked', (bool) $response->json('data.bookmarked', ! $bookmarked));
+
+            $bookmarks = $response->json('data.bookmarks');
+
+            if (is_int($bookmarks)) {
+                $this->setPostMetric($post, 'bookmarks', $bookmarks);
+            }
+
+            $this->forgetPostListCaches();
         } finally {
             $this->releaseReactionLock('bookmark:'.$id);
         }
@@ -926,6 +1015,8 @@ trait TogglesPostReactions
             if ($poll !== []) {
                 $post['poll'] = $poll;
             }
+
+            $this->forgetPostListCaches();
         } finally {
             $this->releaseReactionLock('vote:'.$id);
         }
@@ -941,6 +1032,29 @@ trait TogglesPostReactions
         $metrics = is_array($metrics) ? $metrics : [];
         $metrics[$metric] = $value;
         $post['metrics'] = $metrics;
+    }
+
+    /**
+     * @param  array<string, mixed>  $post
+     */
+    private function setReactionError(array &$post, string $message): void
+    {
+        $post['reaction_error'] = $message;
+    }
+
+    private function forgetPostListCaches(): void
+    {
+        $username = data_get(AccountStore::active(), 'username');
+
+        if (! is_string($username) || $username === '') {
+            return;
+        }
+
+        foreach (['recent', 'following', 'trending'] as $tab) {
+            FeedCache::forget(FeedCache::feedKey($username, $tab));
+        }
+
+        FeedCache::forget(FeedCache::bookmarksKey($username));
     }
 
     /**
@@ -1003,6 +1117,8 @@ trait TogglesPostReactions
 
         if ($kind === 'like') {
             $this->reactLike($post, $id, $token);
+        } elseif ($kind === 'repost') {
+            $this->reactRepost($post, $id, $token);
         } elseif ($kind === 'bookmark') {
             $this->reactBookmark($post, $id, $token);
         } else {
@@ -1039,7 +1155,7 @@ trait TogglesPostReactions
         return true;
     }
 
-    private function toggleExpandedId(string $id): void
+    private function expandPost(string $id): void
     {
         if ($id === '') {
             return;
@@ -1047,9 +1163,9 @@ trait TogglesPostReactions
 
         $expanded = array_values(array_filter(Payload::array($this->expanded), is_string(...)));
 
-        $this->expanded = in_array($id, $expanded, true)
-            ? array_values(array_diff($expanded, [$id]))
-            : [...$expanded, $id];
+        if (! in_array($id, $expanded, true)) {
+            $this->expanded = [...$expanded, $id];
+        }
     }
 
     private function shareQuestion(?string $username, string $id, ?string $html): void

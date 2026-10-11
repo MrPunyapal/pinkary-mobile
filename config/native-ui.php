@@ -130,6 +130,15 @@ return [
 
     ],
 
+    'profile-gradients' => [
+        'from-blue-500 to-purple-600' => ['direction' => [1, 0], 'from' => '#3B82F6', 'to' => '#9333EA'],
+        'from-blue-500 to-teal-700' => ['direction' => [1, 0], 'from' => '#3B82F6', 'to' => '#0F766E'],
+        'from-red-500 to-orange-600' => ['direction' => [1, 0], 'from' => '#EF4444', 'to' => '#EA580C'],
+        'from-purple-500 to-pink-500' => ['direction' => [1, 0], 'from' => '#A855F7', 'to' => '#EC4899'],
+        'from-indigo-500 to-lime-700' => ['direction' => [1, 0], 'from' => '#6366F1', 'to' => '#4D7C0F'],
+        'from-yellow-600 to-blue-600' => ['direction' => [1, 0], 'from' => '#CA8A04', 'to' => '#2563EB'],
+    ],
+
     /*
     |---------------------------------------------------------------------------
     | Fonts

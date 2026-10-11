@@ -26,8 +26,9 @@ function foundUser(array $overrides = []): array
         'name' => 'Grace Hopper',
         'username' => 'grace',
         'avatar' => null,
-        'verification' => ['profile' => false, 'company' => false],
-        'followed_by_me' => false,
+        'verified' => false,
+        'company_verified' => false,
+        'followed' => false,
         'is_me' => false,
     ], $overrides);
 }
@@ -42,6 +43,36 @@ it('keeps the query and results in step as it is typed', function (): void {
         ->set('query', '')
         ->assertSet('searched', false)
         ->assertDontSee('Grace Hopper');
+});
+
+it('maps flat search flags to the profile row fields', function (): void {
+    Http::fake([
+        'https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser([
+            'verified' => true,
+            'company_verified' => true,
+            'followed' => true,
+        ])])),
+    ]);
+
+    $screen = Native::test(Search::class)
+        ->set('query', 'grace')
+        ->assertSee('Unfollow')
+        ->assertElement('icon', fn (array $node): bool => ($node['props']['color'] ?? '') === '#EAB308');
+
+    expect($screen->get('users')[0])->toMatchArray([
+        'verification' => ['profile' => true, 'company' => true],
+        'followed_by_me' => true,
+    ]);
+});
+
+it('labels a mutual-follow action as Follow Back when the API provides it', function (): void {
+    Http::fake([
+        'https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser(['follows_me' => true])])),
+    ]);
+
+    Native::test(Search::class)
+        ->set('query', 'grace')
+        ->assertSee('Follow Back');
 });
 
 it('replays a recent search and ignores an unusable one', function (): void {
@@ -120,7 +151,7 @@ it('follows a person and reflects the new state', function (): void {
 
 it('unfollows someone already followed', function (): void {
     Http::fake([
-        'https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser(['followed_by_me' => true])])),
+        'https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser(['followed' => true])])),
         'https://pinkary.test/api/v1/users/grace/follow' => Http::response(['data' => ['followed' => false]]),
     ]);
 

@@ -61,6 +61,42 @@
                     @endif
                 </native:column>
             @else
+                @if (\App\Support\DisplayText::plain(data_get($menuPost, 'answer')) !== '')
+                    <native:pressable
+                        class="w-full py-3"
+                        @tap="translatePost('{{ $menuPostId }}', 'answer')"
+                        a11y-label="Translate answer"
+                    >
+                        <native:row class="w-full items-center gap-3">
+                            <native:icon
+                                :ios="\App\Icons\Ios::Globe"
+                                :android="\App\Icons\AndroidOutlined::Language"
+                                :size="20"
+                                color="#64748B"
+                                dark-color="#94A3B8"
+                            />
+                            <native:text class="text-theme-on-surface text-sm font-medium">Translate answer</native:text>
+                        </native:row>
+                    </native:pressable>
+                @endif
+                @if (\App\Support\DisplayText::plain(data_get($menuPost, 'content')) !== '')
+                    <native:pressable
+                        class="w-full py-3"
+                        @tap="translatePost('{{ $menuPostId }}', 'content')"
+                        a11y-label="Translate question"
+                    >
+                        <native:row class="w-full items-center gap-3">
+                            <native:icon
+                                :ios="\App\Icons\Ios::Globe"
+                                :android="\App\Icons\AndroidOutlined::Language"
+                                :size="20"
+                                color="#64748B"
+                                dark-color="#94A3B8"
+                            />
+                            <native:text class="text-theme-on-surface text-sm font-medium">Translate question</native:text>
+                        </native:row>
+                    </native:pressable>
+                @endif
                 @if ($canPinMenu)
                     <native:pressable
                         class="w-full py-3"

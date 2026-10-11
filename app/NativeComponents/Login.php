@@ -34,6 +34,8 @@ final class Login extends NativeComponent implements HasWebHead
 
     public string $twoFactorCode = '';
 
+    public bool $usingRecoveryCode = false;
+
     /**
      * @var array<string, string>
      */
@@ -82,7 +84,15 @@ final class Login extends NativeComponent implements HasWebHead
         }
 
         $this->busy = true;
-        $response = app(PinkaryApi::class)->login($this->email, $this->password);
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->login($this->email, $this->password));
+
+        if ($response === null) {
+            $this->busy = false;
+            $this->errorMessage = 'We could not connect. Check your internet connection and try again.';
+
+            return;
+        }
 
         if ($response->successful() && is_string($token = $response->json('token'))) {
             $this->acceptToken($token, Payload::stringMap($response->json('data')));
@@ -95,6 +105,7 @@ final class Login extends NativeComponent implements HasWebHead
             $this->twoFactorChallenge = $challenge;
             $this->needsTwoFactor = true;
             $this->twoFactorCode = '';
+            $this->usingRecoveryCode = false;
 
             return;
         }
@@ -114,13 +125,23 @@ final class Login extends NativeComponent implements HasWebHead
         $code = mb_trim($this->twoFactorCode);
 
         if ($code === '') {
-            $this->errorMessage = 'Enter the code from your authenticator app.';
+            $this->errorMessage = $this->usingRecoveryCode
+                ? 'Enter one of your recovery codes.'
+                : 'Enter the code from your authenticator app.';
 
             return;
         }
 
         $this->busy = true;
-        $response = app(PinkaryApi::class)->twoFactorChallenge($this->twoFactorChallenge, $code);
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->twoFactorChallenge($this->twoFactorChallenge, $code, $this->usingRecoveryCode));
+
+        if ($response === null) {
+            $this->busy = false;
+            $this->errorMessage = 'We could not connect. Check your internet connection and try again.';
+
+            return;
+        }
 
         if ($response->successful() && is_string($token = $response->json('token'))) {
             $this->acceptToken($token, Payload::stringMap($response->json('data')));
@@ -132,11 +153,19 @@ final class Login extends NativeComponent implements HasWebHead
         $this->errorMessage = Payload::string($response->json('message') ?? 'That code was not accepted. Check it and try again.');
     }
 
+    public function toggleTwoFactorMethod(): void
+    {
+        $this->usingRecoveryCode = ! $this->usingRecoveryCode;
+        $this->twoFactorCode = '';
+        $this->errorMessage = '';
+    }
+
     public function cancelTwoFactor(): void
     {
         $this->needsTwoFactor = false;
         $this->twoFactorChallenge = '';
         $this->twoFactorCode = '';
+        $this->usingRecoveryCode = false;
         $this->errorMessage = '';
     }
 

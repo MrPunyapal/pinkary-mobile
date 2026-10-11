@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Edge\Web\Contracts\HasWebHead;
+use Native\Mobile\Events\Gallery\MediaSelected;
+use Native\Mobile\Facades\Camera;
 
 final class EditProfile extends NativeComponent implements HasWebHead
 {
@@ -41,11 +43,17 @@ final class EditProfile extends NativeComponent implements HasWebHead
 
     public ?string $avatar = null;
 
+    public bool $avatarBusy = false;
+
+    public string $avatarMessage = '';
+
     public string $mailPreferenceTime = 'daily';
 
     public string $defaultFeed = 'following';
 
     public string $questionVisibility = 'true';
+
+    public string $questionPreference = 'everyone';
 
     /**
      * @var array<string, string>
@@ -53,6 +61,8 @@ final class EditProfile extends NativeComponent implements HasWebHead
     public array $loadedPreferences = [];
 
     public string $linkShape = 'rounded-lg';
+
+    public string $linkGradient = 'from-blue-500 to-purple-600';
 
     public bool $editUrlTouched = false;
 
@@ -73,6 +83,8 @@ final class EditProfile extends NativeComponent implements HasWebHead
     public string $linkMessage = '';
 
     public bool $linkBusy = false;
+
+    public bool $linkOrderDirty = false;
 
     public ?int $editingLinkId = null;
 
@@ -105,10 +117,27 @@ final class EditProfile extends NativeComponent implements HasWebHead
     ];
 
     /** @var array<string, string> */
+    public array $questionPreferenceOptions = [
+        'everyone' => 'Everyone',
+        'following' => 'Following',
+        'no_one' => 'No one',
+    ];
+
+    /** @var array<string, string> */
     public array $linkShapeOptions = [
         'rounded-none' => 'Square',
         'rounded-lg' => 'Round',
         'rounded-full' => 'Extra Round',
+    ];
+
+    /** @var array<string, string> */
+    public array $linkGradientOptions = [
+        'from-blue-500 to-purple-600' => 'Blue to purple',
+        'from-blue-500 to-teal-700' => 'Blue to teal',
+        'from-red-500 to-orange-600' => 'Red to orange',
+        'from-purple-500 to-pink-500' => 'Purple to pink',
+        'from-indigo-500 to-lime-700' => 'Indigo to lime',
+        'from-yellow-600 to-blue-600' => 'Yellow to blue',
     ];
 
     public function hidesDrawer(): bool
@@ -275,6 +304,205 @@ final class EditProfile extends NativeComponent implements HasWebHead
         }
 
         $this->linkMessage = 'Link shape saved.';
+    }
+
+    public function pickAvatar(): void
+    {
+        if ($this->avatarBusy || ! nativephp_can('Camera.PickMedia')) {
+            return;
+        }
+
+        Camera::pickImages('image', false, 1)
+            ->mediaSelected(function (MediaSelected $event): void {
+                $this->onAvatarSelected($event);
+            })
+            ->start();
+    }
+
+    public function onAvatarSelected(MediaSelected $event): void
+    {
+        if ($event->cancelled) {
+            return;
+        }
+
+        $file = $event->files[0] ?? null;
+        $path = is_array($file) ? ($file['path'] ?? null) : null;
+
+        if (! is_string($path) || $path === '' || ! is_readable($path)) {
+            $this->avatarMessage = $event->error ?? 'That photo could not be read from this device.';
+
+            return;
+        }
+
+        $size = filesize($path);
+        $image = @getimagesize($path);
+
+        if ($size === false || $size > 2_097_152 || $image === false || ! in_array($image['mime'], ['image/jpeg', 'image/png'], true)) {
+            $this->avatarMessage = 'Choose a JPG or PNG photo up to 2 MB.';
+
+            return;
+        }
+
+        $token = $this->requireToken();
+
+        if ($token === null) {
+            return;
+        }
+
+        $handle = @fopen($path, 'rb');
+
+        if ($handle === false) {
+            $this->avatarMessage = 'That photo could not be read from this device.';
+
+            return;
+        }
+
+        $this->avatarBusy = true;
+        $this->avatarMessage = '';
+
+        try {
+            $api = app(PinkaryApi::class);
+            $response = $api->attempt(fn () => $api->updateAvatar($token, $handle, basename($path)));
+        } finally {
+            fclose($handle);
+            $this->avatarBusy = false;
+        }
+
+        if ($response === null) {
+            $this->avatarMessage = 'Your profile photo could not be uploaded. Please try again.';
+
+            return;
+        }
+
+        if ($this->handleUnauthorized($response)) {
+            return;
+        }
+
+        if (! $response->successful()) {
+            $this->avatarMessage = ApiErrors::first($response, 'Your profile photo could not be uploaded. Please try again.');
+
+            return;
+        }
+
+        /** @var array<string, mixed>|null $data */
+        $data = $response->json('data');
+
+        if (is_array($data)) {
+            CurrentUser::store($data);
+            $this->fillFromProfile($data);
+        }
+
+        $this->successMessage = 'Profile photo updated.';
+    }
+
+    public function saveLinkGradient(): void
+    {
+        if ($this->linkBusy || ! array_key_exists($this->linkGradient, $this->linkGradientOptions)) {
+            return;
+        }
+
+        $token = $this->requireToken();
+
+        if ($token === null) {
+            return;
+        }
+
+        $this->linkBusy = true;
+        $this->linkMessage = '';
+
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->updateProfile($token, [
+            'gradient' => $this->linkGradient,
+        ]));
+
+        $this->linkBusy = false;
+
+        if ($response === null) {
+            $this->linkMessage = 'The link gradient could not be saved. Please try again.';
+
+            return;
+        }
+
+        if ($this->handleUnauthorized($response)) {
+            return;
+        }
+
+        if (! $response->successful()) {
+            $this->linkMessage = ApiErrors::first($response, 'The link gradient could not be saved. Please try again.');
+
+            return;
+        }
+
+        /** @var array<string, mixed>|null $data */
+        $data = $response->json('data');
+
+        if (is_array($data)) {
+            CurrentUser::store($data);
+            $this->fillFromProfile($data);
+        }
+
+        $this->linkMessage = 'Link gradient saved.';
+    }
+
+    public function moveLinkUp(int $id): void
+    {
+        $this->moveLink($id, -1);
+    }
+
+    public function moveLinkDown(int $id): void
+    {
+        $this->moveLink($id, 1);
+    }
+
+    public function saveLinkOrder(): void
+    {
+        if ($this->linkBusy || ! $this->linkOrderDirty) {
+            return;
+        }
+
+        $token = $this->requireToken();
+
+        if ($token === null) {
+            return;
+        }
+
+        $ids = array_map(
+            static fn (array $link): int => Payload::int(data_get($link, 'id')),
+            $this->links,
+        );
+
+        if (count(array_filter($ids, static fn (int $id): bool => $id > 0)) !== count($this->links)) {
+            $this->linkMessage = 'The link order could not be saved. Please reload your profile and try again.';
+
+            return;
+        }
+
+        $this->linkBusy = true;
+        $this->linkMessage = '';
+
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->sortLinks($token, $ids));
+
+        $this->linkBusy = false;
+
+        if ($response === null) {
+            $this->linkMessage = 'The link order could not be saved. Please try again.';
+
+            return;
+        }
+
+        if ($this->handleUnauthorized($response)) {
+            return;
+        }
+
+        if (! $response->successful()) {
+            $this->linkMessage = ApiErrors::first($response, 'The link order could not be saved. Please try again.');
+
+            return;
+        }
+
+        $this->linkOrderDirty = false;
+        $this->linkMessage = 'Link order saved.';
     }
 
     public function addLink(): void
@@ -561,6 +789,7 @@ final class EditProfile extends NativeComponent implements HasWebHead
 
         $linkShape = Payload::string(data_get($profile, 'link_shape', ''));
         $this->linkShape = in_array($linkShape, self::LINK_SHAPES, true) ? $linkShape : 'rounded-lg';
+        $this->linkGradient = $this->optionOr(data_get($profile, 'gradient'), $this->linkGradientOptions, $this->linkGradient);
 
         $anonymous = data_get($profile, 'prefers_anonymous_questions');
         $preferences = [
@@ -569,11 +798,13 @@ final class EditProfile extends NativeComponent implements HasWebHead
             'prefers_anonymous_questions' => is_bool($anonymous)
                 ? ($anonymous ? 'true' : 'false')
                 : $this->questionVisibility,
+            'question_preference' => $this->optionOr(data_get($profile, 'question_preference'), $this->questionPreferenceOptions, $this->questionPreference),
         ];
 
         $this->mailPreferenceTime = $preferences['mail_preference_time'];
         $this->defaultFeed = $preferences['default_feed'];
         $this->questionVisibility = $preferences['prefers_anonymous_questions'];
+        $this->questionPreference = $preferences['question_preference'];
         $this->loadedPreferences = $preferences;
 
         /** @var list<array<string, mixed>> $links */
@@ -582,6 +813,7 @@ final class EditProfile extends NativeComponent implements HasWebHead
             is_array(...)
         ));
         $this->links = $links;
+        $this->linkOrderDirty = false;
     }
 
     /**
@@ -601,6 +833,10 @@ final class EditProfile extends NativeComponent implements HasWebHead
 
         if ($this->questionVisibility !== ($this->loadedPreferences['prefers_anonymous_questions'] ?? $this->questionVisibility)) {
             $changed['prefers_anonymous_questions'] = $this->questionVisibility === 'true';
+        }
+
+        if ($this->questionPreference !== ($this->loadedPreferences['question_preference'] ?? $this->questionPreference)) {
+            $changed['question_preference'] = $this->questionPreference;
         }
 
         return $changed;
@@ -627,6 +863,41 @@ final class EditProfile extends NativeComponent implements HasWebHead
         }
 
         return (bool) filter_var($url, FILTER_VALIDATE_URL);
+    }
+
+    private function moveLink(int $id, int $offset): void
+    {
+        if ($this->linkBusy || $this->editingLinkId !== null) {
+            return;
+        }
+
+        $sourceIndex = null;
+
+        foreach ($this->links as $index => $link) {
+            if (Payload::int(data_get($link, 'id')) === $id) {
+                $sourceIndex = $index;
+
+                break;
+            }
+        }
+
+        if (! is_int($sourceIndex)) {
+            return;
+        }
+
+        $targetIndex = $sourceIndex + $offset;
+
+        if (! array_key_exists($targetIndex, $this->links)) {
+            return;
+        }
+
+        $links = $this->links;
+        $moving = $links[$sourceIndex];
+        array_splice($links, $sourceIndex, 1);
+        array_splice($links, $targetIndex, 0, [$moving]);
+        $this->links = $links;
+        $this->linkOrderDirty = true;
+        $this->linkMessage = '';
     }
 
     private function bareUrl(string $url): string

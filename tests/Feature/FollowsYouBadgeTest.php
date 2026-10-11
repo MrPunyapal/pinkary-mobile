@@ -75,7 +75,7 @@ it('keeps the follow button beside the badge', function (): void {
 
     Native::test(FollowList::class, ['username' => 'alice'])
         ->assertSee('Follows you')
-        ->assertSee('Follow');
+        ->assertSee('Follow Back');
 });
 
 it('survives a payload with no follows_me key at all', function (): void {

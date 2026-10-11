@@ -14,17 +14,21 @@
     $preview = data_get($post, 'preview');
     $images = array_values(array_filter((array) data_get($post, 'images', []), fn (mixed $src): bool => is_string($src) && $src !== ''));
     $poll = data_get($post, 'poll');
+    $repostedBy = data_get($post, 'reposted_by');
+    $repostedByName = is_array($repostedBy) ? mb_trim((string) data_get($repostedBy, 'name', '')) : '';
+    $repostedByUsername = is_array($repostedBy) ? (string) data_get($repostedBy, 'username', '') : '';
     $postId = (string) data_get($post, 'id', '');
     $liked = (bool) data_get($post, 'metrics.liked', false);
     $bookmarked = (bool) data_get($post, 'metrics.bookmarked', false);
+    $reposted = (bool) data_get($post, 'metrics.reposted', false);
+    $reactionError = (string) data_get($post, 'reaction_error', '');
     $commentsCount = (int) data_get($post, 'metrics.comments', 0);
     $likesCount = (int) data_get($post, 'metrics.likes', 0);
+    $repostsCount = (int) data_get($post, 'metrics.reposts', 0);
     $bookmarksCount = (int) data_get($post, 'metrics.bookmarks', 0);
     $viewsCount = (int) data_get($post, 'views', 0);
 
     $viewerUsername = mb_strtolower(mb_trim((string) ($viewerUsername ?? data_get(\App\Support\AccountStore::active(), 'username', ''))));
-    $postOwnerUsername = mb_strtolower(mb_trim((string) data_get($post, 'to.username', '')));
-    $viewerOwnsPost = $postOwnerUsername !== '' && $viewerUsername !== '' && $postOwnerUsername === $viewerUsername;
 
     // Native views cannot measure text height; approximate 640px with 27 lines of 36 characters.
     $answerLimit = 972;
@@ -54,6 +58,26 @@
 
 @endif
 <native:column native:key="post-{{ $postId }}" class="w-full {{ $bare ? '' : 'bg-theme-surface' }}">
+    @if (! $comment && $repostedByName !== '')
+        <native:pressable
+            class="w-full px-2 pt-2"
+            @tap="openProfile('{{ $repostedByUsername }}')"
+            a11y-label="Open {{ $repostedByName }}’s profile"
+        >
+            <native:row class="w-full items-center gap-2">
+                <x-avatar :user="$repostedBy" :size="7" :link="false" :border="false" />
+                <native:row class="min-w-0 flex-1 items-center gap-1">
+                    <native:text
+                        class="text-theme-on-surface min-w-0 flex-1 text-sm font-medium"
+                        max-lines="1"
+                    >{{ $repostedByName }}</native:text>
+                    <native:text class="text-theme-on-surface-variant shrink-0 text-sm" max-lines="1"
+                        >reposted</native:text>
+                </native:row>
+            </native:row>
+        </native:pressable>
+    @endif
+
     @unless ($sharedUpdate || $comment)
         <native:column class="w-full px-2 {{ $bare ? 'pt-2' : 'pt-3' }}">
             <native:column class="bg-theme-bubble border-theme-outline-variant/50 w-full gap-2 rounded-md border px-3 py-2.5">
@@ -68,29 +92,22 @@
                             <x-post-author :author="data_get($post, 'from', [])" />
                         @endif
                     </native:column>
-                    @if ($questionText !== '' || $pinned)
+                    @if ($pinned)
                         <native:row class="shrink-0 items-center gap-2">
-                            @if ($questionText !== '')
-                                <native:row class="bg-theme-surface-variant items-center gap-1.5 rounded-full px-2.5 py-1.5">
-                                    <x-post-action type="translate" :post-id="$postId" field="content" />
-                                </native:row>
-                            @endif
-                            @if ($pinned)
-                                <native:row class="bg-theme-surface-variant items-center gap-1.5 rounded-full px-2.5 py-1.5">
-                                    <native:icon
-                                        :ios="\App\Icons\Ios::Pin"
-                                        :android="\App\Icons\Android::PushPin"
-                                        :size="16"
-                                        color="#64748B"
-                                        dark-color="#94A3B8"
-                                    />
-                                    {{-- Arbitrary font sizes use points; rem units are not supported. --}}
-                                    <native:text
-                                        class="text-theme-on-surface-variant font-medium text-[11.52]"
-                                        max-lines="1"
-                                    >Pinned</native:text>
-                                </native:row>
-                            @endif
+                            <native:row class="bg-theme-surface-variant items-center gap-1.5 rounded-full px-2.5 py-1.5">
+                                <native:icon
+                                    :ios="\App\Icons\Ios::Pin"
+                                    :android="\App\Icons\Android::PushPin"
+                                    :size="16"
+                                    color="#64748B"
+                                    dark-color="#94A3B8"
+                                />
+                                {{-- Arbitrary font sizes use points; rem units are not supported. --}}
+                                <native:text
+                                    class="text-theme-on-surface-variant font-medium text-[11.52]"
+                                    max-lines="1"
+                                >Pinned</native:text>
+                            </native:row>
                         </native:row>
                     @endif
                 </native:row>
@@ -98,6 +115,11 @@
                 @if ($questionText !== '')
                     {{-- Numeric line-height classes are unsupported; leading-loose gives 28px at text-sm. --}}
                     <x-post-text :html="data_get($post, 'content')" :post-id="$postId" :question="true" />
+                    @if ($viewerUsername === '')
+                        <native:row class="w-full items-center pt-1">
+                            <x-post-action type="translate" :post-id="$postId" field="content" />
+                        </native:row>
+                    @endif
                 @endif
             </native:column>
         </native:column>
@@ -139,9 +161,6 @@
                                 </native:row>
                             </native:pressable>
                             <native:row class="shrink-0 items-center gap-1.5">
-                                @if ($comment)
-                                    <x-post-action type="translate" :post-id="$postId" field="content" />
-                                @endif
                                 @if (is_array($channel) && ($channel['name'] ?? '') !== '')
                                     <native:row class="bg-theme-surface-variant items-center gap-1 rounded-md px-1.5 py-0.5">
                                         <native:icon
@@ -169,9 +188,20 @@
                             :limit="! $comment && ! $full && ! $expanded && $answerLong ? $answerLimit : null"
                         />
 
+                        @if ($comment)
+                            <x-post-images :images="$images" />
+                            <native:row class="w-full items-center pt-1">
+                                <x-post-action
+                                    type="translate"
+                                    :post-id="$postId"
+                                    :field="$answerText === '' ? 'content' : 'answer'"
+                                />
+                            </native:row>
+                        @endif
+
                         @unless ($comment)
-                            @if ($answerLong && ! $full)
-                                <x-show-more :post-id="$postId" :expanded="$expanded" />
+                            @if ($answerLong && ! $full && ! $expanded)
+                                <x-view-more :post-id="$postId" />
                             @endif
 
                             <x-post-images :images="$images" />
@@ -227,9 +257,14 @@
                                 <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
                                 <x-post-action type="like" :post-id="$postId" :count="$likesCount" :active="$liked" />
                                 <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
-                                <x-post-action type="views" :count="$viewsCount" />
+                                <x-post-action
+                                    type="repost"
+                                    :post-id="$postId"
+                                    :count="$repostsCount"
+                                    :active="$reposted"
+                                />
                                 <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
-                                <x-post-action type="translate" :post-id="$postId" />
+                                <x-post-action type="views" :count="$viewsCount" />
                                 <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
                                 <x-post-action
                                     type="bookmark"
@@ -237,14 +272,21 @@
                                     :count="$bookmarksCount"
                                     :active="$bookmarked"
                                 />
+                                @if ($viewerUsername === '')
+                                    <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
+                                    <x-post-action type="translate" :post-id="$postId" />
+                                @endif
                                 {{-- Use a native spacer because ml-auto is unreliable in this renderer. --}}
                                 <native:spacer class="flex-1" />
                                 <x-post-action type="share" :post-id="$postId" />
-                                @if ($viewerOwnsPost)
+                                @if ($viewerUsername !== '')
                                     <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
                                     <x-post-action type="menu" :post-id="$postId" />
                                 @endif
                             </native:row>
+                            @if ($reactionError !== '')
+                                <native:text class="text-theme-destructive w-full text-xs">{{ $reactionError }}</native:text>
+                            @endif
                         @endunless
                     </native:column>
                 </native:column>

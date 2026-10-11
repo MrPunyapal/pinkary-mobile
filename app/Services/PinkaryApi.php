@@ -87,6 +87,38 @@ final class PinkaryApi
     }
 
     /**
+     * @return list<array<string, mixed>>
+     */
+    public function normalizeNotifications(mixed $items): array
+    {
+        if (! is_array($items)) {
+            return [];
+        }
+
+        $normalized = [];
+
+        foreach ($items as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $normalizedItem = [];
+
+            foreach ($item as $key => $value) {
+                $normalizedItem[(string) $key] = $value;
+            }
+
+            if (($normalizedItem['snippet'] ?? null) === self::UPDATE_MARKER) {
+                $normalizedItem['snippet'] = null;
+            }
+
+            $normalized[] = $normalizedItem;
+        }
+
+        return $normalized;
+    }
+
+    /**
      * @param  callable(): Response  $call
      */
     public function attempt(callable $call): ?Response
@@ -106,12 +138,12 @@ final class PinkaryApi
         ]);
     }
 
-    public function twoFactorChallenge(string $challenge, string $code): Response
+    public function twoFactorChallenge(string $challenge, string $code, bool $useRecoveryCode = false): Response
     {
-        return $this->request()->post(self::PREFIX.'/auth/login/two-factor-challenge', [
-            'challenge' => $challenge,
-            'code' => $code,
-        ]);
+        $payload = ['challenge' => $challenge];
+        $payload[$useRecoveryCode ? 'recovery_code' : 'code'] = $code;
+
+        return $this->request()->post(self::PREFIX.'/auth/login/two-factor-challenge', $payload);
     }
 
     /**
@@ -180,6 +212,16 @@ final class PinkaryApi
     public function unlike(string $token, string $id): Response
     {
         return $this->request()->withToken($token)->delete(self::PREFIX."/questions/{$id}/like");
+    }
+
+    public function repost(string $token, string $id): Response
+    {
+        return $this->request()->withToken($token)->post(self::PREFIX."/questions/{$id}/repost");
+    }
+
+    public function unrepost(string $token, string $id): Response
+    {
+        return $this->request()->withToken($token)->delete(self::PREFIX."/questions/{$id}/repost");
     }
 
     public function bookmark(string $token, string $id): Response
@@ -326,6 +368,17 @@ final class PinkaryApi
         return $this->request()->withToken($token)->patch(self::PREFIX.'/profile', $attributes);
     }
 
+    /**
+     * @param  resource  $file
+     */
+    public function updateAvatar(string $token, mixed $file, string $filename): Response
+    {
+        return $this->multipartRequest()
+            ->withToken($token)
+            ->attach('avatar', $file, $filename)
+            ->post(self::PREFIX.'/profile', ['_method' => 'PATCH']);
+    }
+
     public function createLink(string $token, string $description, string $url): Response
     {
         return $this->request()->withToken($token)->post(self::PREFIX.'/links', [
@@ -351,6 +404,14 @@ final class PinkaryApi
     {
         return $this->request()->withToken($token)->patch(self::PREFIX."/links/{$linkId}", [
             'is_visible' => $isVisible,
+        ]);
+    }
+
+    /** @param list<int> $ids */
+    public function sortLinks(string $token, array $ids): Response
+    {
+        return $this->request()->withToken($token)->post(self::PREFIX.'/links/sort', [
+            'sort' => $ids,
         ]);
     }
 

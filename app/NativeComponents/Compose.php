@@ -61,6 +61,8 @@ final class Compose extends NativeComponent implements HasWebHead
 
     public string $mentionQuery = '';
 
+    public string $mentionKind = 'user';
+
     public int $mentionStart = -1;
 
     public int $mentionEnd = -1;
@@ -127,6 +129,7 @@ final class Compose extends NativeComponent implements HasWebHead
         }
 
         $this->hydrateAvatar();
+        $this->anonymous = $this->defaultAnonymousPreference();
         $this->loadCaptcha('post', $token);
         $this->restoreDraft();
         $this->validateState();
@@ -159,22 +162,25 @@ final class Compose extends NativeComponent implements HasWebHead
         }
 
         if ($selectionStart !== $selectionEnd || $selectionStart < 0 || $selectionStart > mb_strlen($text)
-            || ! preg_match('/(?:^|\s)@([A-Za-z0-9_-]{1,50})$/u', mb_substr($text, 0, $selectionStart), $match)) {
+            || ! preg_match('/(?:^|\s)([@#])([A-Za-z0-9_-]{1,50})$/u', mb_substr($text, 0, $selectionStart), $match)) {
             $this->clearMentionSuggestions();
 
             return;
         }
 
-        $query = $match[1];
+        $trigger = $match[1];
+        $query = $match[2];
+        $kind = $trigger === '#' ? 'hashtag' : 'user';
         $this->mentionStart = $selectionStart - mb_strlen($query) - 1;
         preg_match('/^[A-Za-z0-9_-]*/', mb_substr($text, $selectionStart), $suffix);
         $this->mentionEnd = $selectionStart + mb_strlen($suffix[0] ?? '');
 
-        if ($query === $this->mentionQuery && $postIndex === $this->mentionPostIndex) {
+        if ($query === $this->mentionQuery && $postIndex === $this->mentionPostIndex && $kind === $this->mentionKind) {
             return;
         }
 
         $this->mentionQuery = $query;
+        $this->mentionKind = $kind;
         $this->mentionPostIndex = $postIndex;
         $this->mentionResults = [];
 
@@ -185,14 +191,17 @@ final class Compose extends NativeComponent implements HasWebHead
             return;
         }
 
-        $users = Payload::array($response->json('data.users'));
+        $results = Payload::array($response->json($kind === 'hashtag' ? 'data.hashtags' : 'data.users'));
 
-        $mentions = array_filter(array_map(
-            fn (mixed $user): array => is_array($user) ? array_filter($user, is_string(...), ARRAY_FILTER_USE_KEY) : [],
-            $users
-        ), fn (array $user): bool => preg_match('/^[A-Za-z0-9_-]+$/D', Payload::string($user['username'] ?? '')) === 1);
+        $suggestions = array_filter(array_map(
+            fn (mixed $result): array => is_array($result) ? array_filter($result, is_string(...), ARRAY_FILTER_USE_KEY) : [],
+            $results
+        ), fn (array $result): bool => preg_match(
+            '/^[A-Za-z0-9_-]+$/D',
+            Payload::string($result[$kind === 'hashtag' ? 'name' : 'username'] ?? '')
+        ) === 1);
 
-        $this->mentionResults = array_slice(array_values($mentions), 0, 5);
+        $this->mentionResults = array_slice(array_values($suggestions), 0, 5);
     }
 
     public function selectMention(int $index): void
@@ -201,20 +210,22 @@ final class Compose extends NativeComponent implements HasWebHead
             return;
         }
 
-        $username = Payload::string($this->mentionResults[$index]['username']);
+        $trigger = $this->mentionKind === 'hashtag' ? '#' : '@';
+        $resultKey = $this->mentionKind === 'hashtag' ? 'name' : 'username';
+        $value = Payload::string($this->mentionResults[$index][$resultKey] ?? '');
         $postIndex = $this->mentionPostIndex;
         $text = $postIndex < 0 ? $this->content : ($this->posts[$postIndex] ?? '');
 
-        $mention = mb_substr($text, $this->mentionStart, $this->mentionEnd - $this->mentionStart);
-        if ($this->mentionStart < 0 || ! str_starts_with($mention, '@'.$this->mentionQuery)
-            || ! preg_match('/^@[A-Za-z0-9_-]+$/D', $mention)) {
+        $selection = mb_substr($text, $this->mentionStart, $this->mentionEnd - $this->mentionStart);
+        if ($value === '' || $this->mentionStart < 0 || ! str_starts_with($selection, $trigger.$this->mentionQuery)
+            || ! preg_match('/^'.$trigger.'[A-Za-z0-9_-]+$/D', $selection)) {
             $this->clearMentionSuggestions();
 
             return;
         }
 
         $suffix = mb_substr($text, $this->mentionEnd);
-        $text = mb_substr($text, 0, $this->mentionStart).'@'.$username.($suffix === '' ? ' ' : '').$suffix;
+        $text = mb_substr($text, 0, $this->mentionStart).$trigger.$value.($suffix === '' ? ' ' : '').$suffix;
         if ($postIndex < 0) {
             $this->content = $text;
         } elseif (isset($this->posts[$postIndex])) {
@@ -881,7 +892,7 @@ final class Compose extends NativeComponent implements HasWebHead
 
         $this->clearDraft();
         $this->content = '';
-        $this->anonymous = false;
+        $this->anonymous = $this->defaultAnonymousPreference();
         $this->validationMessage = '';
         $this->navigate($this->route('mobile.user', ['username' => $this->askUsername]));
     }
@@ -895,6 +906,7 @@ final class Compose extends NativeComponent implements HasWebHead
     {
         $this->mentionResults = [];
         $this->mentionQuery = '';
+        $this->mentionKind = 'user';
         $this->mentionPostIndex = -1;
         $this->mentionStart = -1;
         $this->mentionEnd = -1;
@@ -1024,6 +1036,11 @@ final class Compose extends NativeComponent implements HasWebHead
 
         $avatar = $user['avatar'] ?? null;
         $this->avatar = is_string($avatar) && $avatar !== '' ? $avatar : null;
+    }
+
+    private function defaultAnonymousPreference(): bool
+    {
+        return Payload::bool(data_get(CurrentUser::get(), 'prefers_anonymous_questions', false));
     }
 
     private function shouldFetchProfile(): bool

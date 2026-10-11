@@ -92,9 +92,9 @@
                             <native:pressable
                                 class="shrink-0 px-3 py-1.5 rounded-full border border-theme-outline-variant text-nowrap {{ $rowBusy ? 'opacity-40' : '' }}"
                                 @tap="toggleFollow('{{ $rowUsername }}')"
-                                a11y-label="{{ $rowFollowed ? 'Unfollow' : 'Follow' }}"
+                                a11y-label="{{ $rowFollowed ? 'Unfollow' : ($rowFollowsMe ? 'Follow Back' : 'Follow') }}"
                             >
-                                <native:text class="text-theme-on-surface-variant text-xs font-medium">{{ $rowFollowed ? 'Unfollow' : 'Follow' }}</native:text>
+                                <native:text class="text-theme-on-surface-variant text-xs font-medium">{{ $rowFollowed ? 'Unfollow' : ($rowFollowsMe ? 'Follow Back' : 'Follow') }}</native:text>
                             </native:pressable>
                         @endunless
                     </native:row>

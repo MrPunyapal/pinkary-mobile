@@ -40,14 +40,14 @@ function commentRow(string $id, string $content): array
     ];
 }
 
-it('shows the complete post on its detail page without show more or show less controls', function (): void {
+it('shows the complete post on its detail page without a View more control', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::clear();
     $answer = str_repeat('Full post text. ', 100).'The end.';
     Http::fake(detailFakes($answer));
 
     Native::test(Detail::class, ['id' => 'q1'])->assertSee($answer)
-        ->assertDontSee('Show more')->assertDontSee('Show less');
+        ->assertDontSee('View more')->assertDontSee('Show more')->assertDontSee('Show less');
 });
 
 it('opens a post for guests and sends writes to login', function (): void {
@@ -85,6 +85,33 @@ it('renders the post with its comments', function (): void {
         ->assertSee('A thoughtful mobile experience.')
         ->assertSee('First comment.')
         ->assertSee('Second comment.');
+});
+
+it('renders images attached to comments', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake(detailFakes(comments: [array_merge(commentRow('c1', 'Comment with an image.'), [
+        'images' => ['https://pinkary.test/storage/comment-image.jpg'],
+    ])]));
+
+    Native::test(Detail::class, ['id' => 'q1'])
+        ->assertSee('Comment with an image.')
+        ->assertSee('Open image fullscreen');
+});
+
+it('lets guests translate replies from the thread', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::clear();
+    Http::fake(detailFakes(comments: [commentRow('c1', 'A public comment.')]));
+
+    Native::test(Detail::class, ['id' => 'q1'])
+        ->assertSee('A public comment.')
+        ->assertSee('Translate answer')
+        ->press("translatePost('c1', 'answer')")
+        ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => str_contains(
+            (string) ($params['url'] ?? ''),
+            urlencode('A public comment.')
+        ));
 });
 
 it('resolves through the native route', function (): void {
@@ -330,6 +357,22 @@ it('toggles likes on the detail post', function (): void {
         ->tap('5');
 
     expect($test->get('post')['metrics'])->toMatchArray(['liked' => true, 'likes' => 6]);
+});
+
+it('toggles reposts on the detail post', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake(array_merge(detailFakes(), [
+        'https://pinkary.test/api/v1/questions/q1/repost' => Http::response(['data' => ['reposted' => true, 'reposts' => 1]]),
+    ]));
+
+    $test = Native::test(Detail::class, ['id' => 'q1'])
+        ->press("toggleRepost('q1')");
+
+    expect($test->get('post')['metrics'])->toMatchArray(['reposted' => true, 'reposts' => 1]);
+
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/api/v1/questions/q1/repost'));
 });
 
 it('toggles likes on the answered post', function (): void {

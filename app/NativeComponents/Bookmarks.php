@@ -87,12 +87,13 @@ final class Bookmarks extends NativeComponent implements HasWebHead
             return;
         }
 
+        $this->closeMenu();
         $this->translateHtml(Payload::string(data_get($post, $field)));
     }
 
-    public function toggleShowMore(string $id): void
+    public function showMore(string $id): void
     {
-        $this->toggleExpandedId($id);
+        $this->expandPost($id);
     }
 
     public function toggleLike(string $id): void
@@ -100,9 +101,40 @@ final class Bookmarks extends NativeComponent implements HasWebHead
         $this->reactOnPostPayload($this->posts, $id, 'like', $this->token());
     }
 
+    public function toggleRepost(string $id): void
+    {
+        $this->reactOnPostPayload($this->posts, $id, 'repost', $this->token());
+    }
+
     public function toggleBookmark(string $id): void
     {
         $this->reactOnPostPayload($this->posts, $id, 'bookmark', $this->token());
+
+        $post = $this->readPostPayload($this->posts, $id);
+
+        if ($post === null || (bool) data_get($post, 'metrics.bookmarked', false)) {
+            return;
+        }
+
+        $location = $this->locateNestedPost($this->posts, $id);
+
+        if ($location === null) {
+            return;
+        }
+
+        [$postIndex, $threadIndex] = $location;
+
+        if ($threadIndex === null) {
+            array_splice($this->posts, $postIndex, 1);
+        } else {
+            $thread = Payload::array(data_get($this->posts[$postIndex], 'thread'));
+            $threadPosts = Payload::array(data_get($thread, 'posts'));
+            unset($threadPosts[$threadIndex]);
+            $thread['posts'] = array_values($threadPosts);
+            $this->posts[$postIndex]['thread'] = $thread;
+        }
+
+        $this->rememberBookmarks();
     }
 
     public function sharePost(string $id): void

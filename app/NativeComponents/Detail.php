@@ -106,6 +106,11 @@ final class Detail extends NativeComponent implements HasWebHead
         $this->reactOnLoadedPost($id, 'like');
     }
 
+    public function toggleRepost(string $id): void
+    {
+        $this->reactOnLoadedPost($id, 'repost');
+    }
+
     public function toggleBookmark(string $id): void
     {
         $this->reactOnLoadedPost($id, 'bookmark');
@@ -139,12 +144,13 @@ final class Detail extends NativeComponent implements HasWebHead
             return;
         }
 
+        $this->closeMenu();
         $this->translateHtml(Payload::string(data_get($post, $field)));
     }
 
-    public function toggleShowMore(string $id): void
+    public function showMore(string $id): void
     {
-        $this->toggleExpandedId($id);
+        $this->expandPost($id);
     }
 
     public function votePoll(string $id, int $optionId): void
