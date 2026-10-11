@@ -7,6 +7,7 @@ use App\NativeComponents\Compose;
 use App\NativeComponents\Detail;
 use App\NativeComponents\EditProfile;
 use App\NativeComponents\FollowList;
+use App\NativeComponents\HashtagFeed;
 use App\NativeComponents\Home;
 use App\NativeComponents\Login;
 use App\NativeComponents\Notifications;
@@ -25,6 +26,7 @@ Route::nativeGroup(MobileLayout::class, function (): void {
     Route::native('/', Home::class)->name('mobile.home');
     Route::native('/feed', Home::class)->name('mobile.feed');
     Route::native('/search', Search::class)->name('mobile.search');
+    Route::native('/hashtag/{hashtagId}', HashtagFeed::class)->name('mobile.hashtag');
     Route::native('/bookmarks', Bookmarks::class)->name('mobile.bookmarks');
     Route::native('/notifications', Notifications::class)->name('mobile.notifications');
     Route::native('/profile', Profile::class)->name('mobile.profile');

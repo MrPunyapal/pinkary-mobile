@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\NativeComponents\HashtagFeed;
 use App\NativeComponents\Search;
 use App\Support\AccountStore;
 use Illuminate\Http\Client\Request;
@@ -238,17 +239,39 @@ it('opens a profile from a result row', function (): void {
     Native::test(Search::class)->call('openProfile', '');
 });
 
-it('turns a hashtag result into the next search', function (): void {
+it('opens a hashtag feed and returns to the existing search', function (): void {
     Http::fake([
-        'https://pinkary.test/api/v1/search*' => Http::response(searchResults([], [['name' => 'laravel', 'questions_count' => 12]])),
+        'https://pinkary.test/api/v1/search*' => Http::response(searchResults([], [[
+            'id' => 42,
+            'name' => 'laravel',
+            'questions_count' => 12,
+        ]])),
+        'https://pinkary.test/api/v1/hashtags/42/questions*' => Http::response([
+            'data' => [[
+                'id' => 'q1',
+                'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+                'to' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+                'content' => '__UPDATE__',
+                'answer' => 'A public post tagged with Laravel.',
+            ]],
+            'links' => ['next' => null],
+        ]),
     ]);
 
-    Native::test(Search::class)
+    $search = Native::visit('/search')
         ->set('query', 'web')
         ->assertSee('#laravel')
         ->assertSee('12 posts')
-        ->tap('Search hashtag #laravel')
-        ->assertSet('query', '#laravel')
-        ->assertSet('searched', true)
-        ->call('openHashtag', '');
+        ->tap('Open posts for hashtag #laravel')
+        ->assertNavigatedTo('/hashtag/42');
+
+    $feed = $search->follow()
+        ->assertScreen(HashtagFeed::class)
+        ->assertSee('#laravel')
+        ->assertSee('A public post tagged with Laravel.');
+
+    $feed->goBack()
+        ->assertScreen(Search::class)
+        ->assertSet('query', 'web')
+        ->assertSee('#laravel');
 });

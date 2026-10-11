@@ -19,6 +19,8 @@ final class PinkaryApi
 
     private const int TIMEOUT = 15;
 
+    private const int HASHTAG_QUESTIONS_PER_PAGE = 20;
+
     private const string UPDATE_MARKER = '__UPDATE__';
 
     /**
@@ -283,6 +285,14 @@ final class PinkaryApi
     {
         return $this->authed($token)->get(self::PREFIX.'/search', [
             'q' => $query,
+        ]);
+    }
+
+    public function hashtagQuestions(?string $token, int $hashtagId, int $page = 1): Response
+    {
+        return $this->authed($token)->get(self::PREFIX."/hashtags/{$hashtagId}/questions", [
+            'per_page' => self::HASHTAG_QUESTIONS_PER_PAGE,
+            'page' => $page,
         ]);
     }
 

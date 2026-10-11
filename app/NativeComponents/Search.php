@@ -184,14 +184,25 @@ final class Search extends NativeComponent implements HasWebHead
         $this->users[$index]['followed_by_me'] = (bool) $response->json('data.followed', ! $following);
     }
 
-    public function openHashtag(string $name): void
+    public function openHashtag(int $id): void
     {
-        if ($name === '') {
+        foreach ($this->hashtags as $hashtag) {
+            if (Payload::int(data_get($hashtag, 'id')) !== $id) {
+                continue;
+            }
+
+            $name = Payload::string(data_get($hashtag, 'name'));
+
+            if ($id > 0 && $name !== '') {
+                $this->navigate(
+                    $this->route('mobile.hashtag', ['hashtagId' => $id]),
+                    ['hashtagName' => $name],
+                );
+            }
+
             return;
         }
 
-        $this->query = '#'.$name;
-        $this->search();
     }
 
     private function rememberRecent(string $query): void

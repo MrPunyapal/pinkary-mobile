@@ -60,8 +60,8 @@
                     <native:text class="text-theme-on-surface text-lg font-semibold">Hashtags</native:text>
                 </native:column>
                 @foreach ($hashtags as $hashtag)
-                    <native:pressable @tap="openHashtag('{{ data_get($hashtag, 'name', '') }}')"
-                        a11y-label="Search hashtag {{ '#'.data_get($hashtag, 'name', '') }}"
+                    <native:pressable @tap="openHashtag({{ (int) data_get($hashtag, 'id', 0) }})"
+                        a11y-label="Open posts for hashtag {{ '#'.data_get($hashtag, 'name', '') }}"
                     >
                         <native:row
                             class="bg-theme-background border-theme-outline-variant w-full items-center gap-3 border-b px-4 py-4"
