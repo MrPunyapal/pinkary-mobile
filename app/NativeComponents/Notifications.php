@@ -194,8 +194,7 @@ final class Notifications extends NativeComponent implements HasWebHead
             return;
         }
 
-        /** @var list<array<string, mixed>> $next */
-        $next = $response->json('data', []);
+        $next = $api->normalizeNotifications($response->json('data', []));
         $this->items = [...$this->items, ...$next];
         $this->page++;
         $this->hasMore = $response->json('links.next') !== null;
@@ -233,9 +232,7 @@ final class Notifications extends NativeComponent implements HasWebHead
             return;
         }
 
-        /** @var list<array<string, mixed>> $items */
-        $items = $response->json('data', []);
-        $this->items = $items;
+        $this->items = $api->normalizeNotifications($response->json('data', []));
         $this->unreadCount = Payload::int($response->json('meta.unread_count'));
         UnreadCount::store($this->unreadCount);
         $this->page = 1;

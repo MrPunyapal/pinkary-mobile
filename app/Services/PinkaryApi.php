@@ -87,6 +87,32 @@ final class PinkaryApi
     }
 
     /**
+     * @return list<array<string, mixed>>
+     */
+    public function normalizeNotifications(mixed $items): array
+    {
+        if (! is_array($items)) {
+            return [];
+        }
+
+        $normalized = [];
+
+        foreach ($items as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            if (($item['snippet'] ?? null) === self::UPDATE_MARKER) {
+                $item['snippet'] = null;
+            }
+
+            $normalized[] = $item;
+        }
+
+        return $normalized;
+    }
+
+    /**
      * @param  callable(): Response  $call
      */
     public function attempt(callable $call): ?Response
