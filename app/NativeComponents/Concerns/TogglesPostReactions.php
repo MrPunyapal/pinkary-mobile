@@ -627,7 +627,7 @@ trait TogglesPostReactions
         $this->shareQuestion(
             Payload::string(data_get($post, 'to.username', '')),
             $this->menuPostId,
-            Payload::string(data_get($post, 'answer') ?? data_get($post, 'content')),
+            $this->postSource($post, 'answer') ?? $this->postSource($post, 'content'),
         );
     }
 
@@ -645,7 +645,7 @@ trait TogglesPostReactions
             return;
         }
 
-        $text = $this->plainText(data_get($post, 'answer') ?? data_get($post, 'content'));
+        $text = $this->plainText($this->postSource($post, 'answer') ?? $this->postSource($post, 'content'));
 
         $this->openExternalLink(
             'https://twitter.com/intent/tweet?url='.urlencode($url).'&text='.urlencode(mb_substr($text, 0, 140))
@@ -1168,7 +1168,7 @@ trait TogglesPostReactions
         }
     }
 
-    private function shareQuestion(?string $username, string $id, ?string $html): void
+    private function shareQuestion(?string $username, string $id, ?string $text): void
     {
         $url = $this->questionUrl($username, $id);
 
@@ -1176,7 +1176,7 @@ trait TogglesPostReactions
             return;
         }
 
-        $text = mb_trim(html_entity_decode(strip_tags((string) $html), ENT_QUOTES, 'UTF-8'));
+        $text = mb_trim(html_entity_decode(strip_tags((string) $text), ENT_QUOTES, 'UTF-8'));
 
         app(Share::class)->url('Pinkary post', $text === '' ? $url : mb_substr($text, 0, 140), $url);
     }
@@ -1190,15 +1190,23 @@ trait TogglesPostReactions
         app(Browser::class)->inApp($url);
     }
 
-    private function translateHtml(?string $html): void
+    private function translateText(?string $text): void
     {
-        $text = mb_trim(html_entity_decode(strip_tags((string) $html), ENT_QUOTES, 'UTF-8'));
+        $text = mb_trim(html_entity_decode(strip_tags((string) $text), ENT_QUOTES, 'UTF-8'));
 
         if ($text === '') {
             return;
         }
 
         $this->openExternalLink('https://translate.google.com/?sl=auto&tl=en&text='.urlencode($text));
+    }
+
+    /** @param array<string, mixed> $post */
+    private function postSource(array $post, string $field): ?string
+    {
+        $source = data_get($post, $field.'_source') ?? data_get($post, $field);
+
+        return is_string($source) ? $source : null;
     }
 
     /**

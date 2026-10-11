@@ -29,6 +29,7 @@ final class PinkaryApi
     {
         foreach (['content', 'answer'] as $field) {
             if (is_string($post[$field.'_html'] ?? null)) {
+                $post[$field.'_source'] = $post[$field] ?? null;
                 $post[$field] = $post[$field.'_html'];
             }
         }

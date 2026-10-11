@@ -6,6 +6,7 @@ use App\NativeComponents\Home;
 use App\Services\PinkaryApi;
 use App\Support\DisplayText;
 use Illuminate\Support\Facades\Http;
+use Native\Mobile\Testing\FakeBridge;
 use Native\Mobile\Testing\Native;
 
 beforeEach(function (): void {
@@ -26,6 +27,53 @@ it('prefers rich API fields while preserving compatibility with plain servers an
         ->and($post['answer'])->toBe('First<br><br>Second<pre><code>    return true;</code></pre>')
         ->and($post['thread']['posts'][0]['answer'])->toBe('A<br>B')
         ->and(app(PinkaryApi::class)->normalizeQuestion(['answer' => "First\nSecond"])['answer'])->toBe("First\nSecond");
+});
+
+it('keeps API source text beside the rich fields used for rendering', function (): void {
+    $post = app(PinkaryApi::class)->normalizeQuestion([
+        'content' => 'Question source text.',
+        'content_html' => '<p>Rendered question.</p>',
+        'answer' => 'Answer source text.',
+        'answer_html' => '<p>Rendered answer.</p>',
+    ]);
+
+    expect($post['content'])->toBe('<p>Rendered question.</p>')
+        ->and($post['content_source'])->toBe('Question source text.')
+        ->and($post['answer'])->toBe('<p>Rendered answer.</p>')
+        ->and($post['answer_source'])->toBe('Answer source text.');
+});
+
+it('shares and translates source text instead of rich HTML', function (): void {
+    $content = "Question with https://example.com/docs.\n\n```php\n\$value = 1;\n```";
+    $answer = "Answer with https://example.com/guide.\n\n```php\nreturn true;\n```";
+    $contentHtml = '<p>Question with <a href="https://example.com/docs">docs</a>.</p><pre><code>$value = 1;</code></pre>';
+    $answerHtml = '<p>Answer with <a href="https://example.com/guide">guide</a>.</p><pre><code>return true;</code></pre>';
+
+    Http::fake(['https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
+        'id' => 'q1',
+        'to' => ['name' => 'Ada', 'username' => 'ada'],
+        'content' => $content,
+        'content_html' => $contentHtml,
+        'answer' => $answer,
+        'answer_html' => $answerHtml,
+    ]]])]);
+
+    $screen = Native::test(Home::class);
+
+    expect($screen->get('posts.0.content'))->toBe($contentHtml)
+        ->and($screen->get('posts.0.answer'))->toBe($answerHtml);
+
+    $screen->call('sharePost', 'q1')->call('translatePost', 'q1', 'content');
+
+    $calls = FakeBridge::current()?->calls ?? [];
+    $share = collect($calls)->firstWhere('method', 'Share.Url');
+    $browser = collect($calls)->firstWhere('method', 'Browser.OpenInApp');
+    parse_str((string) parse_url($browser['params']['url'] ?? '', PHP_URL_QUERY), $query);
+
+    expect($share['params']['text'] ?? null)->toBe($answer)
+        ->and($query['text'] ?? null)->toBe($content)
+        ->and($share['params']['text'] ?? '')->not->toContain('<a', '<pre', '<code')
+        ->and($query['text'] ?? '')->not->toContain('<a', '<pre', '<code');
 });
 
 it('keeps bare links tappable with their full target and excludes surrounding punctuation', function (string $text, string $label, string $url): void {

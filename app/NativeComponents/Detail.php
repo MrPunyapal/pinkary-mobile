@@ -127,7 +127,7 @@ final class Detail extends NativeComponent implements HasWebHead
         $this->shareQuestion(
             Payload::string(data_get($post, 'to.username', '')),
             $id,
-            Payload::string(data_get($post, 'answer') ?? data_get($post, 'content')),
+            $this->postSource($post, 'answer') ?? $this->postSource($post, 'content'),
         );
     }
 
@@ -145,7 +145,7 @@ final class Detail extends NativeComponent implements HasWebHead
         }
 
         $this->closeMenu();
-        $this->translateHtml(Payload::string(data_get($post, $field)));
+        $this->translateText($this->postSource($post, $field));
     }
 
     public function showMore(string $id): void
