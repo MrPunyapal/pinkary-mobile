@@ -65,6 +65,16 @@ it('maps flat search flags to the profile row fields', function (): void {
     ]);
 });
 
+it('labels a mutual-follow action as Follow Back when the API provides it', function (): void {
+    Http::fake([
+        'https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser(['follows_me' => true])])),
+    ]);
+
+    Native::test(Search::class)
+        ->set('query', 'grace')
+        ->assertSee('Follow Back');
+});
+
 it('replays a recent search and ignores an unusable one', function (): void {
     Http::fake(['https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser()]))]);
 
