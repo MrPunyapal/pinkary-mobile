@@ -36,7 +36,11 @@
                             @selectionChange="updateMentionSelection(-1)"
                         />
                         @if ($mentionPostIndex === -1)
-                            <x-mention-suggestions :users="$mentionResults" />
+                            @if ($mentionKind === 'hashtag')
+                                <x-hashtag-suggestions :hashtags="$mentionResults" />
+                            @else
+                                <x-mention-suggestions :users="$mentionResults" />
+                            @endif
                         @endif
                         @php [$length, $over] = $counter($content); @endphp
                         <native:row class="w-full items-center justify-end">
@@ -94,7 +98,11 @@
                             @selectionChange="updateMentionSelection(-1)"
                         />
                         @if ($mentionPostIndex === -1)
-                            <x-mention-suggestions :users="$mentionResults" />
+                            @if ($mentionKind === 'hashtag')
+                                <x-hashtag-suggestions :hashtags="$mentionResults" />
+                            @else
+                                <x-mention-suggestions :users="$mentionResults" />
+                            @endif
                         @endif
 
                         <native:column class="w-full">
@@ -226,7 +234,11 @@
                                 @selectionChange="updateMentionSelection({{ $index }})"
                             />
                             @if ($mentionPostIndex === $index)
-                                <x-mention-suggestions :users="$mentionResults" />
+                                @if ($mentionKind === 'hashtag')
+                                    <x-hashtag-suggestions :hashtags="$mentionResults" />
+                                @else
+                                    <x-mention-suggestions :users="$mentionResults" />
+                                @endif
                             @endif
 
                             <native:row class="w-full items-center gap-1 pl-3.5">

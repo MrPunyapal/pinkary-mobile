@@ -395,6 +395,53 @@ it('validates follow-up polls locally without sending', function (): void {
         && str_ends_with($request->url(), '/api/v1/questions'));
 });
 
+it('suggests and inserts hashtags in the composer', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/channels*' => Http::response(['data' => []]),
+        'https://pinkary.test/api/v1/search*' => Http::response([
+            'data' => [
+                'users' => [],
+                'hashtags' => [['name' => 'laravel'], ['name' => 'livewire']],
+            ],
+        ]),
+    ]);
+
+    $test = Native::test(Compose::class)
+        ->set('content', '#lar')
+        ->call('updateMentionSelection', -1, '#lar', 4, 4)
+        ->assertSee('#laravel')
+        ->call('selectMention', 0)
+        ->assertSee('#laravel');
+
+    expect($test->get('content'))->toBe('#laravel ');
+    Http::assertSent(fn ($request): bool => str_contains($request->url(), '/api/v1/search?')
+        && $request['q'] === 'lar');
+});
+
+it('keeps user mention suggestions working in the composer', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/channels*' => Http::response(['data' => []]),
+        'https://pinkary.test/api/v1/search*' => Http::response([
+            'data' => [
+                'users' => [['name' => 'Grace Hopper', 'username' => 'grace']],
+                'hashtags' => [],
+            ],
+        ]),
+    ]);
+
+    $test = Native::test(Compose::class)
+        ->set('content', '@gra')
+        ->call('updateMentionSelection', -1, '@gra', 4, 4)
+        ->assertSee('Grace Hopper')
+        ->call('selectMention', 0);
+
+    expect($test->get('content'))->toBe('@grace ');
+});
+
 it('only makes add-post tappable once a follow-up is allowed', function (): void {
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake();
