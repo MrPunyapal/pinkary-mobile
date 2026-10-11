@@ -102,6 +102,17 @@ final class Search extends NativeComponent implements HasWebHead
 
         /** @var list<array<string, mixed>> $users */
         $users = $response->json('data.users', []);
+        $users = array_map(static function (array $user): array {
+            $verification = data_get($user, 'verification', []);
+            $user['verification'] = [
+                'profile' => (bool) ($user['verified'] ?? data_get($verification, 'profile', false)),
+                'company' => (bool) ($user['company_verified'] ?? data_get($verification, 'company', false)),
+            ];
+            $user['followed_by_me'] = (bool) ($user['followed'] ?? $user['followed_by_me'] ?? false);
+
+            return $user;
+        }, $users);
+
         /** @var list<array<string, mixed>> $hashtags */
         $hashtags = $response->json('data.hashtags', []);
 
