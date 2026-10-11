@@ -80,6 +80,20 @@ it('renders the composer', function (): void {
         ->assertSee('Post');
 });
 
+it('uses the saved anonymous question preference by default', function (): void {
+    AccountStore::add('ada', 'test-token', [
+        'username' => 'ada',
+        'prefers_anonymous_questions' => true,
+    ]);
+    CurrentUser::store([
+        'username' => 'ada',
+        'prefers_anonymous_questions' => true,
+    ]);
+    Http::fake();
+
+    expect(Native::test(Compose::class)->get('anonymous'))->toBeTrue();
+});
+
 it('requires content before publishing', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);

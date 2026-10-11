@@ -98,6 +98,31 @@ it('shows the recent feed to guests without redirecting to login', function (): 
         ->assertDontSee('Log in');
 });
 
+it('opens the saved default feed tab', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', [
+        'username' => 'ada',
+        'avatar' => 'https://example.com/ada.png',
+        'default_feed' => 'trending',
+        'prefers_anonymous_questions' => false,
+    ]);
+    CurrentUser::store([
+        'username' => 'ada',
+        'avatar' => 'https://example.com/ada.png',
+        'default_feed' => 'trending',
+        'prefers_anonymous_questions' => false,
+    ]);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => []]),
+    ]);
+
+    Native::test(Home::class)
+        ->assertSet('tab', 'trending')
+        ->assertSet('selectedTab', 2);
+
+    Http::assertSent(fn ($request): bool => str_contains($request->url(), 'tab=trending'));
+});
+
 it('renders the Pinkary feed from the API', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);

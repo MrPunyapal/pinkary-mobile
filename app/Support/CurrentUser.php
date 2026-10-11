@@ -19,6 +19,9 @@ final class CurrentUser
             'avatar' => data_get($profile, 'avatar'),
             'email' => data_get($profile, 'email'),
             'member_since' => data_get($profile, 'member_since.human'),
+            'default_feed' => data_get($profile, 'default_feed'),
+            'prefers_anonymous_questions' => data_get($profile, 'prefers_anonymous_questions'),
+            'mail_preference_time' => data_get($profile, 'mail_preference_time'),
         ];
 
         session([self::KEY => $data]);
@@ -63,6 +66,9 @@ final class CurrentUser
             'avatar' => $user['avatar'] ?? null,
             'email' => $user['email'] ?? null,
             'member_since' => $user['member_since'] ?? null,
+            'default_feed' => $user['default_feed'] ?? null,
+            'prefers_anonymous_questions' => $user['prefers_anonymous_questions'] ?? null,
+            'mail_preference_time' => $user['mail_preference_time'] ?? null,
         ];
     }
 }

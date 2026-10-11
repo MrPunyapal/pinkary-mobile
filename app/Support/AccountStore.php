@@ -58,7 +58,7 @@ final class AccountStore
     }
 
     /**
-     * @return array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, token: string}|null
+     * @return array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, default_feed: mixed, prefers_anonymous_questions: mixed, mail_preference_time: mixed, token: string}|null
      */
     public static function active(): ?array
     {
@@ -117,6 +117,9 @@ final class AccountStore
             'avatar' => data_get($profile, 'avatar'),
             'email' => data_get($profile, 'email'),
             'member_since' => data_get($profile, 'member_since.human', data_get($profile, 'member_since')),
+            'default_feed' => data_get($profile, 'default_feed'),
+            'prefers_anonymous_questions' => data_get($profile, 'prefers_anonymous_questions'),
+            'mail_preference_time' => data_get($profile, 'mail_preference_time'),
             'token' => $token,
         ]);
 
@@ -142,6 +145,9 @@ final class AccountStore
             $account['avatar'] = data_get($profile, 'avatar', $account['avatar']);
             $account['email'] = data_get($profile, 'email', $account['email']);
             $account['member_since'] = data_get($profile, 'member_since.human', data_get($profile, 'member_since', $account['member_since']));
+            $account['default_feed'] = data_get($profile, 'default_feed', $account['default_feed']);
+            $account['prefers_anonymous_questions'] = data_get($profile, 'prefers_anonymous_questions', $account['prefers_anonymous_questions']);
+            $account['mail_preference_time'] = data_get($profile, 'mail_preference_time', $account['mail_preference_time']);
             $changed = true;
 
             break;
@@ -201,8 +207,8 @@ final class AccountStore
     }
 
     /**
-     * @param  list<array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, token: string}>  $accounts
-     * @return array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, token: string}|null
+     * @param  list<array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, default_feed: mixed, prefers_anonymous_questions: mixed, mail_preference_time: mixed, token: string}>  $accounts
+     * @return array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, default_feed: mixed, prefers_anonymous_questions: mixed, mail_preference_time: mixed, token: string}|null
      */
     private static function find(array $accounts, string $id): ?array
     {
@@ -216,7 +222,7 @@ final class AccountStore
     }
 
     /**
-     * @return array{0: list<array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, token: string}>, 1: ?string}
+     * @return array{0: list<array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, default_feed: mixed, prefers_anonymous_questions: mixed, mail_preference_time: mixed, token: string}>, 1: ?string}
      */
     private static function read(): array
     {
@@ -262,14 +268,14 @@ final class AccountStore
         return [$accounts, $activeId];
     }
 
-    /** @return list<array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, token: string}> */
+    /** @return list<array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, default_feed: mixed, prefers_anonymous_questions: mixed, mail_preference_time: mixed, token: string}> */
     private static function readAll(): array
     {
         return self::read()[0];
     }
 
     /**
-     * @param  list<array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, token: string}>  $accounts
+     * @param  list<array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, default_feed: mixed, prefers_anonymous_questions: mixed, mail_preference_time: mixed, token: string}>  $accounts
      */
     private static function write(array $accounts, ?string $activeId): void
     {
@@ -287,7 +293,7 @@ final class AccountStore
     }
 
     /**
-     * @return list<array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, token: string}>
+     * @return list<array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, default_feed: mixed, prefers_anonymous_questions: mixed, mail_preference_time: mixed, token: string}>
      */
     private static function sanitize(mixed $accounts): array
     {
@@ -312,6 +318,9 @@ final class AccountStore
                 'avatar' => $account['avatar'] ?? null,
                 'email' => $account['email'] ?? null,
                 'member_since' => $account['member_since'] ?? null,
+                'default_feed' => $account['default_feed'] ?? null,
+                'prefers_anonymous_questions' => $account['prefers_anonymous_questions'] ?? null,
+                'mail_preference_time' => $account['mail_preference_time'] ?? null,
                 'token' => $account['token'],
             ];
         }

@@ -129,6 +129,7 @@ final class Compose extends NativeComponent implements HasWebHead
         }
 
         $this->hydrateAvatar();
+        $this->anonymous = $this->defaultAnonymousPreference();
         $this->loadCaptcha('post', $token);
         $this->restoreDraft();
         $this->validateState();
@@ -891,7 +892,7 @@ final class Compose extends NativeComponent implements HasWebHead
 
         $this->clearDraft();
         $this->content = '';
-        $this->anonymous = false;
+        $this->anonymous = $this->defaultAnonymousPreference();
         $this->validationMessage = '';
         $this->navigate($this->route('mobile.user', ['username' => $this->askUsername]));
     }
@@ -1035,6 +1036,11 @@ final class Compose extends NativeComponent implements HasWebHead
 
         $avatar = $user['avatar'] ?? null;
         $this->avatar = is_string($avatar) && $avatar !== '' ? $avatar : null;
+    }
+
+    private function defaultAnonymousPreference(): bool
+    {
+        return Payload::bool(data_get(CurrentUser::get(), 'prefers_anonymous_questions', false));
     }
 
     private function shouldFetchProfile(): bool
