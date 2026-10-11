@@ -880,7 +880,7 @@ it('toggles likes on nested thread ancestors like the web', function (): void {
     expect($test->get('posts')[0]['thread']['posts'][0]['metrics'])->toMatchArray(['liked' => true, 'likes' => 1]);
 });
 
-it('clamps long answers with Show more and Show less like the web', function (): void {
+it('expands long answers with a one-way View more control', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     $long = mb_rtrim(str_repeat('Long answer sentence. ', 60));
@@ -896,13 +896,17 @@ it('clamps long answers with Show more and Show less like the web', function ():
     ]);
 
     Native::test(Home::class)
-        ->assertSee('Show more')
+        ->assertSee('View more')
+        ->assertDontSee('Show more')
+        ->assertDontSee('Show less')
         ->assertDontSee($long)
-        ->call('toggleShowMore', 'q9')
-        ->assertSee('Show less')
+        ->call('showMore', 'q9')
         ->assertSee($long)
-        ->call('toggleShowMore', 'q9')
-        ->assertSee('Show more');
+        ->assertDontSee('View more')
+        ->assertDontSee('Show less')
+        ->call('showMore', 'q9')
+        ->assertSee($long)
+        ->assertDontSee('View more');
 });
 
 it('opens post images fullscreen through the in-app browser link handler', function (): void {

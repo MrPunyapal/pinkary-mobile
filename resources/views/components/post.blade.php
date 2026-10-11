@@ -14,6 +14,9 @@
     $preview = data_get($post, 'preview');
     $images = array_values(array_filter((array) data_get($post, 'images', []), fn (mixed $src): bool => is_string($src) && $src !== ''));
     $poll = data_get($post, 'poll');
+    $repostedBy = data_get($post, 'reposted_by');
+    $repostedByName = is_array($repostedBy) ? mb_trim((string) data_get($repostedBy, 'name', '')) : '';
+    $repostedByUsername = is_array($repostedBy) ? (string) data_get($repostedBy, 'username', '') : '';
     $postId = (string) data_get($post, 'id', '');
     $liked = (bool) data_get($post, 'metrics.liked', false);
     $bookmarked = (bool) data_get($post, 'metrics.bookmarked', false);
@@ -54,6 +57,26 @@
 
 @endif
 <native:column native:key="post-{{ $postId }}" class="w-full {{ $bare ? '' : 'bg-theme-surface' }}">
+    @if (! $comment && $repostedByName !== '')
+        <native:pressable
+            class="w-full px-2 pt-2"
+            @tap="openProfile('{{ $repostedByUsername }}')"
+            a11y-label="Open {{ $repostedByName }}’s profile"
+        >
+            <native:row class="w-full items-center gap-2">
+                <x-avatar :user="$repostedBy" :size="7" :link="false" :border="false" />
+                <native:row class="min-w-0 flex-1 items-center gap-1">
+                    <native:text
+                        class="text-theme-on-surface min-w-0 flex-1 text-sm font-medium"
+                        max-lines="1"
+                    >{{ $repostedByName }}</native:text>
+                    <native:text class="text-theme-on-surface-variant shrink-0 text-sm" max-lines="1"
+                        >reposted</native:text>
+                </native:row>
+            </native:row>
+        </native:pressable>
+    @endif
+
     @unless ($sharedUpdate || $comment)
         <native:column class="w-full px-2 {{ $bare ? 'pt-2' : 'pt-3' }}">
             <native:column class="bg-theme-bubble border-theme-outline-variant/50 w-full gap-2 rounded-md border px-3 py-2.5">
@@ -160,8 +183,8 @@
                         />
 
                         @unless ($comment)
-                            @if ($answerLong && ! $full)
-                                <x-show-more :post-id="$postId" :expanded="$expanded" />
+                            @if ($answerLong && ! $full && ! $expanded)
+                                <x-view-more :post-id="$postId" />
                             @endif
 
                             <x-post-images :images="$images" />
@@ -217,7 +240,12 @@
                                 <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
                                 <x-post-action type="like" :post-id="$postId" :count="$likesCount" :active="$liked" />
                                 <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
-                                <x-post-action type="repost" :post-id="$postId" :count="$repostsCount" :active="$reposted" />
+                                <x-post-action
+                                    type="repost"
+                                    :post-id="$postId"
+                                    :count="$repostsCount"
+                                    :active="$reposted"
+                                />
                                 <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />
                                 <x-post-action type="views" :count="$viewsCount" />
                                 <native:rect class="bg-theme-outline h-1 w-1 shrink-0 rounded-full" />

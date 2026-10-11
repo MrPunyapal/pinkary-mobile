@@ -278,7 +278,7 @@ it('keeps the views chart icon visible at zero views like the web', function ():
     expect($actionRow['layout']['padding'][0] ?? null)->toEqual(12.0);
 });
 
-it('offers the Show more toggle only past the 972 character answer budget', function (): void {
+it('offers View more only past the 972 character answer budget', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
 
@@ -293,9 +293,32 @@ it('offers the Show more toggle only past the 972 character answer budget', func
     $test = Native::test(Home::class)
         ->assertSee($atBudget)
         ->assertDontSee($overBudget)
-        ->assertSee('Show more');
+        ->assertSee('View more')
+        ->assertDontSee('Show more')
+        ->assertDontSee('Show less');
 
-    expect(parityCount($test->tree(), fn (array $n): bool => ($n['props']['text'] ?? null) === 'Show more'))->toBe(1);
+    expect(parityCount($test->tree(), fn (array $n): bool => ($n['props']['text'] ?? null) === 'View more'))->toBe(1);
+});
+
+it('shows repost attribution with a small avatar and display name only', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::clear();
+    parityFakeFeed([parityPost('A reposted answer.', [
+        'reposted_by' => [
+            'name' => 'Katherine Johnson',
+            'username' => 'katherine',
+            'avatar' => 'https://example.test/katherine.png',
+        ],
+    ])]);
+
+    $tree = Native::test(Home::class)->assertSee('Katherine Johnson')->assertSee('reposted')->tree();
+    $attribution = parityByA11y($tree, 'Open Katherine Johnson’s profile');
+
+    expect($attribution)->not->toBeNull()
+        ->and(parityByText($attribution, 'Katherine Johnson'))->not->toBeNull()
+        ->and(parityByText($attribution, 'reposted'))->not->toBeNull()
+        ->and(parityByText($attribution, '@katherine'))->toBeNull()
+        ->and(parityFind($attribution, fn (array $n): bool => ($n['props']['src'] ?? null) === 'https://example.test/katherine.png'))->not->toBeNull();
 });
 
 it('renders the pinned chip in the question header', function (): void {

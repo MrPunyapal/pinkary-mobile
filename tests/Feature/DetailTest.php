@@ -40,14 +40,14 @@ function commentRow(string $id, string $content): array
     ];
 }
 
-it('shows the complete post on its detail page without show more or show less controls', function (): void {
+it('shows the complete post on its detail page without a View more control', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::clear();
     $answer = str_repeat('Full post text. ', 100).'The end.';
     Http::fake(detailFakes($answer));
 
     Native::test(Detail::class, ['id' => 'q1'])->assertSee($answer)
-        ->assertDontSee('Show more')->assertDontSee('Show less');
+        ->assertDontSee('View more')->assertDontSee('Show more')->assertDontSee('Show less');
 });
 
 it('opens a post for guests and sends writes to login', function (): void {

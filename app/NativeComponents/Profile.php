@@ -139,9 +139,9 @@ final class Profile extends NativeComponent implements HasWebHead
         $this->openExternalLink($url);
     }
 
-    public function toggleShowMore(string $id): void
+    public function showMore(string $id): void
     {
-        $this->toggleExpandedId($id);
+        $this->expandPost($id);
     }
 
     public function toggleLike(string $id): void

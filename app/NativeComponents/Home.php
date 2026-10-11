@@ -94,9 +94,9 @@ final class Home extends NativeComponent implements HasWebHead
         $this->switchTab(2);
     }
 
-    public function toggleShowMore(string $id): void
+    public function showMore(string $id): void
     {
-        $this->toggleExpandedId($id);
+        $this->expandPost($id);
     }
 
     public function retry(): void

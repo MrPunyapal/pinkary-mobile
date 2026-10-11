@@ -91,9 +91,9 @@ final class Bookmarks extends NativeComponent implements HasWebHead
         $this->translateHtml(Payload::string(data_get($post, $field)));
     }
 
-    public function toggleShowMore(string $id): void
+    public function showMore(string $id): void
     {
-        $this->toggleExpandedId($id);
+        $this->expandPost($id);
     }
 
     public function toggleLike(string $id): void

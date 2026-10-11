@@ -1101,7 +1101,7 @@ trait TogglesPostReactions
         return true;
     }
 
-    private function toggleExpandedId(string $id): void
+    private function expandPost(string $id): void
     {
         if ($id === '') {
             return;
@@ -1109,9 +1109,9 @@ trait TogglesPostReactions
 
         $expanded = array_values(array_filter(Payload::array($this->expanded), is_string(...)));
 
-        $this->expanded = in_array($id, $expanded, true)
-            ? array_values(array_diff($expanded, [$id]))
-            : [...$expanded, $id];
+        if (! in_array($id, $expanded, true)) {
+            $this->expanded = [...$expanded, $id];
+        }
     }
 
     private function shareQuestion(?string $username, string $id, ?string $html): void
