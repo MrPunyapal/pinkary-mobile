@@ -616,7 +616,8 @@ it('edits the profile and refreshes the cached card', function (): void {
 
     $test = Native::test(EditProfile::class)
         ->assertSee('Pinkary User')
-        ->assertSee('Profile photos can’t be changed on mobile yet.')
+        ->assertSee('Change photo')
+        ->assertSee('JPG or PNG, up to 2 MB.')
         ->set('name', 'New Name')
         ->call('save')
         ->assertSee('Your profile has been saved.');
