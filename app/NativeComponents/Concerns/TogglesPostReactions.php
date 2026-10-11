@@ -291,7 +291,7 @@ trait TogglesPostReactions
             return;
         }
 
-        $this->editAnswer = $this->plainText(data_get($post, 'answer'));
+        $this->editAnswer = $this->postSource($post, 'answer') ?? '';
         $this->menuError = '';
         $this->menuStep = 'edit';
     }

@@ -720,7 +720,11 @@ it('hides the pin entry after a pin 403', function (): void {
 it('edits the answer inline and updates the post', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
-    Http::fake(menuFakes(menuPost(), [
+    $answerSource = "A thoughtful mobile experience.\n\n- Keep the original Markdown.\n- Preserve line breaks.";
+    Http::fake(menuFakes(menuPost(overrides: [
+        'answer' => $answerSource,
+        'answer_html' => '<p>A thoughtful mobile experience.</p><ul><li>Keep the original Markdown.</li><li>Preserve line breaks.</li></ul>',
+    ]), [
         'https://pinkary.test/api/v1/questions/q1/answer' => Http::response(['data' => [
             'id' => 'q1',
             'answer' => '<p>An even better answer.</p>',
@@ -732,6 +736,7 @@ it('edits the answer inline and updates the post', function (): void {
         ->call('openMenu', 'q1')
         ->assertSee('Edit answer')
         ->call('startEditMenu')
+        ->assertSet('editAnswer', $answerSource)
         ->assertSee('Save answer')
         ->set('editAnswer', 'An even better answer.')
         ->call('saveAnswerMenu')
