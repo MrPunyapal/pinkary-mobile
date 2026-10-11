@@ -109,6 +109,32 @@ final class Bookmarks extends NativeComponent implements HasWebHead
     public function toggleBookmark(string $id): void
     {
         $this->reactOnPostPayload($this->posts, $id, 'bookmark', $this->token());
+
+        $post = $this->readPostPayload($this->posts, $id);
+
+        if ($post === null || (bool) data_get($post, 'metrics.bookmarked', false)) {
+            return;
+        }
+
+        $location = $this->locateNestedPost($this->posts, $id);
+
+        if ($location === null) {
+            return;
+        }
+
+        [$postIndex, $threadIndex] = $location;
+
+        if ($threadIndex === null) {
+            array_splice($this->posts, $postIndex, 1);
+        } else {
+            $thread = Payload::array(data_get($this->posts[$postIndex], 'thread'));
+            $threadPosts = Payload::array(data_get($thread, 'posts'));
+            unset($threadPosts[$threadIndex]);
+            $thread['posts'] = array_values($threadPosts);
+            $this->posts[$postIndex]['thread'] = $thread;
+        }
+
+        $this->rememberBookmarks();
     }
 
     public function sharePost(string $id): void

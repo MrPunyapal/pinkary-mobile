@@ -45,6 +45,8 @@ it('reverts optimistic likes when the api is unreachable', function (): void {
 
     $test = Native::test(Home::class)->call('toggleLike', 'q1');
 
+    $test->assertSee('Your like could not be updated. Please try again.');
+
     expect(data_get($test->get('posts'), '0.metrics.liked'))->toBeFalse()
         ->and(data_get($test->get('posts'), '0.metrics.likes'))->toBe(0);
 });
@@ -712,22 +714,22 @@ it('toggles bookmarks through the action row', function (): void {
             'to' => ['name' => 'Pinkary'],
             'content' => 'Save this?',
             'answer' => 'Bookmarkable answer.',
-            'metrics' => ['likes' => 0, 'comments' => 0],
+            'metrics' => ['likes' => 0, 'comments' => 0, 'bookmarks' => 4],
             'views' => 0,
         ]]]),
         'https://pinkary.test/api/v1/questions/q1/bookmark' => Http::sequence()
-            ->push(['data' => ['bookmarked' => true, 'bookmarks' => 1]])
-            ->push(['data' => ['bookmarked' => false, 'bookmarks' => 0]]),
+            ->push(['data' => ['bookmarked' => true, 'bookmarks' => 5]])
+            ->push(['data' => ['bookmarked' => false, 'bookmarks' => 4]]),
     ]);
 
     $test = Native::test(Home::class)
         ->press("toggleBookmark('q1')");
 
-    expect($test->get('posts')[0]['metrics']['bookmarked'])->toBeTrue();
+    expect($test->get('posts')[0]['metrics'])->toMatchArray(['bookmarked' => true, 'bookmarks' => 5]);
 
     $test->press("toggleBookmark('q1')");
 
-    expect($test->get('posts')[0]['metrics']['bookmarked'])->toBeFalse();
+    expect($test->get('posts')[0]['metrics'])->toMatchArray(['bookmarked' => false, 'bookmarks' => 4]);
 
     Http::assertSentCount(3);
 });
@@ -836,14 +838,52 @@ it('reverts the bookmark when the server rejects it', function (): void {
             'metrics' => ['likes' => 0, 'comments' => 0],
             'views' => 0,
         ]]]),
-        'https://pinkary.test/api/v1/questions/q1/bookmark' => Http::response(null, 500),
+        'https://pinkary.test/api/v1/questions/q1/bookmark' => Http::response(['message' => 'Reaction failed.'], 500),
     ]);
 
     $test = Native::test(Home::class)
         ->press("toggleBookmark('q1')");
 
-    expect($test->get('posts')[0]['metrics']['bookmarked'])->toBeFalse();
+    $test->assertSee('Reaction failed.');
+
+    expect($test->get('posts')[0]['metrics'])->toMatchArray(['bookmarked' => false, 'bookmarks' => 0]);
 });
+
+it('shows the api error when a like or repost is rejected', function (string $action, string $likedMetric, string $countMetric): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[
+            'id' => 'q1',
+            'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+            'to' => ['name' => 'Pinkary'],
+            'content' => 'React to this?',
+            'answer' => 'The reaction should roll back.',
+            'metrics' => [
+                'likes' => 2,
+                'liked' => false,
+                'reposts' => 3,
+                'reposted' => false,
+                'bookmarks' => 4,
+                'bookmarked' => false,
+            ],
+            'views' => 0,
+        ]]]),
+        'https://pinkary.test/api/v1/questions/q1/*' => Http::response(['message' => 'Reaction failed.'], 500),
+    ]);
+
+    $test = Native::test(Home::class)->call($action, 'q1');
+
+    $test->assertSee('Reaction failed.');
+
+    expect($test->get('posts')[0]['metrics'])->toMatchArray([
+        $likedMetric => false,
+        $countMetric => $likedMetric === 'liked' ? 2 : 3,
+    ]);
+})->with([
+    'like' => ['toggleLike', 'liked', 'likes'],
+    'repost' => ['toggleRepost', 'reposted', 'reposts'],
+]);
 
 it('resets the list when switching tabs so the change is always visible', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);

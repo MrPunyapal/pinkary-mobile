@@ -27,7 +27,7 @@ function bookmarkRow(string $id, string $answer): array
         'to' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
         'content' => '__UPDATE__',
         'answer' => $answer,
-        'metrics' => ['likes' => 0, 'comments' => 0, 'liked' => false, 'bookmarked' => true],
+        'metrics' => ['likes' => 0, 'comments' => 0, 'bookmarks' => 1, 'liked' => false, 'bookmarked' => true],
         'views' => 0,
     ];
 }
@@ -67,6 +67,22 @@ it('renders bookmarked posts and paginates', function (): void {
         ->assertSee('Saved answer.')
         ->call('loadMore')
         ->assertSee('Older saved answer.');
+});
+
+it('removes a post from bookmarks after it is unbookmarked', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/bookmarks*' => Http::response(['data' => [bookmarkRow('b1', 'Saved answer.')]]),
+        'https://pinkary.test/api/v1/questions/b1/bookmark' => Http::response(['data' => ['bookmarked' => false, 'bookmarks' => 0]]),
+    ]);
+
+    $test = Native::test(Bookmarks::class)
+        ->assertSee('Saved answer.')
+        ->call('toggleBookmark', 'b1')
+        ->assertDontSee('Saved answer.');
+
+    expect($test->get('posts'))->toBe([]);
 });
 
 it('lists web-style rows and opens the question', function (): void {

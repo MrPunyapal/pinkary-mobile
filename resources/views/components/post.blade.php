@@ -21,6 +21,7 @@
     $liked = (bool) data_get($post, 'metrics.liked', false);
     $bookmarked = (bool) data_get($post, 'metrics.bookmarked', false);
     $reposted = (bool) data_get($post, 'metrics.reposted', false);
+    $reactionError = (string) data_get($post, 'reaction_error', '');
     $commentsCount = (int) data_get($post, 'metrics.comments', 0);
     $likesCount = (int) data_get($post, 'metrics.likes', 0);
     $repostsCount = (int) data_get($post, 'metrics.reposts', 0);
@@ -267,6 +268,9 @@
                                     <x-post-action type="menu" :post-id="$postId" />
                                 @endif
                             </native:row>
+                            @if ($reactionError !== '')
+                                <native:text class="text-theme-destructive w-full text-xs">{{ $reactionError }}</native:text>
+                            @endif
                         @endunless
                     </native:column>
                 </native:column>
