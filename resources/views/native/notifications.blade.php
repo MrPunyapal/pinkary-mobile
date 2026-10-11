@@ -7,8 +7,8 @@
         <x-page-heading title="Notifications">
             @if (! $loading && $errorMessage === '' && count($items) > 0)
                 <native:pressable
-                    class="shrink-0 px-3 py-1 rounded-full border border-theme-outline-variant {{ $markingRead ? 'opacity-40' : '' }}"
-                    @tap="markAllRead"
+                    class="shrink-0 px-3 py-1 rounded-full border border-theme-outline-variant {{ $ignoringAll ? 'opacity-40' : '' }}"
+                    @tap="ignoreAll"
                     a11y-label="Ignore all"
                 >
                     <native:text class="text-theme-on-surface-variant text-sm font-medium">Ignore all</native:text>

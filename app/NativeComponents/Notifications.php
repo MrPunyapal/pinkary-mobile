@@ -11,6 +11,8 @@ use App\Support\AccountStore;
 use App\Support\FeedCache;
 use App\Support\Payload;
 use App\Support\UnreadCount;
+use DateTimeImmutable;
+use Exception;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Edge\Web\Contracts\HasWebHead;
@@ -39,7 +41,7 @@ final class Notifications extends NativeComponent implements HasWebHead
 
     public string $loadMoreError = '';
 
-    public bool $markingRead = false;
+    public bool $ignoringAll = false;
 
     public function mount(): void
     {
@@ -107,9 +109,9 @@ final class Notifications extends NativeComponent implements HasWebHead
         $this->openTarget($target);
     }
 
-    public function markAllRead(): void
+    public function ignoreAll(PinkaryApi $api): void
     {
-        if ($this->markingRead || $this->unreadCount === 0) {
+        if ($this->ignoringAll || ($this->items === [] && ! $this->hasMore && $this->unreadCount === 0)) {
             return;
         }
 
@@ -119,43 +121,143 @@ final class Notifications extends NativeComponent implements HasWebHead
             return;
         }
 
-        $this->markingRead = true;
+        $this->ignoringAll = true;
+        $until = new DateTimeImmutable(now()->toIso8601String());
 
-        $api = app(PinkaryApi::class);
+        try {
+            $items = [];
+            $page = 1;
+            $hasMore = true;
+            $unreadCount = 0;
 
-        foreach ($this->items as $item) {
-            $id = Payload::string(data_get($item, 'id', ''));
+            while ($hasMore) {
+                $response = $api->attempt(fn () => $api->notifications($token, $page));
 
-            if ($id !== '') {
-                $api->attempt(fn () => $api->deleteNotification($token, $id));
+                if ($response === null) {
+                    $this->errorMessage = 'Notifications could not be ignored. Please try again.';
+
+                    return;
+                }
+
+                if ($this->handleUnauthorized($response)) {
+                    return;
+                }
+
+                if (! $response->successful()) {
+                    $this->errorMessage = 'Notifications could not be ignored. Please try again.';
+
+                    return;
+                }
+
+                if ($page === 1) {
+                    $unreadCount = Payload::int($response->json('meta.unread_count'));
+                }
+
+                $items = [...$items, ...$api->normalizeNotifications($response->json('data', []))];
+                $hasMore = $response->json('links.next') !== null;
+                $page++;
             }
+
+            $loadedPage = $page - 1;
+            $notificationsToIgnore = array_values(array_filter(
+                $items,
+                fn (array $item): bool => $this->notificationIsInIgnoreWindow($item, $until)
+            ));
+            $this->items = $items;
+            $this->page = $loadedPage;
+            $this->hasMore = false;
+            $this->unreadCount = $unreadCount;
+            UnreadCount::store($this->unreadCount);
+            $this->rememberNotifications();
+
+            $questionIds = [];
+
+            foreach ($notificationsToIgnore as $item) {
+                if (data_get($item, 'type') !== 'QuestionCreated') {
+                    continue;
+                }
+
+                $questionId = Payload::string(data_get($item, 'target.id'));
+
+                if ($questionId !== '') {
+                    $questionIds[$questionId] = $questionId;
+                }
+            }
+
+            $ignoredQuestionIds = [];
+
+            foreach ($questionIds as $questionId) {
+                $response = $api->attempt(fn () => $api->ignoreQuestion($token, $questionId));
+
+                if ($response === null) {
+                    $this->errorMessage = 'Notifications could not be ignored. Please try again.';
+
+                    return;
+                }
+
+                if ($this->handleUnauthorized($response)) {
+                    return;
+                }
+
+                if (! $response->successful() && ! $response->notFound()) {
+                    $this->errorMessage = 'Notifications could not be ignored. Please try again.';
+
+                    return;
+                }
+
+                if ($response->successful()) {
+                    $ignoredQuestionIds[$questionId] = true;
+                    $this->removeQuestionNotifications($questionId);
+                }
+            }
+
+            foreach ($notificationsToIgnore as $item) {
+                $id = Payload::string(data_get($item, 'id', ''));
+
+                if ($id === '') {
+                    $this->errorMessage = 'Notifications could not be ignored. Please try again.';
+
+                    return;
+                }
+
+                $questionId = Payload::string(data_get($item, 'target.id'));
+
+                if (data_get($item, 'target.kind') === 'question' && isset($ignoredQuestionIds[$questionId])) {
+                    continue;
+                }
+
+                $response = $api->attempt(fn () => $api->deleteNotification($token, $id));
+
+                if ($response === null) {
+                    $this->errorMessage = 'Notifications could not be ignored. Please try again.';
+
+                    return;
+                }
+
+                if ($this->handleUnauthorized($response)) {
+                    return;
+                }
+
+                if (! $response->successful() && ! $response->notFound()) {
+                    $this->errorMessage = 'Notifications could not be ignored. Please try again.';
+
+                    return;
+                }
+
+                if ($this->removeNotification($id)) {
+                    $this->unreadCount = max(0, $this->unreadCount - 1);
+                }
+
+                UnreadCount::store($this->unreadCount);
+                $this->rememberNotifications();
+            }
+
+            $this->errorMessage = '';
+            $this->loadMoreError = '';
+            $this->rememberNotifications();
+        } finally {
+            $this->ignoringAll = false;
         }
-
-        $response = $api->attempt(fn () => $api->markNotificationsRead($token));
-
-        $this->markingRead = false;
-
-        if ($response === null) {
-            $this->errorMessage = 'Notifications could not be marked as read. Please try again.';
-
-            return;
-        }
-
-        if ($this->handleUnauthorized($response)) {
-            return;
-        }
-
-        if (! $response->successful()) {
-            $this->errorMessage = 'Notifications could not be marked as read. Please try again.';
-
-            return;
-        }
-
-        $this->items = [];
-        $this->unreadCount = Payload::int($response->json('data.unread_count'));
-        UnreadCount::store($this->unreadCount);
-        $this->page = 1;
-        $this->hasMore = false;
     }
 
     public function loadMore(): void
@@ -301,12 +403,61 @@ final class Notifications extends NativeComponent implements HasWebHead
         return is_string($username) && $username !== '' ? $username : 'guest';
     }
 
-    private function removeNotification(string $id): void
+    /** @param array<string, mixed> $item */
+    private function notificationIsInIgnoreWindow(array $item, DateTimeImmutable $until): bool
     {
+        $createdAt = data_get($item, 'created_at');
+
+        if (! is_string($createdAt) || $createdAt === '') {
+            return true;
+        }
+
+        try {
+            return new DateTimeImmutable($createdAt) <= $until;
+        } catch (Exception) {
+            return true;
+        }
+    }
+
+    private function removeQuestionNotifications(string $questionId): void
+    {
+        $removedUnreadCount = 0;
         $this->items = array_values(array_filter(
             $this->items,
-            fn (mixed $item): bool => Payload::string(data_get($item, 'id')) !== $id
+            function (mixed $item) use ($questionId, &$removedUnreadCount): bool {
+                if (data_get($item, 'target.kind') !== 'question' || Payload::string(data_get($item, 'target.id')) !== $questionId) {
+                    return true;
+                }
+
+                if (data_get($item, 'read') === false) {
+                    $removedUnreadCount++;
+                }
+
+                return false;
+            }
         ));
+        $this->unreadCount = max(0, $this->unreadCount - $removedUnreadCount);
+        UnreadCount::store($this->unreadCount);
+        $this->rememberNotifications();
+    }
+
+    private function removeNotification(string $id): bool
+    {
+        $removedUnread = false;
+        $this->items = array_values(array_filter(
+            $this->items,
+            function (mixed $item) use ($id, &$removedUnread): bool {
+                if (Payload::string(data_get($item, 'id')) !== $id) {
+                    return true;
+                }
+
+                $removedUnread = $removedUnread || data_get($item, 'read') === false;
+
+                return false;
+            }
+        ));
+
+        return $removedUnread;
     }
 
     private function openTarget(mixed $target): void
