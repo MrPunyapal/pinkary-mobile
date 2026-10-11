@@ -213,6 +213,16 @@
                         >
                             <native:text class="text-sm font-medium text-white">Save</native:text>
                         </native:pressable>
+                        <native:text class="text-theme-on-surface-variant text-base font-semibold">Link Color</native:text>
+                        <native:text class="text-theme-on-surface-variant text-sm">Choose the color for your links.</native:text>
+                        <native:select label="Link Color" :options="$linkGradientOptions" native:model="linkGradient" />
+                        <native:pressable
+                            class="self-start px-4 py-2 rounded-full bg-theme-primary {{ $linkBusy ? 'opacity-40' : '' }}"
+                            @tap="saveLinkGradient"
+                            a11y-label="Save link gradient"
+                        >
+                            <native:text class="text-sm font-medium text-white">Save gradient</native:text>
+                        </native:pressable>
                     </native:column>
 
                     <native:column class="border-theme-outline-variant w-full gap-2 border-t pt-3">

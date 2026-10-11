@@ -175,6 +175,8 @@
                     $linkId = (int) data_get($link, 'id', 0);
                     $shape = (string) data_get($link, 'link_shape', data_get($profile, 'link_shape', 'rounded-lg'));
                     $linkRadius = in_array($shape, ['rounded-none', 'rounded-lg', 'rounded-full'], true) ? $shape : 'rounded-lg';
+                    $gradientName = (string) data_get($link, 'gradient', data_get($profile, 'gradient', ''));
+                    $gradient = data_get(config('native-ui.profile-gradients', []), $gradientName);
                     $clicks = $isMe ? data_get($link, 'click_count') : null;
                     $linkVisible = (bool) data_get($link, 'is_visible', true);
                     $linkBusy = (bool) data_get($link, '_busy', false);
@@ -182,6 +184,7 @@
                 <native:row class="w-full items-center gap-2">
                     <native:pressable
                         class="flex-1 min-w-0 items-center py-3 {{ $linkRadius }} bg-theme-primary"
+                        :gradient="$gradient"
                         @tap="openUserLink({{ $linkId }})"
                         a11y-label="Open {{ data_get($link, 'description', 'link') }}"
                     >

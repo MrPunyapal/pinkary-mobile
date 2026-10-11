@@ -23,6 +23,7 @@ function ownProfile(): array
         'email' => 'pinkary@example.com',
         'bio' => 'Building in public.',
         'avatar' => null,
+        'gradient' => 'from-blue-500 to-purple-600',
         'verification' => ['profile' => true, 'company' => false],
         'stats' => ['followers' => 1500, 'following' => 12, 'posts' => 34, 'views' => 999],
         'followed_by_me' => false,

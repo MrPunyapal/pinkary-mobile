@@ -23,6 +23,7 @@ function editedProfilePayload(array $overrides = []): array
         'bio' => 'Building in public.',
         'avatar' => null,
         'link_shape' => 'rounded-lg',
+        'gradient' => 'from-blue-500 to-purple-600',
         'question_preference' => 'everyone',
         'links' => [],
     ], $overrides);
@@ -71,6 +72,7 @@ it('uses the web profile information heading and field order', function (): void
         'Who can ask you questions?',
         'How would you like to do questions by default?',
         'Link Shape',
+        'Link Color',
         'Description',
         'URL',
     ]);
@@ -179,6 +181,26 @@ it('patches the link shape like the web link settings form', function (): void {
     Http::assertSent(fn ($request): bool => $request->method() === 'PATCH'
         && str_ends_with($request->url(), '/api/v1/profile')
         && $request['link_shape'] === 'rounded-full');
+});
+
+it('loads and saves the selected link color', function (): void {
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::sequence()
+            ->push(['data' => editedProfilePayload()])
+            ->push(['data' => editedProfilePayload(['gradient' => 'from-red-500 to-orange-600'])]),
+    ]);
+
+    $test = Native::test(EditProfile::class)
+        ->assertSee('Link Color')
+        ->set('linkGradient', 'from-red-500 to-orange-600')
+        ->call('saveLinkGradient')
+        ->assertSee('Link gradient saved.');
+
+    expect($test->get('linkGradient'))->toBe('from-red-500 to-orange-600');
+
+    Http::assertSent(fn ($request): bool => $request->method() === 'PATCH'
+        && str_ends_with($request->url(), '/api/v1/profile')
+        && $request['gradient'] === 'from-red-500 to-orange-600');
 });
 
 it('warns that editing a link URL resets its clicks', function (): void {

@@ -56,6 +56,8 @@ final class EditProfile extends NativeComponent implements HasWebHead
 
     public string $linkShape = 'rounded-lg';
 
+    public string $linkGradient = 'from-blue-500 to-purple-600';
+
     public bool $editUrlTouched = false;
 
     /**
@@ -120,6 +122,16 @@ final class EditProfile extends NativeComponent implements HasWebHead
         'rounded-none' => 'Square',
         'rounded-lg' => 'Round',
         'rounded-full' => 'Extra Round',
+    ];
+
+    /** @var array<string, string> */
+    public array $linkGradientOptions = [
+        'from-blue-500 to-purple-600' => 'Blue to purple',
+        'from-blue-500 to-teal-700' => 'Blue to teal',
+        'from-red-500 to-orange-600' => 'Red to orange',
+        'from-purple-500 to-pink-500' => 'Purple to pink',
+        'from-indigo-500 to-lime-700' => 'Indigo to lime',
+        'from-yellow-600 to-blue-600' => 'Yellow to blue',
     ];
 
     public function hidesDrawer(): bool
@@ -286,6 +298,55 @@ final class EditProfile extends NativeComponent implements HasWebHead
         }
 
         $this->linkMessage = 'Link shape saved.';
+    }
+
+    public function saveLinkGradient(): void
+    {
+        if ($this->linkBusy || ! array_key_exists($this->linkGradient, $this->linkGradientOptions)) {
+            return;
+        }
+
+        $token = $this->requireToken();
+
+        if ($token === null) {
+            return;
+        }
+
+        $this->linkBusy = true;
+        $this->linkMessage = '';
+
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->updateProfile($token, [
+            'gradient' => $this->linkGradient,
+        ]));
+
+        $this->linkBusy = false;
+
+        if ($response === null) {
+            $this->linkMessage = 'The link gradient could not be saved. Please try again.';
+
+            return;
+        }
+
+        if ($this->handleUnauthorized($response)) {
+            return;
+        }
+
+        if (! $response->successful()) {
+            $this->linkMessage = ApiErrors::first($response, 'The link gradient could not be saved. Please try again.');
+
+            return;
+        }
+
+        /** @var array<string, mixed>|null $data */
+        $data = $response->json('data');
+
+        if (is_array($data)) {
+            CurrentUser::store($data);
+            $this->fillFromProfile($data);
+        }
+
+        $this->linkMessage = 'Link gradient saved.';
     }
 
     public function moveLinkUp(int $id): void
@@ -633,6 +694,7 @@ final class EditProfile extends NativeComponent implements HasWebHead
 
         $linkShape = Payload::string(data_get($profile, 'link_shape', ''));
         $this->linkShape = in_array($linkShape, self::LINK_SHAPES, true) ? $linkShape : 'rounded-lg';
+        $this->linkGradient = $this->optionOr(data_get($profile, 'gradient'), $this->linkGradientOptions, $this->linkGradient);
 
         $anonymous = data_get($profile, 'prefers_anonymous_questions');
         $preferences = [

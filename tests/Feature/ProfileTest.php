@@ -353,6 +353,28 @@ it('honours the stored link shape on the card pills', function (string $shape, i
     'extra round' => ['rounded-full', 9999],
 ]);
 
+it('renders the profile link color from the API response', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::response(['data' => array_merge(ownProfile(), [
+            'gradient' => 'from-red-500 to-orange-600',
+            'links' => [[
+                'id' => 7,
+                'description' => 'Website',
+                'url' => 'https://example.com?ref=pinkary',
+                'gradient' => 'from-red-500 to-orange-600',
+            ]],
+        ])]),
+        'https://pinkary.test/api/v1/users/pinkaryuser/questions*' => Http::response(['data' => []]),
+    ]);
+
+    $pill = nodeWithA11yLabel(Native::test(Profile::class)->tree(), 'Open Website');
+
+    expect($pill)->not->toBeNull()
+        ->and($pill['props']['gradient_stops'] ?? null)->toBe('#EF4444,#EA580C');
+});
+
 it('offers the web add-link button and an empty bio shortcut', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
