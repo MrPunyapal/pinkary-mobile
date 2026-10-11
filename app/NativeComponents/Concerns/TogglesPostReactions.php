@@ -10,6 +10,7 @@ use App\Support\AccountStore;
 use App\Support\ApiErrors;
 use App\Support\CurrentUser;
 use App\Support\DisplayText;
+use App\Support\FeedCache;
 use App\Support\Payload;
 use App\Support\PostViews;
 use Illuminate\Support\Carbon;
@@ -832,6 +833,8 @@ trait TogglesPostReactions
             if (is_int($likes)) {
                 $this->setPostMetric($post, 'likes', $likes);
             }
+
+            $this->forgetPostListCaches();
         } finally {
             $this->releaseReactionLock('like:'.$id);
         }
@@ -892,6 +895,8 @@ trait TogglesPostReactions
             if (is_int($reposts)) {
                 $this->setPostMetric($post, 'reposts', $reposts);
             }
+
+            $this->forgetPostListCaches();
         } finally {
             $this->releaseReactionLock('repost:'.$id);
         }
@@ -942,6 +947,7 @@ trait TogglesPostReactions
             }
 
             $this->setPostMetric($post, 'bookmarked', (bool) $response->json('data.bookmarked', ! $bookmarked));
+            $this->forgetPostListCaches();
         } finally {
             $this->releaseReactionLock('bookmark:'.$id);
         }
@@ -986,6 +992,8 @@ trait TogglesPostReactions
             if ($poll !== []) {
                 $post['poll'] = $poll;
             }
+
+            $this->forgetPostListCaches();
         } finally {
             $this->releaseReactionLock('vote:'.$id);
         }
@@ -1001,6 +1009,21 @@ trait TogglesPostReactions
         $metrics = is_array($metrics) ? $metrics : [];
         $metrics[$metric] = $value;
         $post['metrics'] = $metrics;
+    }
+
+    private function forgetPostListCaches(): void
+    {
+        $username = data_get(AccountStore::active(), 'username');
+
+        if (! is_string($username) || $username === '') {
+            return;
+        }
+
+        foreach (['recent', 'following', 'trending'] as $tab) {
+            FeedCache::forget(FeedCache::feedKey($username, $tab));
+        }
+
+        FeedCache::forget(FeedCache::bookmarksKey($username));
     }
 
     /**

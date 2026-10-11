@@ -565,6 +565,28 @@ it('reposts and unreposts a post through the action row', function (): void {
         && str_ends_with($request->url(), '/api/v1/questions/q1/repost'));
 });
 
+it('invalidates cached post lists after a successful repost without refreshing the open feed', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    $cachedPayload = ['items' => [homeFeedPost('q1', 'Cached post.')], 'page' => 1, 'hasMore' => true];
+    FeedCache::put(FeedCache::feedKey('ada', 'following'), $cachedPayload);
+    FeedCache::put(FeedCache::feedKey('ada', 'trending'), $cachedPayload);
+    FeedCache::put(FeedCache::bookmarksKey('ada'), $cachedPayload);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [homeFeedPost('q1', 'Cached post.')]]),
+        'https://pinkary.test/api/v1/questions/q1/repost' => Http::response(['data' => ['reposted' => true, 'reposts' => 1]]),
+    ]);
+
+    $test = Native::test(Home::class)
+        ->press("toggleRepost('q1')");
+
+    expect(data_get($test->get('posts'), '0.metrics.reposted'))->toBeTrue()
+        ->and(FeedCache::get(FeedCache::feedKey('ada', 'recent')))->toBeNull()
+        ->and(FeedCache::get(FeedCache::feedKey('ada', 'following')))->toBeNull()
+        ->and(FeedCache::get(FeedCache::feedKey('ada', 'trending')))->toBeNull()
+        ->and(FeedCache::get(FeedCache::bookmarksKey('ada')))->toBeNull();
+});
+
 it('opens the detail screen from the comments row', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
