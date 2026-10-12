@@ -32,7 +32,7 @@
         native:key="feed-list"
         on-refresh="refreshFeed"
         on-end-reached="prefetchMore"
-        :end-reached-buffer="5"
+        :end-reached-buffer="1"
         class="bg-theme-surface w-full flex-1"
     >
         @if ($loading)

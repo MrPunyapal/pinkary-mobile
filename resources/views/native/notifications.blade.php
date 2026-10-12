@@ -2,16 +2,17 @@
     $shortTime = fn (?string $iso): string => \App\Support\DisplayText::relativeTime($iso);
 @endphp
 
-<native:list on-end-reached="loadMore" :end-reached-buffer="5" class="bg-theme-background h-full w-full">
+<native:list on-end-reached="loadMore" :end-reached-buffer="1" class="bg-theme-background h-full w-full">
     <native:column class="w-full gap-0">
         <x-page-heading title="Notifications">
             @if (! $loading && $errorMessage === '' && count($items) > 0)
                 <native:pressable
-                    class="shrink-0 px-3 py-1 rounded-full border border-theme-outline-variant {{ $ignoringAll ? 'opacity-40' : '' }}"
+                    class="h-9 w-20 shrink-0 items-center justify-center rounded-full border border-theme-outline-variant {{ $ignoringAll ? 'opacity-40' : '' }}"
                     @tap="ignoreAll"
                     a11y-label="Ignore all"
                 >
-                    <native:text class="text-theme-on-surface-variant text-sm font-medium">Ignore all</native:text>
+                    <native:text class="text-theme-on-surface-variant text-sm font-medium" max-lines="1"
+                        >Ignore all</native:text>
                 </native:pressable>
             @endif
         </x-page-heading>

@@ -121,7 +121,7 @@ it('ignores the previous tab page when it arrives after switching feeds', functi
     Http::assertSentCount(2);
 });
 
-it('counts only posts in the scrolling list so prefetch starts three posts before the end', function (): void {
+it('waits until the last post before prefetching the next page', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::clear();
     Http::preventStrayRequests();
@@ -133,7 +133,8 @@ it('counts only posts in the scrolling list so prefetch starts three posts befor
     $screen = Native::visit('/feed');
     $list = collect(pagingNodes($screen->tree()))->firstWhere('type', 'list');
 
-    expect($list['children'])->toHaveCount(6);
+    expect($list['children'])->toHaveCount(6)
+        ->and($list['props']['end_reached_buffer'])->toBe(1);
     $screen->assertSee('Pinkary')->assertSee('Recent');
     Http::assertSentCount(1);
 });
