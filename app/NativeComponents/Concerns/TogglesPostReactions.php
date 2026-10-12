@@ -27,6 +27,10 @@ trait TogglesPostReactions
 {
     public string $menuPostId = '';
 
+    public string $activeYoutubePostId = '';
+
+    public string $youtubeEmbedUrl = '';
+
     /** @var 'menu'|'confirm-delete'|'answer'|'edit'|'likers' */
     public string $menuStep = 'menu';
 
@@ -100,6 +104,28 @@ trait TogglesPostReactions
         $this->likersPage = 1;
         $this->likersHasMore = false;
         $this->likersError = '';
+    }
+
+    public function openPostPreview(string $id): void
+    {
+        $post = $this->findPostForMenu($id);
+        $url = Payload::string(data_get($post, 'preview.url'));
+        $videoId = $this->youtubeVideoId($url);
+
+        if ($videoId !== null) {
+            $this->activeYoutubePostId = $id;
+            $this->youtubeEmbedUrl = 'https://www.youtube-nocookie.com/embed/'.$videoId.'?playsinline=1&autoplay=1';
+
+            return;
+        }
+
+        $this->openExternalLink($url);
+    }
+
+    public function closeYoutubeVideo(): void
+    {
+        $this->activeYoutubePostId = '';
+        $this->youtubeEmbedUrl = '';
     }
 
     public function closeMenu(): void
@@ -1495,6 +1521,36 @@ trait TogglesPostReactions
         $base = mb_rtrim(Payload::string(config('services.pinkary.url')), '/');
 
         return $base.'/@'.$username.'/questions/'.$id;
+    }
+
+    private function youtubeVideoId(string $url): ?string
+    {
+        $parts = parse_url($url);
+        $host = mb_strtolower((string) ($parts['host'] ?? ''));
+        $path = mb_trim((string) ($parts['path'] ?? ''), '/');
+
+        if ($host === 'youtu.be') {
+            $videoId = explode('/', $path)[0];
+        } elseif ($host === 'youtube.com' || str_ends_with($host, '.youtube.com') || $host === 'youtube-nocookie.com' || str_ends_with($host, '.youtube-nocookie.com')) {
+            $segments = explode('/', $path);
+            $videoId = match ($segments[0]) {
+                'watch' => $this->queryParameter($parts['query'] ?? '', 'v') ?? '',
+                'embed', 'shorts', 'live' => (string) ($segments[1] ?? ''),
+                default => '',
+            };
+        } else {
+            return null;
+        }
+
+        return preg_match('/^[A-Za-z0-9_-]{11}$/', $videoId) === 1 ? $videoId : null;
+    }
+
+    private function queryParameter(string $query, string $key): ?string
+    {
+        parse_str($query, $parameters);
+        $value = $parameters[$key] ?? null;
+
+        return is_string($value) ? $value : null;
     }
 
     private function plainText(mixed $html): string

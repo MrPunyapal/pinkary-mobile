@@ -456,22 +456,22 @@ it('shows the full preview image with its title below and no card border', funct
         ->and(parityCount($card, fn (array $n): bool => ($n['props']['text'] ?? null) === 'example.test'))->toBe(0);
 });
 
-it('renders an embed preview as a tappable watch-over-there card', function (): void {
+it('plays YouTube previews inline in the feed', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
 
     parityFakeFeed([parityPost('Watch this.', [
         'preview' => [
-            'url' => 'https://www.youtube.com/watch?v=abc123',
+            'url' => 'https://www.youtube.com/watch?v=abc123def45',
             'host' => 'www.youtube.com',
-            'title' => 'https://www.youtube.com/watch?v=abc123',
+            'title' => 'https://www.youtube.com/watch?v=abc123def45',
             'image' => null,
         ],
     ])]);
 
     $tree = Native::test(Home::class)->assertSee('Watch this.')->tree();
 
-    $pressable = parityByA11y($tree, 'Open link: www.youtube.com');
+    $pressable = parityByA11y($tree, 'Play YouTube video');
 
     expect($pressable)->not->toBeNull()
         ->and($pressable['on_press'] ?? null)->not->toBeNull();
@@ -480,9 +480,15 @@ it('renders an embed preview as a tappable watch-over-there card', function (): 
 
     expect($card['type'] ?? null)->toBe('column')
         ->and(parityByText($card, 'www.youtube.com'))->not->toBeNull()
-        ->and(parityByText($card, 'https://www.youtube.com/watch?v=abc123'))->not->toBeNull()
+        ->and(parityByText($card, 'https://www.youtube.com/watch?v=abc123def45'))->not->toBeNull()
         ->and(parityCount($card, fn (array $n): bool => ($n['type'] ?? '') === 'image'))->toBe(0)
         ->and(parityCount($card, fn (array $n): bool => ($n['type'] ?? '') === 'icon'))->toBe(1);
+
+    $screen = Native::test(Home::class)->call('openPostPreview', 'q1');
+    $player = parityFind($screen->tree(), fn (array $n): bool => ($n['type'] ?? '') === 'webview'
+        && ($n['props']['src'] ?? '') === 'https://www.youtube-nocookie.com/embed/abc123def45?playsinline=1&autoplay=1');
+
+    expect($player)->not->toBeNull();
 });
 
 it('drops the border from answer images and rounds them like the web', function (): void {

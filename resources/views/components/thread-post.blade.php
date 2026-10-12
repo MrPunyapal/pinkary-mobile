@@ -1,4 +1,4 @@
-@props(['post', 'expandedIds' => [], 'viewerUsername' => null, 'full' => false])
+@props(['post', 'expandedIds' => [], 'viewerUsername' => null, 'full' => false, 'activeYoutubePostId' => '', 'youtubeEmbedUrl' => ''])
 
 @php
     $threadPosts = array_values(array_filter(
@@ -18,6 +18,8 @@
     <x-post
         :post="$post"
         :viewer-username="$viewerUsername"
+        :active-youtube-post-id="$activeYoutubePostId"
+        :youtube-embed-url="$youtubeEmbedUrl"
         :full="$full"
         :expanded="$isExpanded(data_get($post, 'id'))"
     />
@@ -31,6 +33,8 @@
                 :post="$ancestor"
                 :full="$full"
                 :viewer-username="$viewerUsername"
+                :active-youtube-post-id="$activeYoutubePostId"
+                :youtube-embed-url="$youtubeEmbedUrl"
                 :bare="true"
                 :rail="true"
                 :rail-top="$index > 0"
@@ -42,6 +46,8 @@
         <x-post
             :post="$post"
             :viewer-username="$viewerUsername"
+            :active-youtube-post-id="$activeYoutubePostId"
+            :youtube-embed-url="$youtubeEmbedUrl"
             :full="$full"
             :bare="true"
             :rail="false"

@@ -196,6 +196,27 @@ function profileQuestionRow(string $id, string $answer, bool $pinned = false): a
     ];
 }
 
+it('shows incoming unanswered questions as ready to answer on your profile', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('pinkaryuser', 'test-token', ['username' => 'pinkaryuser']);
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::response(['data' => ownProfile()]),
+        'https://pinkary.test/api/v1/users/pinkaryuser/questions*' => Http::response(['data' => [
+            array_merge(profileQuestionRow('q1', ''), [
+                'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+                'to' => ['name' => 'Pinkary User', 'username' => 'pinkaryuser'],
+                'content' => 'What are you building?',
+            ]),
+        ]]),
+    ]);
+
+    Native::test(Profile::class)
+        ->assertSee('What are you building?')
+        ->assertSee('This question is waiting for your answer.')
+        ->press("openMenu('q1')")
+        ->assertSee('Answer this question');
+});
+
 it('lists the profile posts with pagination', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);

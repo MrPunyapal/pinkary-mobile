@@ -10,7 +10,7 @@
         : 'People who follow this user will show up here.';
 @endphp
 
-<native:list on-end-reached="loadMore" :end-reached-buffer="5" class="bg-theme-surface h-full w-full">
+<native:list on-end-reached="loadMore" :end-reached-buffer="1" class="bg-theme-surface h-full w-full">
     <native:column class="w-full gap-0">
         <x-page-heading :title="$title" :back="true" />
 

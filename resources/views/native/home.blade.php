@@ -89,7 +89,13 @@
             @endif
         @else
             @foreach ($posts as $post)
-                <x-thread-post :post="$post" :expanded-ids="$expanded" :viewer-username="$viewerUsername" />
+                <x-thread-post
+                    :post="$post"
+                    :expanded-ids="$expanded"
+                    :viewer-username="$viewerUsername"
+                    :active-youtube-post-id="$activeYoutubePostId"
+                    :youtube-embed-url="$youtubeEmbedUrl"
+                />
             @endforeach
 
         @endif

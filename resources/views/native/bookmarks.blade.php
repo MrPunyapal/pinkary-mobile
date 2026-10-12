@@ -2,7 +2,7 @@
 <native:list
     native:key="bookmarks-list"
     on-end-reached="loadMore"
-    :end-reached-buffer="5"
+    :end-reached-buffer="1"
     class="bg-theme-background h-full w-full"
 >
     <x-page-heading title="Bookmarks" size="3xl" />
@@ -24,7 +24,13 @@
         <x-empty-state title="No bookmarks yet." subtitle="Posts you save for later will show up here." />
     @else
         @foreach ($posts as $post)
-            <x-thread-post :post="$post" :expanded-ids="$expanded" :viewer-username="$viewerUsername" />
+            <x-thread-post
+                :post="$post"
+                :expanded-ids="$expanded"
+                :viewer-username="$viewerUsername"
+                :active-youtube-post-id="$activeYoutubePostId"
+                :youtube-embed-url="$youtubeEmbedUrl"
+            />
         @endforeach
 
         <x-list-footer

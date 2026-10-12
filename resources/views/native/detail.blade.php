@@ -2,7 +2,7 @@
 <native:list
     native:key="detail-list"
     on-end-reached="loadMoreComments"
-    :end-reached-buffer="5"
+    :end-reached-buffer="1"
     class="bg-theme-background h-full w-full"
 >
     <x-page-heading title="Post" :back="true" />
@@ -21,7 +21,14 @@
             </native:pressable>
         </native:column>
     @else
-        <x-thread-post :post="$post" :expanded-ids="$expanded" :viewer-username="$viewerUsername" :full="true" />
+        <x-thread-post
+            :post="$post"
+            :expanded-ids="$expanded"
+            :viewer-username="$viewerUsername"
+            :full="true"
+            :active-youtube-post-id="$activeYoutubePostId"
+            :youtube-embed-url="$youtubeEmbedUrl"
+        />
 
         @if ($voteError !== '')
             <native:column class="bg-theme-destructive/15 border-theme-destructive w-full gap-3 border-b p-4">
@@ -59,7 +66,7 @@
 
                 <native:button
                     variant="primary"
-                    :disabled="$commentBusy"
+                    :disabled="$commentBusy || $captchaLoading"
                     @tap="postComment"
                 >{{ $commentBusy ? 'Posting…' : 'Reply' }}</native:button>
             </native:column>
@@ -70,6 +77,8 @@
                 <x-post
                     :post="$comment"
                     :viewer-username="$viewerUsername"
+                    :active-youtube-post-id="$activeYoutubePostId"
+                    :youtube-embed-url="$youtubeEmbedUrl"
                     :comment="true"
                     :expanded="in_array((string) data_get($comment, 'id'), array_map('strval', $expanded), true)"
                 />

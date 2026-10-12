@@ -2,7 +2,7 @@
 <native:list
     native:key="hashtag-{{ $hashtagId }}-feed"
     on-end-reached="loadMore"
-    :end-reached-buffer="5"
+    :end-reached-buffer="1"
     class="bg-theme-background h-full w-full"
 >
     <x-page-heading :title="$hashtagName !== '' ? '#'.$hashtagName : 'Hashtag posts'" :back="true" />
@@ -23,7 +23,13 @@
         />
     @else
         @foreach ($posts as $post)
-            <x-thread-post :post="$post" :expanded-ids="$expanded" :viewer-username="$viewerUsername" />
+            <x-thread-post
+                :post="$post"
+                :expanded-ids="$expanded"
+                :viewer-username="$viewerUsername"
+                :active-youtube-post-id="$activeYoutubePostId"
+                :youtube-embed-url="$youtubeEmbedUrl"
+            />
         @endforeach
 
         <x-list-footer

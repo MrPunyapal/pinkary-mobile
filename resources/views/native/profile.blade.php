@@ -7,7 +7,7 @@
 <native:list
     native:key="profile-list"
     on-end-reached="loadMoreQuestions"
-    :end-reached-buffer="5"
+    :end-reached-buffer="1"
     class="bg-theme-background h-full w-full"
 >
     @if ($username !== '')
@@ -57,7 +57,13 @@
             <x-empty-state title="No posts yet." :subtitle="$isMe ? 'Share your first update to get started.' : ''" />
         @else
             @foreach ($questions as $post)
-                <x-thread-post :post="$post" :expanded-ids="$expanded" :viewer-username="$viewerUsername" />
+                <x-thread-post
+                    :post="$post"
+                    :expanded-ids="$expanded"
+                    :viewer-username="$viewerUsername"
+                    :active-youtube-post-id="$activeYoutubePostId"
+                    :youtube-embed-url="$youtubeEmbedUrl"
+                />
             @endforeach
 
             <x-list-footer
