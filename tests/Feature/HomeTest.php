@@ -1242,6 +1242,32 @@ it('hides the pin entry after a pin 403', function (): void {
         ->assertDontSee('Unpin');
 });
 
+it('drops only the expired account when a post menu request returns 401', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'token-a', ['username' => 'ada']);
+    AccountStore::add('grace', 'dead-token', ['username' => 'grace']);
+    Http::fake([
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [
+            homeFeedPost('q1', 'Owned by Grace.', [
+                'from' => ['name' => 'Grace Hopper', 'username' => 'grace'],
+                'to' => ['name' => 'Grace Hopper', 'username' => 'grace'],
+            ]),
+        ]]),
+        'https://pinkary.test/api/v1/profile' => Http::response(['data' => ['name' => 'Grace Hopper', 'username' => 'grace']]),
+        'https://pinkary.test/api/v1/notifications*' => Http::response(['meta' => ['unread_count' => 0]]),
+        'https://pinkary.test/api/v1/questions/q1/pin' => Http::response(['message' => 'Unauthenticated.'], 401),
+    ]);
+
+    Native::test(Home::class)
+        ->press("openMenu('q1')")
+        ->call('togglePinMenu')
+        ->assertReplacedWith('/feed');
+
+    expect(AccountStore::count())->toBe(1)
+        ->and(AccountStore::activeToken())->toBe('token-a')
+        ->and(CurrentUser::get()['username'] ?? null)->toBe('ada');
+});
+
 it('removes a feed post after confirming deletion', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);

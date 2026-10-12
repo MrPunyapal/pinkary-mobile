@@ -7,7 +7,6 @@ namespace App\NativeComponents;
 use App\NativeComponents\Concerns\ProvidesWebPreviewStyles;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
-use App\Services\TokenStorage;
 use App\Support\CurrentUser;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
@@ -80,11 +79,7 @@ final class Settings extends NativeComponent implements HasWebHead
             return;
         }
 
-        if ($response->unauthorized()) {
-            app(TokenStorage::class)->clear();
-            CurrentUser::clear();
-            $this->replace($this->route('mobile.login'));
-
+        if ($this->handleUnauthorized($response)) {
             return;
         }
 

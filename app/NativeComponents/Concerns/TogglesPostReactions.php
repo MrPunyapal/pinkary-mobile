@@ -254,8 +254,7 @@ trait TogglesPostReactions
             }
 
             if ($response->unauthorized()) {
-                app(TokenStorage::class)->clear();
-                $this->replace($this->route('mobile.login'));
+                $this->handleUnauthorized($response);
 
                 return;
             }
@@ -358,8 +357,7 @@ trait TogglesPostReactions
             }
 
             if ($response->unauthorized()) {
-                app(TokenStorage::class)->clear();
-                $this->replace($this->route('mobile.login'));
+                $this->handleUnauthorized($response);
 
                 return;
             }
@@ -432,8 +430,7 @@ trait TogglesPostReactions
             }
 
             if ($response->unauthorized()) {
-                app(TokenStorage::class)->clear();
-                $this->replace($this->route('mobile.login'));
+                $this->handleUnauthorized($response);
 
                 return;
             }
@@ -497,8 +494,7 @@ trait TogglesPostReactions
             }
 
             if ($response->unauthorized()) {
-                app(TokenStorage::class)->clear();
-                $this->replace($this->route('mobile.login'));
+                $this->handleUnauthorized($response);
 
                 return;
             }
@@ -560,8 +556,7 @@ trait TogglesPostReactions
             }
 
             if ($response->unauthorized()) {
-                app(TokenStorage::class)->clear();
-                $this->replace($this->route('mobile.login'));
+                $this->handleUnauthorized($response);
 
                 return;
             }
@@ -972,8 +967,7 @@ trait TogglesPostReactions
             }
 
             if ($response->unauthorized()) {
-                app(TokenStorage::class)->clear();
-                $this->replace($this->route('mobile.login'));
+                $this->handleUnauthorized($response);
 
                 return;
             }

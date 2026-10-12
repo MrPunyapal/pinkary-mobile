@@ -131,6 +131,19 @@ it('drops the dead token and returns to login on unauthorized', function (): voi
         ->and(CurrentUser::get())->toBeNull();
 });
 
+it('switches to another saved account when settings rejects the active token', function (): void {
+    AccountStore::add('ada', 'token-a', ['username' => 'ada']);
+    AccountStore::add('grace', 'dead-token', ['username' => 'grace']);
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::response(null, 401),
+    ]);
+
+    Native::test(Settings::class)->assertReplacedWith('/feed');
+
+    expect(AccountStore::count())->toBe(1)
+        ->and(AccountStore::activeToken())->toBe('token-a');
+});
+
 it('shows the load error on an unsuccessful profile response', function (): void {
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
