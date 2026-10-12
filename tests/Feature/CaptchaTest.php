@@ -51,6 +51,17 @@ it('renders a loading indicator without waiting for captcha metadata', function 
     Http::assertNothingSent();
 });
 
+it('waits for registration captcha requirements before submitting', function (): void {
+    AsyncTask::clearFake();
+    Native::fakeBridge()->respondTo('AsyncTask.Dispatch', ['success' => true]);
+
+    captchaRegisterForm()->call('createAccount')
+        ->assertSet('captchaLoading', true)
+        ->assertSet('busy', false);
+
+    Http::assertNothingSent();
+});
+
 it('embeds only the hosted security challenge with JavaScript and storage enabled', function (): void {
     Http::fake(['https://pinkary.test/api/v1/captcha*' => Http::response(mobileCaptchaMetadata())]);
 
@@ -189,6 +200,24 @@ it('requires a captcha token for threads and sends it with the draft', function 
 
     Http::assertSent(fn (Request $request): bool => $request->method() === 'POST' && $request['content'] === 'Protected thread.'
         && $request['cf-turnstile-response'] === 'captcha-token' && $request->hasHeader('Authorization', 'Bearer account-token'));
+});
+
+it('waits for post captcha requirements before submitting', function (): void {
+    AccountStore::add('ada', 'account-token', ['username' => 'ada']);
+    AsyncTask::clearFake();
+    Native::fakeBridge()->respondTo('AsyncTask.Dispatch', ['success' => true]);
+    Http::fake([
+        'https://pinkary.test/api/v1/profile' => Http::response(['data' => []]),
+        'https://pinkary.test/api/v1/channels*' => Http::response(['data' => []]),
+        'https://pinkary.test/api/v1/questions' => Http::response(['data' => []], 201),
+    ]);
+
+    Native::test(Compose::class)->set('content', 'Protected update.')->call('publish')
+        ->assertSet('captchaLoading', true)
+        ->assertSet('busy', false);
+
+    Http::assertNotSent(fn (Request $request): bool => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/api/v1/questions'));
 });
 
 it('also sends the challenge with anonymous questions', function (): void {

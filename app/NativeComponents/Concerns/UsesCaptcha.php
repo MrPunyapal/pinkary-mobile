@@ -136,6 +136,10 @@ trait UsesCaptcha
 
     private function captchaReadyForSubmission(): bool
     {
+        if ($this->captchaLoading) {
+            return false;
+        }
+
         if (! $this->captchaRequired) {
             return true;
         }

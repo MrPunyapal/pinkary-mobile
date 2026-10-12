@@ -64,7 +64,8 @@
             />
 
             <native:pressable
-                class="w-full h-11 items-center justify-center rounded-md bg-theme-primary {{ $busy ? 'opacity-50' : '' }}"
+                class="w-full h-11 items-center justify-center rounded-md bg-theme-primary {{ $busy || $captchaLoading ? 'opacity-50' : '' }}"
+                :disabled="$busy || $captchaLoading"
                 @tap="createAccount"
                 a11y-label="Register"
             >

@@ -67,7 +67,7 @@
                 <native:row class="border-theme-outline-variant mt-4 w-full items-center justify-between gap-2 border-t pt-3">
                     <native:button
                         variant="primary"
-                        :disabled="$busy || ! $this->canPublish()"
+                        :disabled="$busy || $captchaLoading || ! $this->canPublish()"
                         @tap="publish"
                     >{{ $busy ? 'Sending…' : 'Ask' }}</native:button>
 
@@ -388,7 +388,7 @@
                         <native:row class="items-center gap-2">
                             <native:button
                                 variant="primary"
-                                :disabled="$busy || ! $this->canPublish()"
+                                :disabled="$busy || $captchaLoading || ! $this->canPublish()"
                                 @tap="publish"
                             >{{ $busy ? 'Publishing…' : (count($posts) > 0 ? 'Post thread' : 'Post') }}</native:button>
 
