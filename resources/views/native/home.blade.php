@@ -27,12 +27,11 @@
         <x-refresh-bar />
     @endif
 
-    {{-- Only post rows belong in this list; native pagination counts child views. --}}
     <native:list
         native:key="feed-list"
         on-refresh="refreshFeed"
         on-end-reached="prefetchMore"
-        :end-reached-buffer="1"
+        :end-reached-buffer="5"
         class="bg-theme-surface w-full flex-1"
     >
         @if ($loading)
@@ -97,18 +96,15 @@
                     :youtube-embed-url="$youtubeEmbedUrl"
                 />
             @endforeach
-
+            <x-list-footer
+                :loading="$loadingMore"
+                :error="$loadMoreError"
+                tap="loadMore"
+                :has-more="$hasMore"
+                end-text="You're all caught up."
+            />
         @endif
     </native:list>
-    @if (! $loading && $errorMessage === '' && count($posts) > 0)
-        <x-list-footer
-            :loading="$loadingMore"
-            :error="$loadMoreError"
-            tap="loadMore"
-            :has-more="$hasMore"
-            end-text="You're all caught up."
-        />
-    @endif
 </native:column>
 
 @php

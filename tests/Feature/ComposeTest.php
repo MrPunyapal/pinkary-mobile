@@ -80,6 +80,26 @@ it('renders the composer', function (): void {
         ->assertSee('Post');
 });
 
+it('keeps only the standalone composer inside the device safe area', function (): void {
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    CurrentUser::store([
+        'username' => 'ada',
+        'name' => 'Ada',
+        'avatar' => 'https://example.com/ada.png',
+        'default_feed' => 'recent',
+        'prefers_anonymous_questions' => false,
+    ]);
+    Http::fake();
+
+    $standaloneTree = Native::test(Compose::class)->tree();
+    $askTree = Native::test(Compose::class, ['username' => 'ada'])->tree();
+    $isSafeAreaColumn = fn (array $node): bool => ($node['type'] ?? null) === 'column'
+        && (int) data_get($node, 'layout.safe_area', 0) === 1;
+
+    expect(composeParityFindAll($standaloneTree, $isSafeAreaColumn))->toHaveCount(1)
+        ->and(composeParityFindAll($askTree, $isSafeAreaColumn))->toBeEmpty();
+});
+
 it('uses the saved anonymous question preference by default', function (): void {
     AccountStore::add('ada', 'test-token', [
         'username' => 'ada',

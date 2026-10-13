@@ -20,6 +20,38 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\Native;
 
+function notificationListContainsText(array $node, string $text): bool
+{
+    if (($node['type'] ?? null) === 'list' && notificationTreeContainsText($node, $text)) {
+        return true;
+    }
+
+    foreach ($node['children'] ?? [] as $child) {
+        if (is_array($child) && notificationListContainsText($child, $text)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function notificationTreeContainsText(array $node, string $text): bool
+{
+    foreach ((array) ($node['props'] ?? []) as $value) {
+        if (is_string($value) && str_contains($value, $text)) {
+            return true;
+        }
+    }
+
+    foreach ($node['children'] ?? [] as $child) {
+        if (is_array($child) && notificationTreeContainsText($child, $text)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function bookmarkRow(string $id, string $answer): array
 {
     return [
@@ -385,10 +417,13 @@ it('shows every notification like the web instead of filtering read rows', funct
         ]),
     ]);
 
-    Native::test(Notifications::class)
+    $screen = Native::test(Notifications::class)
         ->assertSee('Unread snippet.')
         ->assertSee('Read snippet.')
         ->assertSee('Ignore all');
+
+    expect(notificationListContainsText($screen->tree(), 'Notifications'))->toBeFalse()
+        ->and(notificationListContainsText($screen->tree(), 'Ignore all'))->toBeFalse();
 });
 
 it('removes a notification once it is opened', function (): void {

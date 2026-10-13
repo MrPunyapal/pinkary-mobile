@@ -2,25 +2,25 @@
     $shortTime = fn (?string $iso): string => \App\Support\DisplayText::relativeTime($iso);
 @endphp
 
-<native:list on-end-reached="loadMore" :end-reached-buffer="1" class="bg-theme-background h-full w-full">
-    <native:column class="w-full gap-0">
-        <x-page-heading title="Notifications">
-            @if (! $loading && $errorMessage === '' && count($items) > 0)
-                <native:pressable
-                    class="h-9 w-20 shrink-0 items-center justify-center rounded-full border border-theme-outline-variant {{ $ignoringAll ? 'opacity-40' : '' }}"
-                    @tap="ignoreAll"
-                    a11y-label="Ignore all"
-                >
-                    <native:text class="text-theme-on-surface-variant text-sm font-medium" max-lines="1"
-                        >Ignore all</native:text>
-                </native:pressable>
-            @endif
-        </x-page-heading>
-
-        @if ($refreshing ?? false)
-            <x-refresh-bar />
+<native:column class="bg-theme-background h-full w-full">
+    <x-page-heading title="Notifications">
+        @if (! $loading && $errorMessage === '' && count($items) > 0)
+            <native:pressable
+                class="h-9 w-20 shrink-0 items-center justify-center rounded-full border border-theme-outline-variant {{ $ignoringAll ? 'opacity-40' : '' }}"
+                @tap="ignoreAll"
+                a11y-label="Ignore all"
+            >
+                <native:text class="text-theme-on-surface-variant text-sm font-medium" max-lines="1"
+                    >Ignore all</native:text>
+            </native:pressable>
         @endif
+    </x-page-heading>
 
+    @if ($refreshing ?? false)
+        <x-refresh-bar />
+    @endif
+
+    <native:list on-end-reached="loadMore" :end-reached-buffer="1" class="bg-theme-background w-full flex-1">
         @if ($loading)
             <x-skeleton-notifications />
         @elseif ($errorMessage !== '')
@@ -84,11 +84,11 @@
                 </native:pressable>
             @endforeach
 
-            <x-list-footer :loading="$loadingMore" :error="$loadMoreError" tap="loadMore" :has-more="$hasMore" />
         @endif
 
+        <x-list-footer :loading="$loadingMore" :error="$loadMoreError" tap="loadMore" :has-more="$hasMore" />
         <native:column class="h-20 w-full" />
-    </native:column>
-</native:list>
+    </native:list>
+</native:column>
 
 @include('native.app-menu-sheet')

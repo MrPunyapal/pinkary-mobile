@@ -1,5 +1,5 @@
 <native:scroll-view class="bg-theme-background h-full w-full">
-    <native:column class="w-full gap-0">
+    <native:column class="{{ $askUsername === '' ? 'safe-area' : '' }} w-full gap-0">
         <x-page-heading :title="$askUsername !== '' ? 'Ask @'.$askUsername : 'New Thread'" :back="true" />
 
         <native:column class="w-full gap-1 px-3.5 py-4">

@@ -29,6 +29,21 @@ function pagingNodes(array $tree): array
     return $nodes;
 }
 
+function pagingTreeContainsType(array $tree, string $type): bool
+{
+    if (($tree['type'] ?? null) === $type) {
+        return true;
+    }
+
+    foreach ($tree['children'] ?? [] as $child) {
+        if (pagingTreeContainsType($child, $type)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 it('requests only the next feed page and keeps existing posts when a page overlaps', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::clear();
@@ -58,6 +73,10 @@ it('shows a loader without replacing posts while a single next page is in flight
         ->assertSet('loadingMore', true)->assertSee('Post q1')->assertElement('activity_indicator')
         ->assertDontSee('Load more')
         ->assertNativeCalledTimes('AsyncTask.Dispatch', 1);
+    $list = collect(pagingNodes($screen->tree()))->firstWhere('type', 'list');
+
+    expect(pagingTreeContainsType($list, 'activity_indicator'))->toBeTrue();
+
     $id = $screen->bridge()->callsTo('AsyncTask.Dispatch')[0]['params']['id'];
     AsyncTaskTransport::forgetPayload($id);
     $screen->emitNative(AsyncTaskFinished::class, ['id' => $id, 'result' => ['status' => 200, 'posts' => [pagingPost('q2')], 'hasMore' => false]])
@@ -134,7 +153,8 @@ it('waits until the last post before prefetching the next page', function (): vo
     $list = collect(pagingNodes($screen->tree()))->firstWhere('type', 'list');
 
     expect($list['children'])->toHaveCount(6)
-        ->and($list['props']['end_reached_buffer'])->toBe(1);
+        ->and($list['props']['end_reached_buffer'])->toBe(5)
+        ->and(pagingTreeContainsType($list, 'activity_indicator'))->toBeFalse();
     $screen->assertSee('Pinkary')->assertSee('Recent');
     Http::assertSentCount(1);
 });
