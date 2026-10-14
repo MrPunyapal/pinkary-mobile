@@ -7,6 +7,7 @@
     ));
     $threadMore = (bool) data_get($post, 'thread.more', false);
     $threadMoreId = (string) data_get($post, 'thread.more_id', '');
+    $feedItemId = $this->feedItemIdentity($post);
     $linkAfterFirst = $threadMore && $threadMoreId !== ''
         && ($threadPosts[0]['id'] ?? null) === data_get($post, 'thread.root_id');
 
@@ -17,6 +18,7 @@
 @if (count($threadPosts) === 0)
     <x-post
         :post="$post"
+        :feed-item-id="$feedItemId"
         :viewer-username="$viewerUsername"
         :active-youtube-post-id="$activeYoutubePostId"
         :youtube-embed-url="$youtubeEmbedUrl"
@@ -25,12 +27,13 @@
     />
 @else
     <native:column
-        native:key="thread-{{ data_get($post, 'id') }}"
+        native:key="thread-{{ $feedItemId }}"
         class="bg-theme-surface border-theme-outline-variant w-full gap-0 border-b"
     >
         @foreach ($threadPosts as $index => $ancestor)
             <x-post
                 :post="$ancestor"
+                :feed-item-id="$feedItemId"
                 :full="$full"
                 :viewer-username="$viewerUsername"
                 :active-youtube-post-id="$activeYoutubePostId"
@@ -45,6 +48,7 @@
         @endforeach
         <x-post
             :post="$post"
+            :feed-item-id="$feedItemId"
             :viewer-username="$viewerUsername"
             :active-youtube-post-id="$activeYoutubePostId"
             :youtube-embed-url="$youtubeEmbedUrl"

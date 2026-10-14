@@ -193,6 +193,21 @@ final class DisplayText
         }
     }
 
+    public static function absoluteTime(?string $iso): string
+    {
+        if ($iso === null || $iso === '') {
+            return '';
+        }
+
+        try {
+            return Carbon::parse($iso)
+                ->setTimezone((string) config('app.timezone'))
+                ->format('F j, Y \\a\\t g:i A T');
+        } catch (Throwable) {
+            return '';
+        }
+    }
+
     private static function codeText(DOMNode $node): string
     {
         if ($node->nodeName === 'br') {
@@ -225,12 +240,18 @@ final class DisplayText
             return [['text' => $text, 'type' => 'link', 'target' => $url]];
         }
 
-        $pieces = preg_split('~((?<![\p{L}\p{N}_@])@[A-Za-z0-9_-]+|(?<![\p{L}\p{N}_@./])(?:https?://[^\s<>]+|(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,63}(?:[/:?#][^\s<>]*)?))~iu', $text, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) ?: [];
+        $pieces = preg_split('~((?<![\p{L}\p{N}_@])@[A-Za-z0-9_-]+|(?<![\p{L}\p{N}_])#[\p{L}\p{N}_]+|(?<![\p{L}\p{N}_@./])(?:https?://[^\s<>]+|(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,63}(?:[/:?#][^\s<>]*)?))~iu', $text, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) ?: [];
 
         $runs = [];
         foreach ($pieces as $piece) {
             if (preg_match('~^@([A-Za-z0-9_-]+)$~D', $piece, $match)) {
                 $runs[] = ['text' => $piece, 'type' => 'mention', 'target' => $match[1]];
+
+                continue;
+            }
+
+            if (preg_match('~^#([\p{L}\p{N}_]+)$~uD', $piece, $match)) {
+                $runs[] = ['text' => $piece, 'type' => 'hashtag', 'target' => $match[1]];
 
                 continue;
             }

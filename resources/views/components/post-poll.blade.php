@@ -1,4 +1,4 @@
-@props(['poll', 'postId', 'guest' => null])
+@props(['poll', 'postId', 'guest' => null, 'error' => '', 'keyPrefix' => ''])
 
 @php
     $options = (array) data_get($poll, 'options', []);
@@ -14,7 +14,7 @@
     $disabled = $expired || $isGuest;
 @endphp
 
-<native:column class="w-full gap-2 pt-2.5">
+<native:column native:key="post-poll-{{ $keyPrefix }}" class="w-full gap-2 pt-2.5">
     @foreach ($options as $option)
         @php
             $optionId = (int) data_get($option, 'id', 0);
@@ -32,6 +32,9 @@
             </native:pressable>
         @endif
     @endforeach
+    @if ($error !== '')
+        <native:text class="text-theme-destructive w-full text-xs">{{ $error }}</native:text>
+    @endif
     <native:row class="w-full items-center gap-1.5 pt-2">
         <native:text class="text-theme-on-surface-variant text-sm"
             >{{ $totalVotes }} {{ $totalVotes === 1 ? 'vote' : 'votes' }}</native:text>

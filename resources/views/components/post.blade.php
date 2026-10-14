@@ -1,4 +1,4 @@
-@props(['post', 'rail' => false, 'railTop' => false, 'moreLink' => null, 'flushTop' => false, 'bare' => false, 'expanded' => false, 'full' => false, 'comment' => false, 'viewerUsername' => null, 'activeYoutubePostId' => '', 'youtubeEmbedUrl' => ''])
+@props(['post', 'rail' => false, 'railTop' => false, 'moreLink' => null, 'flushTop' => false, 'bare' => false, 'expanded' => false, 'full' => false, 'comment' => false, 'viewerUsername' => null, 'activeYoutubePostId' => '', 'youtubeEmbedUrl' => '', 'feedItemId' => ''])
 
 @php
     $anonymous = (bool) data_get($post, 'anonymously', false);
@@ -8,7 +8,9 @@
     $answerText = \App\Support\DisplayText::plain(data_get($post, 'answer'));
     $hasAnswer = $answerText !== '';
     $pinned = (bool) data_get($post, 'pinned', false);
-    $timestamp = \App\Support\DisplayText::relativeTime(data_get($post, 'updated_at'));
+    $timestampSource = data_get($post, 'updated_at') ?: data_get($post, 'created_at');
+    $timestamp = \App\Support\DisplayText::relativeTime(is_string($timestampSource) ? $timestampSource : null);
+    $absoluteTimestamp = \App\Support\DisplayText::absoluteTime(is_string($timestampSource) ? $timestampSource : null);
     $edited = (bool) data_get($post, 'edited', false);
     $channel = data_get($post, 'channel');
     $preview = data_get($post, 'preview');
@@ -19,6 +21,8 @@
     $repostedByName = is_array($repostedBy) ? mb_trim((string) data_get($repostedBy, 'name', '')) : '';
     $repostedByUsername = is_array($repostedBy) ? (string) data_get($repostedBy, 'username', '') : '';
     $postId = (string) data_get($post, 'id', '');
+    $feedItemId = $feedItemId !== '' ? $feedItemId : (string) data_get($post, 'repost_id', $postId);
+    $postKey = ($feedItemId !== '' ? $feedItemId.'-' : '').$postId;
     $liked = (bool) data_get($post, 'metrics.liked', false);
     $bookmarked = (bool) data_get($post, 'metrics.bookmarked', false);
     $reposted = (bool) data_get($post, 'metrics.reposted', false);
@@ -47,14 +51,17 @@
 
     $laneAuthor = $comment ? data_get($post, 'from', []) : data_get($post, 'to', []);
     $laneText = $comment ? ($answerText !== '' ? $answerText : $questionText) : $answerShown;
-    $showLane = $comment ? $laneText !== '' : ($hasAnswer || $canAnswer);
+    $hasPreview = is_array($preview) && $previewUrl !== '';
+    $hasPoll = is_array($poll) && $poll !== [];
+    $hasLaneMedia = $images !== [] || $hasPreview || $hasPoll;
+    $showLane = $comment ? ($laneText !== '' || $hasLaneMedia) : ($hasAnswer || $canAnswer || $hasLaneMedia);
 
     $topPad = $sharedUpdate && ! $flushTop ? 'pt-3' : 'pt-2';
 @endphp
 
 @if (! \Native\Mobile\System::runningInJump())
     <native:impression
-        native:key="impression-{{ $postId }}"
+        native:key="impression-{{ $postKey }}"
         identity="{{ $postId }}"
         :enabled="$hasAnswer"
         on-impression="recordPostView('{{ $postId }}')"
@@ -63,7 +70,7 @@
 
 
 @endif
-<native:column native:key="post-{{ $postId }}" class="w-full {{ $bare ? '' : 'bg-theme-surface' }}">
+<native:column native:key="post-{{ $postKey }}" class="w-full {{ $bare ? '' : 'bg-theme-surface' }}">
     @if (! $comment && $repostedByName !== '')
         <native:pressable
             class="w-full px-2 pt-2"
@@ -120,7 +127,7 @@
 
                 @if ($questionText !== '')
                     {{-- Numeric line-height classes are unsupported; leading-loose gives 28px at text-sm. --}}
-                    <x-post-text :html="data_get($post, 'content')" :post-id="$postId" :question="true" />
+                    <x-post-text :html="data_get($post, 'content')" :post-id="$postId" :question="true" :key-prefix="$postKey" />
                     @if ($viewerUsername === '')
                         <native:row class="w-full items-center pt-1">
                             <x-post-action type="translate" :post-id="$postId" field="content" />
@@ -137,7 +144,7 @@
                 <native:column class="w-5 shrink-0" />
                 {{-- Use measured content height; stretched siblings can affect post layout. --}}
                 <native:column
-                    native:key="thread-rail"
+                    native:key="thread-rail-{{ $postKey }}"
                     class="flex-1 min-w-0 pl-0.5 {{ $rail ? 'bg-theme-outline' : 'bg-theme-surface' }}"
                 >
                     <native:column class="w-full gap-1.5 min-w-0 pl-[30] bg-theme-surface {{ $topPad }} {{ $contentBottomPad }}">
@@ -184,97 +191,97 @@
                                 @endif
                                 @if ($timestamp !== '')
                                     <native:text class="text-theme-on-surface-variant shrink-0 text-xs" max-lines="1"
+                                        a11y-label="{{ ($edited ? 'Edited on ' : 'Posted on ').$absoluteTimestamp }}"
                                         >{{ $edited ? 'Edited: ' : '' }}{{ $timestamp }}</native:text>
                                 @endif
                             </native:row>
                         </native:row>
-                        <x-post-text
-                            :html="$comment && $answerText === '' ? data_get($post, 'content') : data_get($post, 'answer')"
-                            :post-id="$postId"
-                            :limit="! $comment && ! $full && ! $expanded && $answerLong ? $answerLimit : null"
-                        />
+                        @if ($laneText !== '')
+                            <x-post-text
+                                :html="$comment && $answerText === '' ? data_get($post, 'content') : data_get($post, 'answer')"
+                                :post-id="$postId"
+                                :key-prefix="$postKey"
+                                :limit="! $comment && ! $full && ! $expanded && $answerLong ? $answerLimit : null"
+                            />
+                        @endif
                         @if ($canAnswer)
                             <native:text class="text-theme-on-surface-variant w-full text-sm">This question is waiting for your answer.</native:text>
                         @endif
 
-                        @if ($comment)
-                            <x-post-images :images="$images" />
-                        @endif
+                        <x-post-images :images="$images" :key-prefix="$postKey" />
 
                         @unless ($comment)
                             @if ($answerLong && ! $full && ! $expanded)
                                 <x-view-more :post-id="$postId" />
                             @endif
-
-                            <x-post-images :images="$images" />
-
-                            @if ($images === [] && is_array($preview) && $previewUrl !== '')
-                                @if ($activeYoutubePostId === $postId && $youtubeEmbedUrl !== '')
-                                    <native:column class="w-full gap-1">
-                                        <native:webview
-                                            native:key="youtube-player-{{ $postId }}"
-                                            :src="$youtubeEmbedUrl"
-                                            javascript
-                                            dom-storage
-                                            class="h-56 w-full rounded-lg"
-                                            a11y-label="YouTube video player"
-                                        />
-                                        <native:pressable
-                                            class="self-end py-1"
-                                            @tap="closeYoutubeVideo"
-                                            a11y-label="Close video player"
-                                        >
-                                            <native:text class="text-theme-primary text-xs font-medium">Close video</native:text>
-                                        </native:pressable>
-                                    </native:column>
-                                @else
-                                    <native:pressable
-                                        @tap="openPostPreview('{{ $postId }}')"
-                                        a11y-label="{{ str_contains(mb_strtolower((string) ($preview['host'] ?? '')), 'youtu') ? 'Play YouTube video' : 'Open link: '.($preview['host'] ?? $previewUrl) }}"
-                                    >
-                                        @if (($preview['image'] ?? null) !== null && $preview['image'] !== '')
-                                            <native:column class="relative w-full gap-0 rounded-lg">
-                                                <x-lazy-image
-                                                    src="{{ $preview['image'] }}"
-                                                    alt="{{ $preview['title'] ?? $preview['url'] }}"
-                                                    class="h-48 w-full rounded-lg object-contain"
-                                                />
-                                                <native:column class="w-full gap-0 rounded-b-lg bg-pink-800/55 px-2 py-1">
-                                                    <native:text
-                                                        class="text-xs font-semibold text-white"
-                                                        max-lines="1"
-                                                    >{{ $preview['title'] ?? $preview['url'] }}</native:text>
-                                                </native:column>
-                                            </native:column>
-                                        @else
-                                            <native:column class="bg-theme-bubble border-theme-outline-variant/50 w-full items-center gap-2 rounded-lg border px-3 py-4">
-                                                <native:row class="w-full items-center gap-2">
-                                                    <native:icon
-                                                        :ios="\App\Icons\Ios::PlayCircle"
-                                                        :android="\App\Icons\AndroidOutlined::PlayCircle"
-                                                        :size="18"
-                                                        color="#EC4899"
-                                                    />
-                                                    <native:text
-                                                        class="text-theme-on-surface flex-1 text-xs font-semibold"
-                                                        max-lines="1"
-                                                    >{{ $preview['host'] ?? $preview['url'] }}</native:text>
-                                                </native:row>
-                                                <native:text
-                                                    class="text-theme-on-surface-variant w-full text-xs"
-                                                    max-lines="1"
-                                                >{{ $previewUrl }}</native:text>
-                                            </native:column>
-                                        @endif
-                                    </native:pressable>
-                                @endif
-                            @endif
-
-                            @if (is_array($poll) && $poll !== [])
-                                <x-post-poll :poll="$poll" :post-id="$postId" />
-                            @endif
-
                         @endunless
+
+                        @if ($hasPreview)
+                            @if ($activeYoutubePostId === $feedItemId && $youtubeEmbedUrl !== '')
+                                <native:column class="w-full gap-1">
+                                    <native:webview
+                                        native:key="youtube-player-{{ $postKey }}"
+                                        :src="$youtubeEmbedUrl"
+                                        javascript
+                                        dom-storage
+                                        class="h-56 w-full rounded-lg"
+                                        a11y-label="{{ str_contains(mb_strtolower((string) ($preview['host'] ?? '')), 'vimeo') ? 'Vimeo' : 'YouTube' }} video player"
+                                    />
+                                    <native:pressable
+                                        class="self-end py-1"
+                                        @tap="closeYoutubeVideo"
+                                        a11y-label="Close video player"
+                                    >
+                                        <native:text class="text-theme-primary text-xs font-medium">Close video</native:text>
+                                    </native:pressable>
+                                </native:column>
+                            @else
+                                <native:pressable
+                                    native:key="post-preview-{{ $postKey }}"
+                                    @tap="openPostPreview({{ json_encode($postId) }}, {{ json_encode($feedItemId) }})"
+                                    a11y-label="{{ str_contains(mb_strtolower((string) ($preview['host'] ?? '')), 'youtu') ? 'Play YouTube video' : (str_contains(mb_strtolower((string) ($preview['host'] ?? '')), 'vimeo') ? 'Play Vimeo video' : 'Open link: '.($preview['host'] ?? $previewUrl)) }}"
+                                >
+                                    @if (($preview['image'] ?? null) !== null && $preview['image'] !== '')
+                                        <native:column class="relative w-full gap-0 rounded-lg">
+                                            <x-lazy-image
+                                                src="{{ $preview['image'] }}"
+                                                alt="{{ $preview['title'] ?? $preview['url'] }}"
+                                                class="h-48 w-full rounded-lg object-contain"
+                                            />
+                                            <native:column class="w-full gap-0 rounded-b-lg bg-pink-800/55 px-2 py-1">
+                                                <native:text
+                                                    class="text-xs font-semibold text-white"
+                                                    max-lines="1"
+                                                >{{ $preview['title'] ?? $preview['url'] }}</native:text>
+                                            </native:column>
+                                        </native:column>
+                                    @else
+                                        <native:column class="bg-theme-bubble border-theme-outline-variant/50 w-full items-center gap-2 rounded-lg border px-3 py-4">
+                                            <native:row class="w-full items-center gap-2">
+                                                <native:icon
+                                                    :ios="\App\Icons\Ios::PlayCircle"
+                                                    :android="\App\Icons\AndroidOutlined::PlayCircle"
+                                                    :size="18"
+                                                    color="#EC4899"
+                                                />
+                                                <native:text
+                                                    class="text-theme-on-surface flex-1 text-xs font-semibold"
+                                                    max-lines="1"
+                                                >{{ $preview['host'] ?? $preview['url'] }}</native:text>
+                                            </native:row>
+                                            <native:text
+                                                class="text-theme-on-surface-variant w-full text-xs"
+                                                max-lines="1"
+                                            >{{ $previewUrl }}</native:text>
+                                        </native:column>
+                                    @endif
+                                </native:pressable>
+                            @endif
+                        @endif
+
+                        @if ($hasPoll)
+                            <x-post-poll :poll="$poll" :post-id="$postId" :key-prefix="$postKey" :error="(string) data_get($post, 'poll_error', '')" />
+                        @endif
 
                         <native:row class="w-full items-center gap-3 pt-3">
                             <x-post-action type="comments" :post-id="$postId" :count="$commentsCount" />
@@ -326,7 +333,7 @@
             @endif
 
             <native:column
-                native:key="post-avatar"
+                native:key="post-avatar-{{ $postKey }}"
                 class="absolute left-2 {{ $topPad === 'pt-3' ? 'top-3' : 'top-2' }} w-10 h-10"
             >
                 <x-avatar :user="$laneAuthor" />

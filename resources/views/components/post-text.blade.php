@@ -1,4 +1,4 @@
-@props(['html', 'postId', 'limit' => null, 'question' => false])
+@props(['html', 'postId', 'limit' => null, 'question' => false, 'keyPrefix' => ''])
 
 @php
     $runs = \App\Support\DisplayText::runs($html, $limit);
@@ -32,14 +32,14 @@
 
 @if (! $interactive)
     <native:text
-        native:key="post-text-{{ $question ? 'question' : 'answer' }}"
+        native:key="post-text-{{ $keyPrefix }}-{{ $question ? 'question' : 'answer' }}"
         :text="$plain"
         class="{{ $question ? 'text-sm leading-loose' : 'text-base leading-[1.2]' }} whitespace-pre-wrap text-theme-on-body"
         @tap="openDetail('{{ $postId }}')"
     />
 @else
     <native:column
-        native:key="post-text-{{ $question ? 'question' : 'answer' }}"
+        native:key="post-text-{{ $keyPrefix }}-{{ $question ? 'question' : 'answer' }}"
         class="w-full gap-0"
         a11y-label="{{ $plain }}"
     >
@@ -65,6 +65,7 @@
                         $tap = match ($word['type']) {
                             'mention' => 'openProfile('.json_encode($word['target']).')',
                             'link' => 'openLink('.json_encode($word['target'], JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP).')',
+                            'hashtag' => 'openHashtag('.json_encode($word['target'], JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP).')',
                             default => 'openDetail('.json_encode($postId).')',
                         };
                     @endphp
