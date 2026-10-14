@@ -32,6 +32,8 @@ Route::nativeGroup(MobileLayout::class, function (): void {
     Route::native('/profile', Profile::class)->name('mobile.profile');
     Route::native('/profile/edit', EditProfile::class)->name('mobile.profile.edit');
     Route::native('/settings', Settings::class)->name('mobile.settings');
+    Route::native('/@{username}/questions/{id}', Detail::class)->name('mobile.link.detail');
+    Route::native('/@{username}', Profile::class)->name('mobile.link.profile');
     Route::native('/user/{username}', Profile::class)->name('mobile.user');
     Route::native('/user/{username}/followers', FollowList::class)->name('mobile.followers');
     Route::native('/user/{username}/following', FollowList::class)->name('mobile.following');
