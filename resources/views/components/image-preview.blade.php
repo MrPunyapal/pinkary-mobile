@@ -10,7 +10,7 @@
             <native:column class="w-14 items-center gap-0.5">
                 <native:pressable
                     @tap="reinsertImage({{ $index }})"
-                    a11y-label="Add {{ $image['name'] }} to the post again"
+                    a11y-label="Add {{ $image['name'] }} to this text again"
                 >
                     <native:image
                         src="{{ $image['url'] }}"

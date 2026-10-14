@@ -1,5 +1,5 @@
 <native:scroll-view class="bg-theme-background h-full w-full">
-    <native:column class="{{ $askUsername === '' ? 'safe-area' : '' }} w-full gap-0">
+    <native:column class="safe-area w-full gap-0">
         <x-page-heading :title="$askUsername !== '' ? 'Ask @'.$askUsername : 'New Thread'" :back="true" />
 
         <native:column class="w-full gap-1 px-3.5 py-4">
@@ -12,7 +12,9 @@
             @php
                 // Use literal classes: TailwindParser cannot resolve Blade class variables.
                 $me = ['avatar' => $avatar, 'name' => 'You'];
-                $limit = \App\NativeComponents\Compose::MAX_CONTENT_LENGTH;
+                $limit = $askUsername !== ''
+                    ? \App\NativeComponents\Compose::MAX_ASK_LENGTH
+                    : \App\NativeComponents\Compose::MAX_CONTENT_LENGTH;
 
                 $counter = function (?string $value) use ($limit): array {
                     $length = mb_strlen((string) $value);
@@ -42,6 +44,13 @@
                                 <x-mention-suggestions :users="$mentionResults" />
                             @endif
                         @endif
+                        <x-image-preview :images="$this->imagesForPost(-1)" class="mt-2" />
+                        <native:row class="w-full items-center gap-1 pl-3.5">
+                            <x-composer-image-picker :post-index="-1" label="Add an image to the question" :enabled="$this->supportsImagePicker()" :can-add="$this->canAddImage()" />
+                            @if ($uploadingImages)
+                                <native:text class="text-theme-on-surface-variant text-xs">Uploading image…</native:text>
+                            @endif
+                        </native:row>
                         @php [$length, $over] = $counter($content); @endphp
                         <native:row class="w-full items-center justify-end">
                             @if ($over > 0)
@@ -73,7 +82,9 @@
 
                     <native:row class="border-theme-outline-variant items-center rounded-md border px-3 py-2">
                         <native:checkbox label="Anonymously" native:model="anonymous" />
-                        <native:text class="text-theme-on-surface-variant ml-2 text-sm">Your name stays hidden.</native:text>
+                        <native:text class="text-theme-on-surface-variant ml-2 text-sm">
+                            {{ $anonymous ? 'Your name will be hidden from @'.$askUsername.'.' : 'Your name will be shown to @'.$askUsername.'.' }}
+                        </native:text>
                     </native:row>
                 </native:row>
 
@@ -106,23 +117,9 @@
                         @endif
 
                         <native:column class="w-full">
-                            <x-image-preview :images="$this->images" class="mt-2 flex flex-wrap gap-2" />
+                            <x-image-preview :images="$this->imagesForPost(-1)" class="mt-2 flex flex-wrap gap-2" />
                             <native:row class="mt-1 w-full items-center gap-1 pl-3.5">
-                                @if ($this->supportsImagePicker())
-                                    <native:pressable
-                                        class="w-7 h-7 items-center justify-center {{ $this->canAddImage() ? '' : 'opacity-40' }}"
-                                        @tap="pickImages"
-                                        a11y-label="Upload an image"
-                                    >
-                                        <native:icon
-                                            :ios="\App\Icons\Ios::Photo"
-                                            :android="\App\Icons\AndroidOutlined::Image"
-                                            :size="16"
-                                            color="#64748B"
-                                            dark-color="#94A3B8"
-                                        />
-                                    </native:pressable>
-                                @endif
+                                <x-composer-image-picker :post-index="-1" label="Add an image to the first post" :enabled="$this->supportsImagePicker()" :can-add="$this->canAddImage()" />
                                 <native:pressable
                                     class="h-7 w-7 items-center justify-center"
                                     @tap="togglePoll"
@@ -241,7 +238,10 @@
                                 @endif
                             @endif
 
+                            <x-image-preview :images="$this->imagesForPost($index)" class="mt-2 flex flex-wrap gap-2" />
+
                             <native:row class="w-full items-center gap-1 pl-3.5">
+                                <x-composer-image-picker :post-index="$index" label="Add an image to post {{ $index + 2 }}" :enabled="$this->supportsImagePicker()" :can-add="$this->canAddImage()" />
                                 <native:pressable
                                     class="h-7 w-7 items-center justify-center"
                                     @tap="togglePostPoll({{ $index }})"

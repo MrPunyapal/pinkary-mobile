@@ -11,12 +11,14 @@ final class DraftStore
 {
     private const string PREFIX = 'pinkary_compose_draft_';
 
+    private const string REPLY_PREFIX = 'pinkary_reply_draft_';
+
     /**
      * @return array{
      *     content: string,
      *     posts: list<string>,
      *     postPolls: list<array{isPoll: bool, options: list<string>, duration: int}>,
-     *     images: list<array{url: string, path: string, name: string}>,
+     *     images: list<array{url: string, path: string, name: string, postIndex: int}>,
      *     channelId: int|null,
      *     channelName: string,
      *     isPoll: bool,
@@ -61,11 +63,55 @@ final class DraftStore
     }
 
     /**
+     * @return array{
+     *     content: string,
+     *     images: list<array{url: string, path: string, name: string, postIndex: int}>,
+     *     isPoll: bool,
+     *     pollOptions: list<string>,
+     *     pollDuration: int
+     * }|null
+     */
+    public static function getReplyDraft(string $parentId): ?array
+    {
+        $raw = self::read(self::replyKeyFor($parentId));
+
+        return $raw === null ? null : self::sanitizeReplyDraft($raw);
+    }
+
+    /**
+     * @param  array<string, mixed>  $draft
+     */
+    public static function putReplyDraft(string $parentId, array $draft): void
+    {
+        $clean = self::sanitizeReplyDraft($draft);
+
+        if ($clean === null || (mb_trim($clean['content']) === '' && $clean['images'] === [] && ! $clean['isPoll'])) {
+            self::clearReplyDraft($parentId);
+
+            return;
+        }
+
+        self::write(self::replyKeyFor($parentId), $clean);
+    }
+
+    public static function clearReplyDraft(string $parentId): void
+    {
+        $key = self::replyKeyFor($parentId);
+
+        session()->forget($key);
+
+        try {
+            SecureStorage::delete($key);
+        } catch (Throwable) {
+        }
+    }
+
+    /**
      * @param  array{
      *     content: string,
      *     posts: list<string>,
      *     postPolls: list<array{isPoll: bool, options: list<string>, duration: int}>,
-     *     images: list<array{url: string, path: string, name: string}>,
+     *     images: list<array{url: string, path: string, name: string, postIndex: int}>,
      *     channelId: int|null,
      *     channelName: string,
      *     isPoll: bool,
@@ -90,6 +136,10 @@ final class DraftStore
             return false;
         }
 
+        if ($draft['images'] !== []) {
+            return false;
+        }
+
         if ($draft['channelId'] !== null || mb_trim($draft['channelName']) !== '') {
             return false;
         }
@@ -108,7 +158,7 @@ final class DraftStore
      *     content: string,
      *     posts: list<string>,
      *     postPolls: list<array{isPoll: bool, options: list<string>, duration: int}>,
-     *     images: list<array{url: string, path: string, name: string}>,
+     *     images: list<array{url: string, path: string, name: string, postIndex: int}>,
      *     channelId: int|null,
      *     channelName: string,
      *     isPoll: bool,
@@ -160,7 +210,39 @@ final class DraftStore
     }
 
     /**
-     * @return list<array{url: string, path: string, name: string}>
+     * @return array{
+     *     content: string,
+     *     images: list<array{url: string, path: string, name: string, postIndex: int}>,
+     *     isPoll: bool,
+     *     pollOptions: list<string>,
+     *     pollDuration: int
+     * }|null
+     */
+    private static function sanitizeReplyDraft(mixed $draft): ?array
+    {
+        if (! is_array($draft)) {
+            return null;
+        }
+
+        $options = array_slice(self::stringList($draft['pollOptions'] ?? ['', '']), 0, 4);
+
+        if (count($options) < 2) {
+            $options = ['', ''];
+        }
+
+        $duration = is_numeric($draft['pollDuration'] ?? null) ? (int) $draft['pollDuration'] : 1;
+
+        return [
+            'content' => isset($draft['content']) && is_string($draft['content']) ? $draft['content'] : '',
+            'images' => self::imageList($draft['images'] ?? []),
+            'isPoll' => (bool) ($draft['isPoll'] ?? false),
+            'pollOptions' => $options,
+            'pollDuration' => min(7, max(1, $duration)),
+        ];
+    }
+
+    /**
+     * @return list<array{url: string, path: string, name: string, postIndex: int}>
      */
     private static function imageList(mixed $values): array
     {
@@ -169,6 +251,7 @@ final class DraftStore
         }
 
         $images = [];
+        $seen = [];
 
         foreach (array_values($values) as $image) {
             if (! is_array($image)) {
@@ -183,11 +266,20 @@ final class DraftStore
             }
 
             $path = $image['path'] ?? '';
+            $postIndex = is_int($image['postIndex'] ?? null) && $image['postIndex'] >= -1 ? $image['postIndex'] : -1;
+            $identity = serialize([(is_string($path) && $path !== '' ? $path : $url), $postIndex]);
+
+            if (isset($seen[$identity])) {
+                continue;
+            }
+
+            $seen[$identity] = true;
 
             $images[] = [
                 'url' => $url,
                 'path' => is_string($path) ? $path : '',
                 'name' => $name,
+                'postIndex' => $postIndex,
             ];
         }
 
@@ -261,6 +353,11 @@ final class DraftStore
         $slot = $target === '' ? 'thread' : 'ask_'.$target;
 
         return self::PREFIX.$account.'_'.$slot;
+    }
+
+    private static function replyKeyFor(string $parentId): string
+    {
+        return self::REPLY_PREFIX.self::accountKey().'_'.hash('sha256', $parentId);
     }
 
     private static function accountKey(): string

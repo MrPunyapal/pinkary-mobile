@@ -7,6 +7,8 @@ namespace App\NativeComponents;
 use App\NativeComponents\Concerns\ProvidesWebPreviewStyles;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\NativeComponents\Concerns\UsesCaptcha;
+use App\NativeComponents\Concerns\UsesComposerImages;
+use App\NativeComponents\Concerns\UsesComposerMentions;
 use App\Services\PinkaryApi;
 use App\Support\AccountStore;
 use App\Support\ApiErrors;
@@ -16,14 +18,14 @@ use App\Support\Payload;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Edge\Web\Contracts\HasWebHead;
-use Native\Mobile\Events\Gallery\MediaSelected;
-use Native\Mobile\Facades\Camera;
 
 final class Compose extends NativeComponent implements HasWebHead
 {
     use ProvidesWebPreviewStyles;
     use UsesAppMenu;
     use UsesCaptcha;
+    use UsesComposerImages;
+    use UsesComposerMentions;
 
     public const int MAX_CONTENT_LENGTH = 1000;
 
@@ -67,6 +69,8 @@ final class Compose extends NativeComponent implements HasWebHead
 
     public int $mentionEnd = -1;
 
+    public int $mentionRequestVersion = 0;
+
     /** @var list<string> */
     public array $posts = [];
 
@@ -94,6 +98,8 @@ final class Compose extends NativeComponent implements HasWebHead
 
     public bool $searchingChannels = false;
 
+    public int $channelSearchVersion = 0;
+
     public string $channelError = '';
 
     public bool $isPoll = false;
@@ -110,9 +116,15 @@ final class Compose extends NativeComponent implements HasWebHead
     public bool $anonymous = false;
 
     /**
-     * @var list<array{url: string, path: string, name: string}>
+     * @var list<array{url: string, path: string, name: string, postIndex?: int}>
      */
     public array $images = [];
+
+    public int $imagePostIndex = -1;
+
+    public string $imagePickerId = '';
+
+    public bool $pickingImages = false;
 
     public bool $uploadingImages = false;
 
@@ -150,92 +162,6 @@ final class Compose extends NativeComponent implements HasWebHead
         $this->touchDraft();
     }
 
-    public function updateMentionSelection(int $postIndex, string $text, int $selectionStart, int $selectionEnd): void
-    {
-        if ($this->busy || $postIndex < -1 || ($postIndex >= 0 && ! isset($this->posts[$postIndex]))) {
-            return;
-        }
-
-        $currentText = $postIndex < 0 ? $this->content : $this->posts[$postIndex];
-        if ($text !== $currentText) {
-            return;
-        }
-
-        if ($selectionStart !== $selectionEnd || $selectionStart < 0 || $selectionStart > mb_strlen($text)
-            || ! preg_match('/(?:^|\s)([@#])([A-Za-z0-9_-]{1,50})$/u', mb_substr($text, 0, $selectionStart), $match)) {
-            $this->clearMentionSuggestions();
-
-            return;
-        }
-
-        $trigger = $match[1];
-        $query = $match[2];
-        $kind = $trigger === '#' ? 'hashtag' : 'user';
-        $this->mentionStart = $selectionStart - mb_strlen($query) - 1;
-        preg_match('/^[A-Za-z0-9_-]*/', mb_substr($text, $selectionStart), $suffix);
-        $this->mentionEnd = $selectionStart + mb_strlen($suffix[0] ?? '');
-
-        if ($query === $this->mentionQuery && $postIndex === $this->mentionPostIndex && $kind === $this->mentionKind) {
-            return;
-        }
-
-        $this->mentionQuery = $query;
-        $this->mentionKind = $kind;
-        $this->mentionPostIndex = $postIndex;
-        $this->mentionResults = [];
-
-        $api = app(PinkaryApi::class);
-        $response = $api->attempt(fn () => $api->search($this->token(), $query));
-
-        if ($response === null || ! $response->successful()) {
-            return;
-        }
-
-        $results = Payload::array($response->json($kind === 'hashtag' ? 'data.hashtags' : 'data.users'));
-
-        $suggestions = array_filter(array_map(
-            fn (mixed $result): array => is_array($result) ? array_filter($result, is_string(...), ARRAY_FILTER_USE_KEY) : [],
-            $results
-        ), fn (array $result): bool => preg_match(
-            '/^[A-Za-z0-9_-]+$/D',
-            Payload::string($result[$kind === 'hashtag' ? 'name' : 'username'] ?? '')
-        ) === 1);
-
-        $this->mentionResults = array_slice(array_values($suggestions), 0, 5);
-    }
-
-    public function selectMention(int $index): void
-    {
-        if ($this->busy || ! isset($this->mentionResults[$index])) {
-            return;
-        }
-
-        $trigger = $this->mentionKind === 'hashtag' ? '#' : '@';
-        $resultKey = $this->mentionKind === 'hashtag' ? 'name' : 'username';
-        $value = Payload::string($this->mentionResults[$index][$resultKey] ?? '');
-        $postIndex = $this->mentionPostIndex;
-        $text = $postIndex < 0 ? $this->content : ($this->posts[$postIndex] ?? '');
-
-        $selection = mb_substr($text, $this->mentionStart, $this->mentionEnd - $this->mentionStart);
-        if ($value === '' || $this->mentionStart < 0 || ! str_starts_with($selection, $trigger.$this->mentionQuery)
-            || ! preg_match('/^'.$trigger.'[A-Za-z0-9_-]+$/D', $selection)) {
-            $this->clearMentionSuggestions();
-
-            return;
-        }
-
-        $suffix = mb_substr($text, $this->mentionEnd);
-        $text = mb_substr($text, 0, $this->mentionStart).$trigger.$value.($suffix === '' ? ' ' : '').$suffix;
-        if ($postIndex < 0) {
-            $this->content = $text;
-        } elseif (isset($this->posts[$postIndex])) {
-            $this->posts[$postIndex] = $text;
-        }
-
-        $this->clearMentionSuggestions();
-        $this->touchDraft();
-    }
-
     public function updatedAnonymous(): void
     {
         $this->persistDraft();
@@ -248,6 +174,10 @@ final class Compose extends NativeComponent implements HasWebHead
 
     public function canPublish(): bool
     {
+        if ($this->busy || $this->pickingImages || $this->uploadingImages) {
+            return false;
+        }
+
         if ($this->contentTooLong()) {
             return false;
         }
@@ -296,7 +226,7 @@ final class Compose extends NativeComponent implements HasWebHead
 
     public function removePost(int $index): void
     {
-        if ($this->busy) {
+        if ($this->busy || $this->pickingImages || $this->uploadingImages || ! isset($this->posts[$index])) {
             return;
         }
 
@@ -304,9 +234,26 @@ final class Compose extends NativeComponent implements HasWebHead
         $postPolls = $this->postPolls;
         unset($posts[$index], $postPolls[$index]);
 
+        $images = [];
+
+        foreach ($this->images as $image) {
+            $postIndex = $image['postIndex'] ?? -1;
+
+            if ($postIndex === $index) {
+                continue;
+            }
+
+            if ($postIndex > $index) {
+                $image['postIndex'] = $postIndex - 1;
+            }
+
+            $images[] = $image;
+        }
+
         $this->clearMentionSuggestions();
         $this->posts = array_values($posts);
         $this->postPolls = array_values($postPolls);
+        $this->images = $images;
         $this->touchDraft();
     }
 
@@ -399,6 +346,10 @@ final class Compose extends NativeComponent implements HasWebHead
 
     public function updatedChannelQuery(): void
     {
+        if ($this->busy) {
+            return;
+        }
+
         $token = $this->requireToken();
 
         if ($token === null) {
@@ -531,156 +482,9 @@ final class Compose extends NativeComponent implements HasWebHead
         $this->persistDraft();
     }
 
-    public function maxImages(): int
-    {
-        return 3;
-    }
-
-    public function supportsImagePicker(): bool
-    {
-        return nativephp_can('Camera.PickMedia');
-    }
-
-    public function canAddImage(): bool
-    {
-        return $this->supportsImagePicker()
-            && ! $this->uploadingImages
-            && count($this->images) < $this->maxImages();
-    }
-
-    public function pickImages(): void
-    {
-        if ($this->busy || ! $this->canAddImage()) {
-            return;
-        }
-
-        Camera::pickImages('image', true, $this->maxImages() - count($this->images))
-            ->mediaSelected(function (MediaSelected $event): void {
-                $this->onMediaSelected($event);
-            })
-            ->start();
-    }
-
-    public function onMediaSelected(MediaSelected $event): void
-    {
-        if ($event->cancelled) {
-            return;
-        }
-
-        $paths = [];
-
-        foreach ($event->files as $file) {
-            $path = is_array($file) ? ($file['path'] ?? null) : null;
-
-            if (is_string($path) && $path !== '') {
-                $paths[] = $path;
-            }
-        }
-
-        if ($paths === []) {
-            $this->errorMessage = $event->error ?? 'That image could not be added.';
-
-            return;
-        }
-
-        $readable = array_values(array_filter($paths, is_readable(...)));
-
-        if ($readable === []) {
-            $this->errorMessage = $this->unreadableImageMessage();
-
-            return;
-        }
-
-        $token = $this->requireToken();
-
-        if ($token === null) {
-            return;
-        }
-
-        $room = $this->maxImages() - count($this->images);
-
-        if ($room <= 0) {
-            return;
-        }
-
-        $this->uploadingImages = true;
-        $this->errorMessage = '';
-
-        $api = app(PinkaryApi::class);
-        $response = $api->attempt(fn () => $api->uploadImages($token, array_slice($readable, 0, $room)));
-
-        $this->uploadingImages = false;
-
-        if ($response === null) {
-            $this->errorMessage = 'That image could not be uploaded. Please try again.';
-
-            return;
-        }
-
-        if ($this->handleUnauthorized($response)) {
-            return;
-        }
-
-        if (! $response->successful()) {
-            $this->errorMessage = ApiErrors::first($response, 'That image could not be uploaded.');
-
-            return;
-        }
-
-        /** @var list<array<string, mixed>> $uploaded */
-        $uploaded = $response->json('data', []);
-
-        foreach ($uploaded as $image) {
-            $url = Payload::string(data_get($image, 'url', ''));
-            $name = Payload::string(data_get($image, 'original_name', ''));
-            $storedPath = Payload::string(data_get($image, 'path', ''));
-
-            if ($url === '' || $name === '' || $storedPath === '') {
-                continue;
-            }
-
-            $this->addImage($url, $name, $storedPath);
-        }
-
-        $this->touchDraft();
-    }
-
-    public function removeImage(int $index): void
-    {
-        if ($this->busy || ! isset($this->images[$index])) {
-            return;
-        }
-
-        $image = $this->images[$index];
-
-        $snippet = $this->imageSnippet($image);
-
-        $this->content = str_replace($snippet."\n", '', $this->content);
-        $this->content = str_replace($snippet, '', $this->content);
-
-        $images = $this->images;
-        unset($images[$index]);
-
-        $this->images = array_values($images);
-
-        $this->touchDraft();
-    }
-
-    public function reinsertImage(int $index): void
-    {
-        if ($this->busy || ! isset($this->images[$index])) {
-            return;
-        }
-
-        $image = $this->images[$index];
-
-        $this->addImage($image['url'], $image['name'], $image['path']);
-        $this->touchDraft();
-    }
-
     public function publish(): void
     {
-        if ($this->busy) {
+        if ($this->busy || $this->pickingImages || $this->uploadingImages) {
             return;
         }
 
@@ -778,24 +582,27 @@ final class Compose extends NativeComponent implements HasWebHead
             return;
         }
 
+        $this->persistDraft();
         $this->busy = true;
         $this->errorMessage = '';
 
         $api = app(PinkaryApi::class);
-        $response = $api->attempt(fn () => $api->createThread(
-            $token,
-            $content,
-            $threadPosts,
-            $this->channelId,
-            $this->channelId === null && $this->channelName !== '' ? $this->channelName : null,
-            $pollOptions,
-            $this->pollDuration,
-            $threadPolls,
-            $this->captchaPayload(),
-        ));
-        $this->captchaAttempted($response);
-
-        $this->busy = false;
+        try {
+            $response = $api->attempt(fn () => $api->createThread(
+                $token,
+                $content,
+                $threadPosts,
+                $this->channelId,
+                $this->channelId === null && $this->channelName !== '' ? $this->channelName : null,
+                $pollOptions,
+                $this->pollDuration,
+                $threadPolls,
+                $this->captchaPayload(),
+            ));
+            $this->captchaAttempted($response);
+        } finally {
+            $this->busy = false;
+        }
 
         if ($response === null) {
             $this->errorMessage = 'The thread could not be published. Please try again.';
@@ -820,6 +627,7 @@ final class Compose extends NativeComponent implements HasWebHead
         $this->posts = [];
         $this->postPolls = [];
         $this->images = [];
+        $this->clearMentionSuggestions();
         $this->channelId = null;
         $this->channelName = '';
         $this->channelQuery = '';
@@ -834,7 +642,7 @@ final class Compose extends NativeComponent implements HasWebHead
 
     public function publishAsk(): void
     {
-        if ($this->busy || $this->askUsername === '') {
+        if ($this->busy || $this->pickingImages || $this->uploadingImages || $this->askUsername === '') {
             return;
         }
 
@@ -863,14 +671,17 @@ final class Compose extends NativeComponent implements HasWebHead
             return;
         }
 
+        $this->persistDraft();
         $this->busy = true;
         $this->errorMessage = '';
 
         $api = app(PinkaryApi::class);
-        $response = $api->attempt(fn () => $api->askQuestion($token, $this->askUsername, $content, $this->anonymous, $this->captchaPayload()));
-        $this->captchaAttempted($response);
-
-        $this->busy = false;
+        try {
+            $response = $api->attempt(fn () => $api->askQuestion($token, $this->askUsername, $content, $this->anonymous, $this->captchaPayload()));
+            $this->captchaAttempted($response);
+        } finally {
+            $this->busy = false;
+        }
 
         if ($response === null) {
             $this->errorMessage = 'Your question could not be sent. Please try again.';
@@ -892,6 +703,8 @@ final class Compose extends NativeComponent implements HasWebHead
 
         $this->clearDraft();
         $this->content = '';
+        $this->images = [];
+        $this->clearMentionSuggestions();
         $this->anonymous = $this->defaultAnonymousPreference();
         $this->validationMessage = '';
         $this->navigate($this->route('mobile.user', ['username' => $this->askUsername]));
@@ -902,56 +715,78 @@ final class Compose extends NativeComponent implements HasWebHead
         return view('native.compose');
     }
 
-    private function clearMentionSuggestions(): void
+    protected function mentionText(int $postIndex): ?string
     {
-        $this->mentionResults = [];
-        $this->mentionQuery = '';
-        $this->mentionKind = 'user';
-        $this->mentionPostIndex = -1;
-        $this->mentionStart = -1;
-        $this->mentionEnd = -1;
-    }
-
-    /** Jump runs PHP on the host, so device-local picker paths are inaccessible. */
-    private function unreadableImageMessage(): string
-    {
-        if (getenv('JUMP_BRIDGE_PORT') !== false) {
-            return 'Photos cannot be uploaded in the Jump app. The file is on your phone and the app server is on this machine, so it needs a real build.';
+        if ($postIndex < -1) {
+            return null;
         }
 
-        return 'That image could not be read from this device.';
+        return $postIndex === -1 ? $this->content : ($this->posts[$postIndex] ?? null);
     }
 
-    private function addImage(string $url, string $name, string $path = ''): void
+    protected function replaceMentionText(int $postIndex, string $text): void
     {
-        // Store image paths, not URLs: server cleanup matches paths, and hosts can change.
-        $snippet = '!['.$name.']('.($path !== '' ? $path : $url).')';
-
-        if (str_contains($this->content, $snippet)) {
-            return;
-        }
-
-        $candidate = ($this->content !== '' && ! str_ends_with($this->content, "\n"))
-            ? "\n".$snippet
-            : $snippet;
-
-        if (mb_strlen($this->content.$candidate) > $this->maxContentLength()) {
-            $this->errorMessage = 'Adding this image will exceed the maximum content length.';
+        if ($postIndex === -1) {
+            $this->content = $text;
 
             return;
         }
 
-        $this->images[] = ['url' => $url, 'path' => $path, 'name' => $name];
-
-        $this->content .= $candidate;
+        if (isset($this->posts[$postIndex])) {
+            $this->posts[$postIndex] = $text;
+        }
     }
 
-    /**
-     * @param  array{url: string, name: string, path: string}  $image
-     */
-    private function imageSnippet(array $image): string
+    protected function mentionComposerBusy(): bool
     {
-        return '!['.$image['name'].']('.($image['path'] !== '' ? $image['path'] : $image['url']).')';
+        return $this->busy;
+    }
+
+    protected function mentionChanged(): void
+    {
+        $this->touchDraft();
+    }
+
+    protected function imageText(int $postIndex): ?string
+    {
+        if ($postIndex < -1) {
+            return null;
+        }
+
+        return $postIndex === -1 ? $this->content : ($this->posts[$postIndex] ?? null);
+    }
+
+    protected function replaceImageText(int $postIndex, string $text): void
+    {
+        if ($postIndex === -1) {
+            $this->content = $text;
+
+            return;
+        }
+
+        if (isset($this->posts[$postIndex])) {
+            $this->posts[$postIndex] = $text;
+        }
+    }
+
+    protected function imageTextLimit(): int
+    {
+        return $this->maxContentLength();
+    }
+
+    protected function imageComposerBusy(): bool
+    {
+        return $this->busy;
+    }
+
+    protected function imageError(string $message): void
+    {
+        $this->errorMessage = $message;
+    }
+
+    protected function imagesChanged(): void
+    {
+        $this->touchDraft();
     }
 
     /**
@@ -1010,14 +845,31 @@ final class Compose extends NativeComponent implements HasWebHead
 
     private function searchChannels(string $token): void
     {
+        $query = mb_trim($this->channelQuery);
+        $this->channelSearchVersion++;
+        $requestVersion = $this->channelSearchVersion;
+        $this->channelResults = [];
         $this->searchingChannels = true;
 
         $api = app(PinkaryApi::class);
-        $response = $api->attempt(fn () => $api->channels($token, mb_trim($this->channelQuery)));
+        try {
+            $response = $api->attempt(fn () => $api->channels($token, $query));
+        } finally {
+            if ($requestVersion === $this->channelSearchVersion) {
+                $this->searchingChannels = false;
+            }
+        }
 
-        $this->searchingChannels = false;
+        if ($response === null) {
+            return;
+        }
 
-        if ($response === null || ! $response->successful()) {
+        if ($this->handleUnauthorized($response)) {
+            return;
+        }
+
+        if (! $response->successful() || $requestVersion !== $this->channelSearchVersion
+            || $query !== mb_trim($this->channelQuery)) {
             return;
         }
 

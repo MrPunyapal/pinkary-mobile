@@ -250,14 +250,28 @@ final class PinkaryApi
     }
 
     /**
+     * @param  list<string>  $pollOptions
      * @param  array{cf-turnstile-response?: string, captcha_state?: string}  $captcha
      */
-    public function comment(string $token, string $id, string $content, array $captcha = []): Response
-    {
-        return $this->request()->withToken($token)->post(self::PREFIX."/questions/{$id}/comments", [
+    public function comment(
+        string $token,
+        string $id,
+        string $content,
+        array $captcha = [],
+        array $pollOptions = [],
+        int $pollDuration = 1,
+    ): Response {
+        $payload = [
             'content' => $content,
             ...$captcha,
-        ]);
+        ];
+
+        if ($pollOptions !== []) {
+            $payload['poll_options'] = $pollOptions;
+            $payload['poll_duration'] = $pollDuration;
+        }
+
+        return $this->request()->withToken($token)->post(self::PREFIX."/questions/{$id}/comments", $payload);
     }
 
     public function votePoll(string $token, string $id, int $optionId): Response

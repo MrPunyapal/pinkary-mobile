@@ -9,9 +9,12 @@ use App\NativeComponents\Concerns\ProvidesWebPreviewStyles;
 use App\NativeComponents\Concerns\TogglesPostReactions;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\NativeComponents\Concerns\UsesCaptcha;
+use App\NativeComponents\Concerns\UsesComposerImages;
+use App\NativeComponents\Concerns\UsesComposerMentions;
 use App\Services\PinkaryApi;
 use App\Support\ApiErrors;
 use App\Support\DisplayText;
+use App\Support\DraftStore;
 use App\Support\Payload;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
@@ -24,8 +27,29 @@ final class Detail extends NativeComponent implements HasWebHead
     use TogglesPostReactions;
     use UsesAppMenu;
     use UsesCaptcha;
+    use UsesComposerImages;
+    use UsesComposerMentions;
 
     public const int MAX_COMMENT_LENGTH = 1000;
+
+    public const int MIN_REPLY_POLL_OPTIONS = 2;
+
+    public const int MAX_REPLY_POLL_OPTIONS = 4;
+
+    public const int MAX_REPLY_POLL_OPTION_LENGTH = 40;
+
+    /**
+     * @var array<int, string>
+     */
+    public const array REPLY_POLL_DURATIONS = [
+        1 => '1 day',
+        2 => '2 days',
+        3 => '3 days',
+        4 => '4 days',
+        5 => '5 days',
+        6 => '6 days',
+        7 => '7 days',
+    ];
 
     public string $id = '';
 
@@ -43,6 +67,39 @@ final class Detail extends NativeComponent implements HasWebHead
     public string $errorMessage = '';
 
     public string $comment = '';
+
+    public bool $commentIsPoll = false;
+
+    /** @var list<string> */
+    public array $commentPollOptions = ['', ''];
+
+    public int $commentPollDuration = 1;
+
+    /** @var list<array<string, mixed>> */
+    public array $mentionResults = [];
+
+    public int $mentionPostIndex = -1;
+
+    public string $mentionQuery = '';
+
+    public string $mentionKind = 'user';
+
+    public int $mentionStart = -1;
+
+    public int $mentionEnd = -1;
+
+    public int $mentionRequestVersion = 0;
+
+    /** @var list<array{url: string, path: string, name: string, postIndex?: int}> */
+    public array $images = [];
+
+    public int $imagePostIndex = -1;
+
+    public string $imagePickerId = '';
+
+    public bool $pickingImages = false;
+
+    public bool $uploadingImages = false;
 
     public bool $commentBusy = false;
 
@@ -75,6 +132,7 @@ final class Detail extends NativeComponent implements HasWebHead
             return;
         }
 
+        $this->restoreReplyDraft();
         $this->load($this->token());
         if (($token = $this->token()) !== null) {
             $this->loadCaptcha('comment', $token);
@@ -206,9 +264,70 @@ final class Detail extends NativeComponent implements HasWebHead
         return DisplayText::plain(data_get($this->post, 'answer', '')) !== '';
     }
 
-    public function postComment(): void
+    public function updatedComment(): void
+    {
+        $this->persistReplyDraft();
+    }
+
+    public function toggleCommentPoll(): void
     {
         if ($this->commentBusy) {
+            return;
+        }
+
+        $this->commentIsPoll = ! $this->commentIsPoll;
+
+        if ($this->commentIsPoll && count($this->commentPollOptions) < self::MIN_REPLY_POLL_OPTIONS) {
+            $this->commentPollOptions = array_fill(0, self::MIN_REPLY_POLL_OPTIONS, '');
+        }
+
+        $this->persistReplyDraft();
+    }
+
+    public function addCommentPollOption(): void
+    {
+        if ($this->commentBusy || count($this->commentPollOptions) >= self::MAX_REPLY_POLL_OPTIONS) {
+            return;
+        }
+
+        $this->commentPollOptions[] = '';
+        $this->persistReplyDraft();
+    }
+
+    public function removeCommentPollOption(int $index): void
+    {
+        if ($this->commentBusy || count($this->commentPollOptions) <= self::MIN_REPLY_POLL_OPTIONS || ! isset($this->commentPollOptions[$index])) {
+            return;
+        }
+
+        unset($this->commentPollOptions[$index]);
+        $this->commentPollOptions = array_values($this->commentPollOptions);
+        $this->persistReplyDraft();
+    }
+
+    public function updateCommentPollOption(int $index, string $text): void
+    {
+        if ($this->commentBusy || ! isset($this->commentPollOptions[$index])) {
+            return;
+        }
+
+        $this->commentPollOptions[$index] = mb_substr($text, 0, self::MAX_REPLY_POLL_OPTION_LENGTH);
+        $this->persistReplyDraft();
+    }
+
+    public function setCommentPollDuration(int $days): void
+    {
+        if ($this->commentBusy || ! isset(self::REPLY_POLL_DURATIONS[$days])) {
+            return;
+        }
+
+        $this->commentPollDuration = $days;
+        $this->persistReplyDraft();
+    }
+
+    public function postComment(): void
+    {
+        if ($this->commentBusy || $this->pickingImages || $this->uploadingImages) {
             return;
         }
 
@@ -238,18 +357,61 @@ final class Detail extends NativeComponent implements HasWebHead
             return;
         }
 
+        $pollOptions = [];
+
+        if ($this->commentIsPoll) {
+            if (count($this->commentPollOptions) < self::MIN_REPLY_POLL_OPTIONS
+                || count($this->commentPollOptions) > self::MAX_REPLY_POLL_OPTIONS) {
+                $this->commentError = 'A reply poll must have 2 to 4 options.';
+
+                return;
+            }
+
+            $pollOptions = array_map(mb_trim(...), $this->commentPollOptions);
+
+            foreach ($pollOptions as $option) {
+                if ($option === '') {
+                    $this->commentError = 'All reply poll options are required.';
+
+                    return;
+                }
+
+                if (mb_strlen($option) > self::MAX_REPLY_POLL_OPTION_LENGTH) {
+                    $this->commentError = 'Reply poll options cannot exceed 40 characters.';
+
+                    return;
+                }
+            }
+
+            if (! isset(self::REPLY_POLL_DURATIONS[$this->commentPollDuration])) {
+                $this->commentError = 'Choose a reply poll duration from 1 to 7 days.';
+
+                return;
+            }
+        }
+
         if (! $this->captchaReadyForSubmission()) {
             return;
         }
 
+        $this->persistReplyDraft();
         $this->commentBusy = true;
         $this->commentError = '';
 
         $api = app(PinkaryApi::class);
-        $response = $api->attempt(fn () => $api->comment($token, $this->id, $content, $this->captchaPayload()));
-        $this->captchaAttempted($response);
-
-        $this->commentBusy = false;
+        try {
+            $response = $api->attempt(fn () => $api->comment(
+                $token,
+                $this->id,
+                $content,
+                $this->captchaPayload(),
+                $pollOptions,
+                $this->commentPollDuration,
+            ));
+            $this->captchaAttempted($response);
+        } finally {
+            $this->commentBusy = false;
+        }
 
         if ($response === null) {
             $this->commentError = 'Your comment could not be posted. Please try again.';
@@ -279,6 +441,12 @@ final class Detail extends NativeComponent implements HasWebHead
 
         $this->post['metrics'] = $metrics;
         $this->comment = '';
+        $this->commentIsPoll = false;
+        $this->commentPollOptions = ['', ''];
+        $this->commentPollDuration = 1;
+        $this->images = [];
+        $this->clearMentionSuggestions();
+        DraftStore::clearReplyDraft($this->id);
     }
 
     public function loadMoreComments(): void
@@ -336,6 +504,90 @@ final class Detail extends NativeComponent implements HasWebHead
     public function render(): View
     {
         return view('native.detail');
+    }
+
+    protected function mentionText(int $postIndex): ?string
+    {
+        return $postIndex === -1 ? $this->comment : null;
+    }
+
+    protected function replaceMentionText(int $postIndex, string $text): void
+    {
+        if ($postIndex === -1) {
+            $this->comment = $text;
+        }
+    }
+
+    protected function mentionComposerBusy(): bool
+    {
+        return $this->commentBusy;
+    }
+
+    protected function mentionChanged(): void
+    {
+        $this->persistReplyDraft();
+    }
+
+    protected function imageText(int $postIndex): ?string
+    {
+        return $postIndex === -1 ? $this->comment : null;
+    }
+
+    protected function replaceImageText(int $postIndex, string $text): void
+    {
+        if ($postIndex === -1) {
+            $this->comment = $text;
+        }
+    }
+
+    protected function imageTextLimit(): int
+    {
+        return self::MAX_COMMENT_LENGTH;
+    }
+
+    protected function imageComposerBusy(): bool
+    {
+        return $this->commentBusy;
+    }
+
+    protected function imageError(string $message): void
+    {
+        $this->commentError = $message;
+    }
+
+    protected function imagesChanged(): void
+    {
+        $this->persistReplyDraft();
+    }
+
+    private function restoreReplyDraft(): void
+    {
+        $draft = DraftStore::getReplyDraft($this->id);
+
+        if ($draft === null) {
+            return;
+        }
+
+        $this->comment = $draft['content'];
+        $this->images = $draft['images'];
+        $this->commentIsPoll = $draft['isPoll'];
+        $this->commentPollOptions = $draft['pollOptions'];
+        $this->commentPollDuration = $draft['pollDuration'];
+    }
+
+    private function persistReplyDraft(): void
+    {
+        if ($this->id === '') {
+            return;
+        }
+
+        DraftStore::putReplyDraft($this->id, [
+            'content' => $this->comment,
+            'images' => $this->images,
+            'isPoll' => $this->commentIsPoll,
+            'pollOptions' => $this->commentPollOptions,
+            'pollDuration' => $this->commentPollDuration,
+        ]);
     }
 
     /**
