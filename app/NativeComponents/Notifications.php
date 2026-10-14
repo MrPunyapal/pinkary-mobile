@@ -73,37 +73,55 @@ final class Notifications extends NativeComponent implements HasWebHead
             return;
         }
 
-        $target = null;
+        $notification = null;
 
         foreach ($this->items as $item) {
             if (Payload::string(data_get($item, 'id')) === $id) {
-                $target = data_get($item, 'target');
+                $notification = $item;
 
                 break;
             }
         }
 
-        $api = app(PinkaryApi::class);
-        $deleted = $api->attempt(fn () => $api->deleteNotification($token, $id));
+        if ($notification === null) {
+            return;
+        }
 
-        if ($deleted !== null && ($deleted->successful() || $deleted->notFound())) {
-            $this->removeNotification($id);
-            $this->unreadCount = max(0, $this->unreadCount - 1);
-            UnreadCount::store($this->unreadCount);
+        $target = data_get($notification, 'target');
+
+        $isPendingQuestion = data_get($notification, 'is_pending_question') === true;
+        $apiDoesNotIdentifyPendingQuestions = ! array_key_exists('is_pending_question', $notification)
+            && data_get($notification, 'type') === 'QuestionCreated';
+
+        if ($isPendingQuestion || $apiDoesNotIdentifyPendingQuestions) {
             $this->openTarget($target);
 
             return;
         }
 
-        $response = $api->attempt(fn () => $api->markNotificationsRead($token, $id));
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->deleteNotification($token, $id));
 
-        if ($response !== null) {
-            $this->removeNotification($id);
+        if ($response === null) {
+            $this->openTarget($target);
+
+            return;
         }
 
-        if ($response?->successful()) {
-            $this->unreadCount = Payload::int($response->json('data.unread_count'), max(0, $this->unreadCount - 1));
+        if ($this->handleUnauthorized($response)) {
+            return;
+        }
+
+        if ($response->successful() || $response->notFound()) {
+            if ($this->removeNotification($id)) {
+                $this->unreadCount = max(0, $this->unreadCount - 1);
+            }
+
             UnreadCount::store($this->unreadCount);
+            $this->rememberNotifications();
+            $this->openTarget($target);
+
+            return;
         }
 
         $this->openTarget($target);
