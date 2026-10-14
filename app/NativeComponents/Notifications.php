@@ -125,7 +125,7 @@ final class Notifications extends NativeComponent implements HasWebHead
                 }
             }
 
-            UnreadCount::store($this->unreadCount);
+            UnreadCount::store($this->notificationCount);
             $this->rememberNotifications();
             $this->openTarget($target);
 
@@ -220,7 +220,7 @@ final class Notifications extends NativeComponent implements HasWebHead
             $this->hasMore = false;
             $this->unreadCount = $unreadCount;
             $this->notificationCount = $notificationCount;
-            UnreadCount::store($this->unreadCount);
+            UnreadCount::store($this->notificationCount);
             $this->rememberNotifications();
 
             $questionIds = [];
@@ -295,7 +295,7 @@ final class Notifications extends NativeComponent implements HasWebHead
                     }
                 }
 
-                UnreadCount::store($this->unreadCount);
+                UnreadCount::store($this->notificationCount);
                 $this->rememberNotifications();
             }
 
@@ -349,7 +349,7 @@ final class Notifications extends NativeComponent implements HasWebHead
         $this->hasMore = $response->json('links.next') !== null;
         $this->unreadCount = Payload::int($response->json('meta.unread_count'), $this->unreadCount);
         $this->notificationCount = Payload::int($response->json('meta.total_count'), $this->notificationCount);
-        UnreadCount::store($this->unreadCount);
+        UnreadCount::store($this->notificationCount);
         $this->rememberNotifications();
     }
 
@@ -396,7 +396,7 @@ final class Notifications extends NativeComponent implements HasWebHead
         $this->loadMoreError = '';
         $this->loading = false;
         $this->refreshing = false;
-        UnreadCount::store($this->unreadCount);
+        UnreadCount::store($this->notificationCount);
         $this->rememberNotifications();
     }
 
@@ -427,7 +427,7 @@ final class Notifications extends NativeComponent implements HasWebHead
         $this->items = $api->normalizeNotifications($response->json('data', []));
         $this->unreadCount = Payload::int($response->json('meta.unread_count'));
         $this->notificationCount = Payload::int($response->json('meta.total_count'), $this->unreadCount);
-        UnreadCount::store($this->unreadCount);
+        UnreadCount::store($this->notificationCount);
         $this->page = 1;
         $this->hasMore = $response->json('links.next') !== null;
         $this->loadMoreError = '';
@@ -446,7 +446,7 @@ final class Notifications extends NativeComponent implements HasWebHead
             $this->hasMore = $payload['hasMore'];
             $this->unreadCount = $payload['unreadCount'] ?? $this->unreadCount;
             $this->notificationCount = $payload['notificationCount'] ?? $this->unreadCount;
-            UnreadCount::store($this->unreadCount);
+            UnreadCount::store($this->notificationCount);
             $this->loading = false;
             $this->refreshing = true;
             $this->rememberNotifications();
