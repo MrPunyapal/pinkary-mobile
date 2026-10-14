@@ -23,6 +23,16 @@
                     </native:pressable>
                 </native:column>
             @else
+                <native:column class="bg-theme-surface border-theme-outline-variant w-full gap-3 rounded-md border p-4">
+                    <native:text class="text-theme-on-surface text-base font-semibold">Appearance</native:text>
+                    <native:text class="text-theme-on-surface-variant text-sm">Choose how Pinkary looks on this device.</native:text>
+                    <native:select label="Appearance" :options="$appearanceOptions" native:model="appearance" />
+                    <native:button variant="secondary" @tap="saveAppearance">Apply</native:button>
+                    @if ($appearanceMessage !== '')
+                        <native:text class="text-theme-on-surface-variant text-sm">{{ $appearanceMessage }}</native:text>
+                    @endif
+                </native:column>
+
                 <native:column class="bg-theme-surface border-theme-outline-variant w-full gap-3 rounded-md border p-5">
                     <native:row class="w-full items-center gap-3">
                         <x-avatar :user="$profile" :size="10" :link="false" />
@@ -48,6 +58,14 @@
                     a11y-label="Edit profile"
                 >
                     <native:text class="text-theme-on-surface text-sm font-medium">Edit profile</native:text>
+                </native:pressable>
+
+                <native:pressable
+                    class="bg-theme-surface border-theme-outline-variant w-full rounded-md border p-4"
+                    @tap="openAccountSecurity"
+                    a11y-label="Account and security"
+                >
+                    <native:text class="text-theme-on-surface text-sm font-medium">Account and security</native:text>
                 </native:pressable>
 
                 <native:pressable

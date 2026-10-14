@@ -9,6 +9,7 @@ use App\Services\PinkaryApi;
 use App\Services\TokenStorage;
 use App\Support\AccountStore;
 use App\Support\ApiErrors;
+use App\Support\AppearancePreference;
 use App\Support\CurrentUser;
 use App\Support\Payload;
 use Illuminate\Support\Facades\Validator;
@@ -64,6 +65,8 @@ final class Login extends NativeComponent implements HasWebHead
 
     public function mount(): void
     {
+        AppearancePreference::apply();
+
         $active = AccountStore::active();
 
         $this->addingAccount = (bool) session('pinkary_add_account', false) && $active !== null;

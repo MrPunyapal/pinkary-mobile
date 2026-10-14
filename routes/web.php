@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\NativeComponents\AccountSecurity;
 use App\NativeComponents\Bookmarks;
 use App\NativeComponents\Compose;
 use App\NativeComponents\Detail;
@@ -32,6 +33,7 @@ Route::nativeGroup(MobileLayout::class, function (): void {
     Route::native('/profile', Profile::class)->name('mobile.profile');
     Route::native('/profile/edit', EditProfile::class)->name('mobile.profile.edit');
     Route::native('/settings', Settings::class)->name('mobile.settings');
+    Route::native('/settings/security', AccountSecurity::class)->name('mobile.settings.security');
     Route::native('/@{username}/questions/{id}', Detail::class)->name('mobile.link.detail');
     Route::native('/@{username}', Profile::class)->name('mobile.link.profile');
     Route::native('/user/{username}', Profile::class)->name('mobile.user');

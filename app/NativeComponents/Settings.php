@@ -7,6 +7,7 @@ namespace App\NativeComponents;
 use App\NativeComponents\Concerns\ProvidesWebPreviewStyles;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
+use App\Support\AppearancePreference;
 use App\Support\CurrentUser;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
@@ -24,8 +25,22 @@ final class Settings extends NativeComponent implements HasWebHead
 
     public bool $loading = true;
 
+    public string $appearance = 'system';
+
+    public string $appearanceMessage = '';
+
+    /** @var array<string, string> */
+    public array $appearanceOptions = [
+        'system' => 'System',
+        'light' => 'Light',
+        'dark' => 'Dark',
+    ];
+
     public function mount(): void
     {
+        $this->appearance = AppearancePreference::get();
+        AppearancePreference::apply($this->appearance);
+
         $token = $this->requireToken(replaceScreen: true);
 
         if ($token === null) {
@@ -50,6 +65,24 @@ final class Settings extends NativeComponent implements HasWebHead
     {
         $this->appMenuOpen = false;
         $this->navigate($this->route('mobile.profile.edit'));
+    }
+
+    public function openAccountSecurity(): void
+    {
+        $this->appMenuOpen = false;
+        $this->navigate($this->route('mobile.settings.security'));
+    }
+
+    public function saveAppearance(): void
+    {
+        if (! AppearancePreference::store($this->appearance)) {
+            $this->appearanceMessage = 'Appearance could not be saved. Please try again.';
+
+            return;
+        }
+
+        AppearancePreference::apply($this->appearance);
+        $this->appearanceMessage = 'Appearance updated.';
     }
 
     public function render(): View

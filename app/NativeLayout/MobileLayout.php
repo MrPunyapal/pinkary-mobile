@@ -10,6 +10,7 @@ use App\NativeComponents\Compose;
 use App\NativeComponents\Login;
 use App\NativeComponents\Register;
 use App\Support\AccountStore;
+use App\Support\AppearancePreference;
 use App\Support\UnreadCount;
 use Native\Mobile\Edge\Layouts\Builders\Tab;
 use Native\Mobile\Edge\Layouts\Builders\TabBar;
@@ -35,6 +36,8 @@ final class MobileLayout extends NativeLayout
 
     public function tabBar(NativeComponent $screen): ?TabBar
     {
+        AppearancePreference::apply();
+
         if ($screen instanceof Login || $screen instanceof Register) {
             return null;
         }

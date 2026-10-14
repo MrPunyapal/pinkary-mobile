@@ -12,6 +12,7 @@ use App\NativeComponents\Concerns\UsesComposerMentions;
 use App\Services\PinkaryApi;
 use App\Support\AccountStore;
 use App\Support\ApiErrors;
+use App\Support\AppearancePreference;
 use App\Support\CurrentUser;
 use App\Support\DraftStore;
 use App\Support\Payload;
@@ -132,6 +133,8 @@ final class Compose extends NativeComponent implements HasWebHead
 
     public function mount(): void
     {
+        AppearancePreference::apply();
+
         $this->askUsername = Payload::string($this->param('username'));
 
         $token = $this->requireToken(replaceScreen: true);
