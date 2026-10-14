@@ -108,6 +108,11 @@ final class Bookmarks extends NativeComponent implements HasWebHead
 
     public function toggleBookmark(string $id): void
     {
+        $hasRootPost = count(array_filter(
+            $this->posts,
+            static fn (array $post): bool => Payload::string(data_get($post, 'id')) === $id,
+        )) > 0;
+
         $this->reactOnPostPayload($this->posts, $id, 'bookmark', $this->token());
 
         $post = $this->readPostPayload($this->posts, $id);
@@ -116,22 +121,10 @@ final class Bookmarks extends NativeComponent implements HasWebHead
             return;
         }
 
-        $location = $this->locateNestedPost($this->posts, $id);
+        $this->removePostForMenu($id);
 
-        if ($location === null) {
-            return;
-        }
-
-        [$postIndex, $threadIndex] = $location;
-
-        if ($threadIndex === null) {
-            array_splice($this->posts, $postIndex, 1);
-        } else {
-            $thread = Payload::array(data_get($this->posts[$postIndex], 'thread'));
-            $threadPosts = Payload::array(data_get($thread, 'posts'));
-            unset($threadPosts[$threadIndex]);
-            $thread['posts'] = array_values($threadPosts);
-            $this->posts[$postIndex]['thread'] = $thread;
+        if ($hasRootPost && $this->hasMore) {
+            $this->page = max(0, $this->page - 1);
         }
 
         $this->rememberBookmarks();
@@ -172,8 +165,9 @@ final class Bookmarks extends NativeComponent implements HasWebHead
         $this->loadingMore = true;
         $this->loadMoreError = '';
 
+        $page = $this->page + 1;
         $api = app(PinkaryApi::class);
-        $response = $api->attempt(fn () => $api->bookmarks($token, $this->page + 1));
+        $response = $api->attempt(fn () => $api->bookmarks($token, $page));
 
         $this->loadingMore = false;
 
@@ -195,8 +189,8 @@ final class Bookmarks extends NativeComponent implements HasWebHead
 
         /** @var list<array<string, mixed>> $next */
         $next = $api->normalizeQuestions($response->json('data', []));
-        $this->posts = [...$this->posts, ...$next];
-        $this->page++;
+        $this->posts = $this->mergeFeedPage($this->posts, $next);
+        $this->page = $page;
         $this->hasMore = $response->json('links.next') !== null;
         $this->rememberBookmarks();
     }

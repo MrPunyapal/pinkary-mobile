@@ -218,7 +218,12 @@ final class Home extends NativeComponent implements HasWebHead
         $this->loadMoreError = '';
 
         $this->async(static function () use ($token, $tab, $page): array {
-            $response = app(PinkaryApi::class)->feed($token, $tab, $page + 1);
+            $api = app(PinkaryApi::class);
+            $response = $api->attempt(fn (): Response => $api->feed($token, $tab, $page + 1));
+
+            if ($response === null) {
+                return ['status' => 0, 'posts' => [], 'hasMore' => false];
+            }
 
             return [
                 'status' => $response->status(),
@@ -246,7 +251,7 @@ final class Home extends NativeComponent implements HasWebHead
             }
 
             $next = app(PinkaryApi::class)->normalizeQuestions($result['posts']);
-            $this->posts = array_values(collect([...$this->posts, ...$next])->unique('id')->all());
+            $this->posts = $this->mergeFeedPage($this->posts, $next);
             $this->page = $page + 1;
             $this->hasMore = Payload::bool($result['hasMore']);
             $this->rememberFeed();
@@ -385,7 +390,10 @@ final class Home extends NativeComponent implements HasWebHead
         $this->async(static function () use ($token): array {
             $response = app(PinkaryApi::class)->notifications($token, 1, 1);
 
-            return ['success' => $response->successful(), 'count' => Payload::int($response->json('meta.unread_count', 0))];
+            return [
+                'success' => $response->successful(),
+                'count' => Payload::int($response->json('meta.total_count', $response->json('meta.unread_count', 0))),
+            ];
         })->finished(static function (array $result) use ($token): void {
             if ($result['success'] && AccountStore::activeToken() === $token) {
                 UnreadCount::store(Payload::int($result['count']));

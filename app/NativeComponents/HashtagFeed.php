@@ -186,7 +186,7 @@ final class HashtagFeed extends NativeComponent implements HasWebHead
             }
 
             $next = app(PinkaryApi::class)->normalizeQuestions($result['posts'] ?? null);
-            $this->posts = array_values(collect([...$this->posts, ...$next])->unique('id')->all());
+            $this->posts = $this->mergeFeedPage($this->posts, $next);
             $this->page = $page + 1;
             $this->hasMore = Payload::bool($result['hasMore'] ?? null);
             $this->loadMoreError = '';

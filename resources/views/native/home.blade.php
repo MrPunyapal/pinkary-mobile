@@ -28,7 +28,7 @@
     @endif
 
     <native:list
-        native:key="feed-list"
+        native:key="feed-list-{{ $tab }}"
         on-refresh="refreshFeed"
         on-end-reached="prefetchMore"
         :end-reached-buffer="5"
