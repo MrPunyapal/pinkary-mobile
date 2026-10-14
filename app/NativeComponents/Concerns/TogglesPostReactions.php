@@ -31,7 +31,9 @@ trait TogglesPostReactions
 
     public string $youtubeEmbedUrl = '';
 
-    /** @var 'menu'|'confirm-delete'|'answer'|'edit'|'likers' */
+    public string $activeImageUrl = '';
+
+    /** @var 'menu'|'confirm-delete'|'confirm-ignore'|'confirm-report'|'answer'|'edit'|'likers' */
     public string $menuStep = 'menu';
 
     public string $menuError = '';
@@ -106,15 +108,28 @@ trait TogglesPostReactions
         $this->likersError = '';
     }
 
-    public function openPostPreview(string $id): void
+    public function openPostPreview(string $id, string $feedItemId = ''): void
     {
         $post = $this->findPostForMenu($id);
         $url = Payload::string(data_get($post, 'preview.url'));
+        $playerId = $feedItemId !== '' ? $feedItemId : $id;
         $videoId = $this->youtubeVideoId($url);
 
         if ($videoId !== null) {
-            $this->activeYoutubePostId = $id;
+            $this->activeYoutubePostId = $playerId;
             $this->youtubeEmbedUrl = 'https://www.youtube-nocookie.com/embed/'.$videoId.'?playsinline=1&autoplay=1';
+
+            return;
+        }
+
+        $videoId = $this->vimeoVideoId($url);
+
+        if ($videoId !== null) {
+            $parts = parse_url($url);
+            $hash = is_array($parts) ? $this->queryParameter(Payload::string($parts['query'] ?? ''), 'h') : null;
+            $hash = is_string($hash) && preg_match('/^[A-Za-z0-9]+$/', $hash) === 1 ? '&h='.$hash : '';
+            $this->activeYoutubePostId = $playerId;
+            $this->youtubeEmbedUrl = 'https://player.vimeo.com/video/'.$videoId.'?playsinline=1&autoplay=1'.$hash;
 
             return;
         }
@@ -126,6 +141,20 @@ trait TogglesPostReactions
     {
         $this->activeYoutubePostId = '';
         $this->youtubeEmbedUrl = '';
+    }
+
+    public function openImageFullscreen(string $url): void
+    {
+        $url = DisplayText::url($url) ?? '';
+
+        if ($url !== '') {
+            $this->activeImageUrl = $url;
+        }
+    }
+
+    public function closeImageFullscreen(): void
+    {
+        $this->activeImageUrl = '';
     }
 
     public function closeMenu(): void
@@ -205,6 +234,28 @@ trait TogglesPostReactions
             && $this->viewerOwnsPost($post)
             && DisplayText::plain(data_get($post, 'answer')) === ''
             && ! $this->menuDeniedFor($this->menuPostId, 'answer');
+    }
+
+    public function canIgnoreMenuPost(): bool
+    {
+        return $this->canAnswerMenuPost()
+            && ! $this->menuDeniedFor($this->menuPostId, 'ignore');
+    }
+
+    public function canReportMenuPost(): bool
+    {
+        $post = $this->menuPostData();
+
+        if ($post === null || ! $this->viewerOwnsPost($post) || $this->menuDeniedFor($this->menuPostId, 'report')) {
+            return false;
+        }
+
+        $sender = mb_strtolower(mb_trim(Payload::string(data_get($post, 'from.username'))));
+
+        return $sender !== ''
+            && $sender !== mb_strtolower(mb_trim($this->viewerUsername()))
+            && DisplayText::plain(data_get($post, 'answer')) === ''
+            && ! (bool) data_get($post, 'is_update', false);
     }
 
     public function canDeleteMenuPost(): bool
@@ -332,6 +383,76 @@ trait TogglesPostReactions
         $this->menuStep = 'answer';
     }
 
+    public function askIgnoreMenu(): void
+    {
+        if (! $this->canIgnoreMenuPost()) {
+            return;
+        }
+
+        $this->menuError = '';
+        $this->menuStep = 'confirm-ignore';
+    }
+
+    public function askReportMenu(): void
+    {
+        if (! $this->canReportMenuPost()) {
+            return;
+        }
+
+        $this->menuError = '';
+        $this->menuStep = 'confirm-report';
+    }
+
+    public function reportMenuPost(): void
+    {
+        $id = $this->menuPostId;
+
+        if ($id === '' || $this->menuStep !== 'confirm-report' || $this->menuBusy || ! $this->canReportMenuPost()) {
+            return;
+        }
+
+        $token = $this->menuToken();
+
+        if ($token === null || ! $this->acquireReactionLock('report:'.$id)) {
+            return;
+        }
+
+        $this->menuBusy = true;
+
+        try {
+            $api = app(PinkaryApi::class);
+            $response = $api->attempt(fn () => $api->reportQuestion($token, $id));
+
+            if ($response === null) {
+                $this->menuError = 'This question could not be reported. Please try again.';
+
+                return;
+            }
+
+            if ($response->unauthorized()) {
+                $this->handleUnauthorized($response);
+
+                return;
+            }
+
+            if (! $response->successful()) {
+                $this->menuError = ApiErrors::first($response, 'This question could not be reported. Please try again.');
+
+                if ($response->forbidden()) {
+                    $this->hideMenuEntry($id, 'report');
+                    $this->menuStep = 'menu';
+                }
+
+                return;
+            }
+
+            $this->afterMenuRemoval($id);
+        } finally {
+            $this->menuBusy = false;
+            $this->releaseReactionLock('report:'.$id);
+        }
+    }
+
     public function saveAnswerMenu(): void
     {
         $id = $this->menuPostId;
@@ -352,9 +473,9 @@ trait TogglesPostReactions
             return;
         }
 
-        $answer = mb_trim($this->editAnswer);
+        $answer = $this->editAnswer;
 
-        if ($answer === '') {
+        if (DisplayText::plain($answer) === '') {
             $this->menuError = 'Write an answer first.';
 
             return;
@@ -399,14 +520,21 @@ trait TogglesPostReactions
                 return;
             }
 
-            $saved = $response->json('data.answer');
-            $values = ['edited' => (bool) $response->json('data.edited', $isEditing)];
-
-            if (is_string($saved)) {
-                $values['answer'] = $saved;
-            }
-
+            $saved = $api->normalizeQuestion(Payload::array($response->json('data')));
+            $values = array_intersect_key($saved, array_flip([
+                'answer',
+                'answer_source',
+                'edited',
+                'updated_at',
+                'preview',
+                'images',
+                'channel',
+                'poll',
+                'metrics',
+            ]));
+            $values['edited'] = (bool) ($values['edited'] ?? $isEditing);
             $this->updatePostForMenu($id, $values);
+            $this->forgetPostListCaches();
 
             $this->closeMenu();
         } finally {
@@ -427,56 +555,12 @@ trait TogglesPostReactions
 
     public function deleteMenuPost(): void
     {
-        $id = $this->menuPostId;
+        $this->softIgnoreMenuPost('delete');
+    }
 
-        if ($id === '' || $this->menuBusy) {
-            return;
-        }
-
-        $token = $this->menuToken();
-
-        if ($token === null || ! $this->viewerOwnsPost($this->findPostForMenu($id))) {
-            return;
-        }
-
-        if (! $this->acquireReactionLock('delete:'.$id)) {
-            return;
-        }
-
-        $this->menuBusy = true;
-
-        try {
-            $api = app(PinkaryApi::class);
-            $response = $api->attempt(fn () => $api->deleteQuestion($token, $id));
-
-            if ($response === null) {
-                $this->menuError = 'This post could not be deleted. Please try again.';
-
-                return;
-            }
-
-            if ($response->unauthorized()) {
-                $this->handleUnauthorized($response);
-
-                return;
-            }
-
-            if (! $response->successful()) {
-                $this->menuError = ApiErrors::first($response, 'This post could not be deleted. Please try again.');
-
-                if ($response->forbidden()) {
-                    $this->hideMenuEntry($id, 'delete');
-                    $this->menuStep = 'menu';
-                }
-
-                return;
-            }
-
-            $this->afterMenuRemoval($id);
-        } finally {
-            $this->menuBusy = false;
-            $this->releaseReactionLock('delete:'.$id);
-        }
+    public function ignoreMenuPost(): void
+    {
+        $this->softIgnoreMenuPost('ignore');
     }
 
     public function openLikersMenu(): void
@@ -639,10 +723,96 @@ trait TogglesPostReactions
         }
 
         $text = $this->plainText($this->postSource($post, 'answer') ?? $this->postSource($post, 'content'));
+        $message = (bool) data_get($post, 'is_update', false) ? 'See it on Pinkary' : 'See response on Pinkary';
+        $text = $text === '' ? $message.':' : $text."\n\n".$message.':';
 
         $this->openExternalLink(
-            'https://twitter.com/intent/tweet?url='.urlencode($url).'&text='.urlencode(mb_substr($text, 0, 140))
+            'https://twitter.com/intent/tweet?text='.urlencode($text).'&url='.urlencode($url)
         );
+    }
+
+    public function openHashtag(string $hashtagName): void
+    {
+        $hashtagName = mb_trim($hashtagName, "# \t\n\r\0\x0B");
+
+        if ($hashtagName === '') {
+            return;
+        }
+
+        $token = $this->token();
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->search($token, $hashtagName));
+
+        if ($response === null) {
+            return;
+        }
+
+        if ($token !== null && $this->handleUnauthorized($response)) {
+            return;
+        }
+
+        if (! $response->successful()) {
+            return;
+        }
+
+        foreach (Payload::array($response->json('data.hashtags')) as $hashtag) {
+            $id = Payload::int(data_get($hashtag, 'id'));
+            $name = Payload::string(data_get($hashtag, 'name'));
+
+            if ($id < 1 || mb_strtolower($name) !== mb_strtolower($hashtagName)) {
+                continue;
+            }
+
+            $this->navigate(
+                $this->route('mobile.hashtag', ['hashtagId' => $id]),
+                ['hashtagName' => $name],
+            );
+
+            return;
+        }
+    }
+
+    /** @param array<string, mixed> $post */
+    public function feedItemIdentity(array $post): string
+    {
+        $postId = Payload::string(data_get($post, 'id'));
+        $repostId = Payload::string(data_get($post, 'repost_id'));
+
+        if ($repostId !== '') {
+            return $repostId;
+        }
+
+        $reposterId = Payload::string(data_get($post, 'reposted_by.id'));
+        $reposter = $reposterId !== '' ? $reposterId : Payload::string(data_get($post, 'reposted_by.username'));
+
+        return $reposter !== '' ? $postId.':repost:'.$reposter : $postId;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $posts
+     * @param  list<array<string, mixed>>  $next
+     * @return list<array<string, mixed>>
+     */
+    private function mergeFeedPage(array $posts, array $next): array
+    {
+        $identities = [];
+
+        foreach ($posts as $post) {
+            $identities[$this->feedItemIdentity($post)] = true;
+        }
+
+        foreach ($next as $post) {
+            $identity = $this->feedItemIdentity($post);
+
+            if (isset($identities[$identity])) {
+                continue;
+            }
+
+            $identities[$identity] = true;
+            $posts[] = $post;
+        }
+
+        return array_values($posts);
     }
 
     /**
@@ -689,6 +859,43 @@ trait TogglesPostReactions
         $thread = Payload::array(data_get($posts[$index] ?? null, 'thread'));
         $thread['posts'] = $ancestors;
         $posts[$index]['thread'] = $thread;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $posts
+     * @param  array<string, mixed>  $values
+     */
+    private static function updatePostOccurrences(array &$posts, string $id, array $values): bool
+    {
+        $changed = false;
+
+        foreach ($posts as $index => $post) {
+            if (Payload::string(data_get($post, 'id')) === $id) {
+                $posts[$index] = array_replace($post, $values);
+                $changed = true;
+            }
+
+            $thread = Payload::array(data_get($posts[$index] ?? null, 'thread'));
+            $ancestors = Payload::array($thread['posts'] ?? null);
+            $ancestorsChanged = false;
+
+            foreach ($ancestors as $key => $ancestor) {
+                if (! is_array($ancestor) || Payload::string(data_get($ancestor, 'id')) !== $id) {
+                    continue;
+                }
+
+                $ancestors[$key] = array_replace($ancestor, $values);
+                $changed = true;
+                $ancestorsChanged = true;
+            }
+
+            if ($ancestorsChanged) {
+                $thread['posts'] = $ancestors;
+                $posts[$index]['thread'] = $thread;
+            }
+        }
+
+        return $changed;
     }
 
     /**
@@ -985,10 +1192,13 @@ trait TogglesPostReactions
         }
 
         try {
+            $post['poll_error'] = '';
             $api = app(PinkaryApi::class);
             $response = $api->attempt(fn () => $api->votePoll($token, $id, $optionId));
 
             if ($response === null) {
+                $post['poll_error'] = 'Your vote could not be submitted. Please try again.';
+
                 return;
             }
 
@@ -999,6 +1209,8 @@ trait TogglesPostReactions
             }
 
             if (! $response->successful()) {
+                $post['poll_error'] = ApiErrors::first($response, 'Your vote could not be submitted. Please try again.');
+
                 return;
             }
 
@@ -1117,7 +1329,7 @@ trait TogglesPostReactions
             return false;
         }
 
-        self::writePostAt($posts, $index, $key, $post);
+        self::updatePostOccurrences($posts, $id, array_intersect_key($post, array_flip(['metrics', 'reaction_error'])));
 
         return true;
     }
@@ -1142,7 +1354,7 @@ trait TogglesPostReactions
 
         $this->voteOnPoll($post, $id, $optionId, $token);
 
-        self::writePostAt($posts, $index, $key, $post);
+        self::updatePostOccurrences($posts, $id, array_intersect_key($post, array_flip(['poll', 'poll_error'])));
 
         return true;
     }
@@ -1369,60 +1581,37 @@ trait TogglesPostReactions
             return false;
         }
 
+        $updated = false;
+
         foreach ($this->menuPostProperties() as $property) {
             $rows = self::payloadRows($this->{$property});
-            $location = $this->locateNestedPost($rows, $id);
 
-            if ($location === null) {
-                continue;
+            if (self::updatePostOccurrences($rows, $id, $values)) {
+                $this->{$property} = $rows;
+                $updated = true;
             }
-
-            $post = self::postAt($rows, $location[0], $location[1]);
-
-            if ($post === null) {
-                continue;
-            }
-
-            self::writePostAt($rows, $location[0], $location[1], array_replace($post, $values));
-            $this->{$property} = $rows;
-
-            return true;
         }
 
         if (isset($this->post)) {
             $post = [self::payloadRow($this->post)];
-            $location = $this->locateNestedPost($post, $id);
 
-            if ($location !== null) {
-                $found = self::postAt($post, $location[0], $location[1]);
-
-                if ($found !== null) {
-                    self::writePostAt($post, $location[0], $location[1], array_replace($found, $values));
-                    $this->post = $post[0];
-                    $this->syncMenuThreadMirror();
-
-                    return true;
-                }
+            if (self::updatePostOccurrences($post, $id, $values)) {
+                $this->post = $post[0];
+                $this->syncMenuThreadMirror();
+                $updated = true;
             }
         }
 
         if (isset($this->comments)) {
             $comments = self::payloadRows($this->comments);
-            $location = $this->locateNestedPost($comments, $id);
 
-            if ($location !== null) {
-                $post = self::postAt($comments, $location[0], $location[1]);
-
-                if ($post !== null) {
-                    self::writePostAt($comments, $location[0], $location[1], array_replace($post, $values));
-                    $this->comments = $comments;
-
-                    return true;
-                }
+            if (self::updatePostOccurrences($comments, $id, $values)) {
+                $this->comments = $comments;
+                $updated = true;
             }
         }
 
-        return false;
+        return $updated;
     }
 
     private function removePostForMenu(string $id): void
@@ -1484,6 +1673,7 @@ trait TogglesPostReactions
     private function afterMenuRemoval(string $id): void
     {
         $this->closeMenu();
+        $this->forgetPostListCaches();
 
         if (isset($this->id) && is_string($this->id) && $this->id !== '' && $this->id === $id) {
             $this->navigate($this->route('mobile.feed'));
@@ -1491,7 +1681,87 @@ trait TogglesPostReactions
             return;
         }
 
+        $hasRootPost = false;
+
+        foreach ($this->menuPostProperties() as $property) {
+            foreach (self::payloadRows($this->{$property}) as $post) {
+                if (Payload::string(data_get($post, 'id')) === $id) {
+                    $hasRootPost = true;
+                }
+            }
+        }
+
         $this->removePostForMenu($id);
+
+        if ($hasRootPost && isset($this->page, $this->hasMore) && $this->hasMore) {
+            $this->page = max(0, $this->page - 1);
+        }
+    }
+
+    private function softIgnoreMenuPost(string $action): void
+    {
+        if (! in_array($action, ['delete', 'ignore'], true) || $this->menuPostId === '' || $this->menuBusy) {
+            return;
+        }
+
+        $id = $this->menuPostId;
+        $expectedStep = $action === 'delete' ? 'confirm-delete' : 'confirm-ignore';
+
+        if ($this->menuStep !== $expectedStep) {
+            return;
+        }
+
+        $canAct = $action === 'delete'
+            ? $this->viewerOwnsPost($this->findPostForMenu($id))
+            : $this->canIgnoreMenuPost();
+
+        if (! $canAct) {
+            return;
+        }
+
+        $token = $this->menuToken();
+
+        if ($token === null || ! $this->acquireReactionLock('soft-ignore:'.$id)) {
+            return;
+        }
+
+        $this->menuBusy = true;
+        $fallback = $action === 'delete'
+            ? 'This post could not be deleted. Please try again.'
+            : 'This question could not be ignored. Please try again.';
+
+        try {
+            $api = app(PinkaryApi::class);
+            $response = $api->attempt(fn () => $api->ignoreQuestion($token, $id));
+
+            if ($response === null) {
+                $this->menuError = $fallback;
+
+                return;
+            }
+
+            if ($response->unauthorized()) {
+                $this->handleUnauthorized($response);
+
+                return;
+            }
+
+            if (! $response->successful()) {
+                $this->menuError = ApiErrors::first($response, $fallback);
+
+                if ($response->forbidden()) {
+                    $this->hideMenuEntry($id, $action);
+                    $this->menuStep = 'menu';
+                }
+
+                return;
+            }
+
+            $this->afterMenuRemoval($id);
+        } finally {
+            $this->menuBusy = false;
+            $this->releaseReactionLock('soft-ignore:'.$id);
+        }
     }
 
     private function hideMenuEntry(string $postId, string $action): void
@@ -1543,6 +1813,26 @@ trait TogglesPostReactions
         }
 
         return preg_match('/^[A-Za-z0-9_-]{11}$/', $videoId) === 1 ? $videoId : null;
+    }
+
+    private function vimeoVideoId(string $url): ?string
+    {
+        $parts = parse_url($url);
+        $host = mb_strtolower(Payload::string(is_array($parts) ? ($parts['host'] ?? '') : ''));
+
+        if (! in_array($host, ['vimeo.com', 'www.vimeo.com', 'player.vimeo.com'], true)) {
+            return null;
+        }
+
+        $segments = explode('/', mb_trim(Payload::string(is_array($parts) ? ($parts['path'] ?? '') : ''), '/'));
+
+        for ($index = count($segments) - 1; $index >= 0; $index--) {
+            if (preg_match('/^\d+$/', $segments[$index]) === 1) {
+                return $segments[$index];
+            }
+        }
+
+        return null;
     }
 
     private function queryParameter(string $query, string $key): ?string

@@ -488,6 +488,11 @@ final class PinkaryApi
         return $this->request()->withToken($token)->post(self::PREFIX."/questions/{$id}/ignore");
     }
 
+    public function reportQuestion(string $token, string $id): Response
+    {
+        return $this->request()->withToken($token)->send('POST', self::PREFIX."/questions/{$id}/report");
+    }
+
     public function likers(string $token, string $id, int $page = 1): Response
     {
         return $this->request()->withToken($token)->get(self::PREFIX."/questions/{$id}/likes", [

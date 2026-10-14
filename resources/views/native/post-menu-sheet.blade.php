@@ -8,14 +8,31 @@
             @if ($menuStep === 'confirm-delete')
                 <native:column class="w-full gap-2 py-2">
                     <native:text class="text-theme-on-surface text-base font-semibold">Delete this post?</native:text>
-                    <native:text class="text-theme-on-surface-variant text-sm">Are you sure you want to delete this post?</native:text>
+                    <native:text class="text-theme-on-surface-variant text-sm">This will remove the post from your feed.</native:text>
                     <native:row class="w-full items-center gap-3 pt-2">
                         <native:button variant="secondary" @tap="menuBack">Cancel</native:button>
                         <native:button
                             variant="primary"
                             :disabled="$menuBusy"
                             @tap="deleteMenuPost"
-                        >{{ $menuBusy ? 'Deleting…' : 'Delete' }}</native:button>
+                        >{{ $menuBusy ? 'Removing…' : 'Delete' }}</native:button>
+                    </native:row>
+                </native:column>
+            @elseif ($menuStep === 'confirm-ignore' || $menuStep === 'confirm-report')
+                <native:column class="w-full gap-2 py-2">
+                    <native:text class="text-theme-on-surface text-base font-semibold">{{ $menuStep === 'confirm-report' ? 'Report this question?' : 'Ignore this question?' }}</native:text>
+                    <native:text class="text-theme-on-surface-variant text-sm">{{ $menuStep === 'confirm-report' ? 'The question will be sent for review.' : 'This question will be removed from your received questions.' }}</native:text>
+                    <native:row class="w-full items-center gap-3 pt-2">
+                        <native:button variant="secondary" @tap="menuBack">Cancel</native:button>
+                        @if ($menuStep === 'confirm-report')
+                            <native:button variant="primary" :disabled="$menuBusy" @tap="reportMenuPost">
+                                {{ $menuBusy ? 'Reporting…' : 'Report' }}
+                            </native:button>
+                        @else
+                            <native:button variant="primary" :disabled="$menuBusy" @tap="ignoreMenuPost">
+                                {{ $menuBusy ? 'Ignoring…' : 'Ignore' }}
+                            </native:button>
+                        @endif
                     </native:row>
                 </native:column>
             @elseif ($menuStep === 'edit' || $menuStep === 'answer')
@@ -157,6 +174,58 @@
                         </native:row>
                     </native:pressable>
                 @endif
+                @if ($this->canIgnoreMenuPost())
+                    <native:pressable class="w-full py-3" @tap="askIgnoreMenu" a11y-label="Ignore this question">
+                        <native:row class="w-full items-center gap-3">
+                            <native:icon
+                                :ios="\App\Icons\Ios::EyeSlash"
+                                :android="\App\Icons\AndroidOutlined::VisibilityOff"
+                                :size="20"
+                                color="#64748B"
+                                dark-color="#94A3B8"
+                            />
+                            <native:text class="text-theme-on-surface text-sm font-medium">Ignore</native:text>
+                        </native:row>
+                    </native:pressable>
+                @endif
+                @if ($this->canReportMenuPost())
+                    <native:pressable class="w-full py-3" @tap="askReportMenu" a11y-label="Report this question">
+                        <native:row class="w-full items-center gap-3">
+                            <native:icon
+                                :ios="\App\Icons\Ios::ExclamationmarkTriangle"
+                                :android="\App\Icons\AndroidOutlined::Flag"
+                                :size="20"
+                                color="#64748B"
+                                dark-color="#94A3B8"
+                            />
+                            <native:text class="text-theme-destructive text-sm font-medium">Report</native:text>
+                        </native:row>
+                    </native:pressable>
+                @endif
+                <native:pressable class="w-full py-3" @tap="shareMenuPost" a11y-label="Share or copy post link">
+                    <native:row class="w-full items-center gap-3">
+                        <native:icon
+                            :ios="\App\Icons\Ios::SquareAndArrowUp"
+                            :android="\App\Icons\AndroidOutlined::Share"
+                            :size="20"
+                            color="#64748B"
+                            dark-color="#94A3B8"
+                        />
+                        <native:text class="text-theme-on-surface text-sm font-medium">Share or copy link</native:text>
+                    </native:row>
+                </native:pressable>
+                <native:pressable class="w-full py-3" @tap="shareToXMenu" a11y-label="Share post on X">
+                    <native:row class="w-full items-center gap-3">
+                        <native:icon
+                            :ios="\App\Icons\Ios::At"
+                            :android="\App\Icons\AndroidOutlined::Tag"
+                            :size="20"
+                            color="#64748B"
+                            dark-color="#94A3B8"
+                        />
+                        <native:text class="text-theme-on-surface text-sm font-medium">Post on X</native:text>
+                    </native:row>
+                </native:pressable>
                 @if ($canViewMenuLikes)
                     <native:pressable class="w-full py-3" @tap="openLikersMenu" a11y-label="View likes">
                         <native:row class="w-full items-center gap-3">
@@ -175,3 +244,19 @@
         </native:column>
     @endif
 </native:bottom-sheet>
+
+<native:modal
+    native:key="post-image-preview"
+    :visible="$activeImageUrl !== ''"
+    @dismiss="closeImageFullscreen"
+    a11y-label="Full-screen post image"
+>
+    <native:column class="bg-black h-full w-full items-center justify-center">
+        <native:image
+            :src="$activeImageUrl"
+            alt="Full-screen post image"
+            class="h-full w-full object-contain"
+            a11y-label="Full-screen post image"
+        />
+    </native:column>
+</native:modal>
