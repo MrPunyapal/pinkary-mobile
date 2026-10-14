@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Cache;
 final class FeedCache
 {
     /**
-     * @return array{items: list<array<string, mixed>>, page: int, hasMore: bool, unreadCount?: int}|null
+     * @return array{items: list<array<string, mixed>>, page: int, hasMore: bool, unreadCount?: int, notificationCount?: int}|null
      */
     public static function get(string $key): ?array
     {
@@ -51,11 +51,19 @@ final class FeedCache
             $result['unreadCount'] = $payload['unreadCount'];
         }
 
+        if (array_key_exists('notificationCount', $payload)) {
+            if (! is_int($payload['notificationCount'])) {
+                return null;
+            }
+
+            $result['notificationCount'] = $payload['notificationCount'];
+        }
+
         return $result;
     }
 
     /**
-     * @param  array{items: list<array<string, mixed>>, page: int, hasMore: bool, unreadCount?: int}  $payload
+     * @param  array{items: list<array<string, mixed>>, page: int, hasMore: bool, unreadCount?: int, notificationCount?: int}  $payload
      */
     public static function put(string $key, array $payload, int $seconds = 90): void
     {

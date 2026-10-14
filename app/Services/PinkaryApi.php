@@ -311,6 +311,13 @@ final class PinkaryApi
         ]));
     }
 
+    public function ignoreAllNotifications(string $token, string $untilDatetime): Response
+    {
+        return $this->request()->withToken($token)->post(self::PREFIX.'/notifications/ignore', [
+            'until_datetime' => $untilDatetime,
+        ]);
+    }
+
     public function user(?string $token, string $username): Response
     {
         return $this->authed($token)->get(self::PREFIX."/users/{$username}");

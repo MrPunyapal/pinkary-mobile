@@ -27,6 +27,8 @@ final class Notifications extends NativeComponent implements HasWebHead
 
     public int $unreadCount = 0;
 
+    public int $notificationCount = 0;
+
     public bool $loading = true;
 
     public bool $refreshing = false;
@@ -113,8 +115,14 @@ final class Notifications extends NativeComponent implements HasWebHead
         }
 
         if ($response->successful() || $response->notFound()) {
-            if ($this->removeNotification($id)) {
-                $this->unreadCount = max(0, $this->unreadCount - 1);
+            $wasUnread = $this->removeNotification($id);
+
+            if ($wasUnread !== null) {
+                $this->notificationCount = max(0, $this->notificationCount - 1);
+
+                if ($wasUnread) {
+                    $this->unreadCount = max(0, $this->unreadCount - 1);
+                }
             }
 
             UnreadCount::store($this->unreadCount);
@@ -129,7 +137,7 @@ final class Notifications extends NativeComponent implements HasWebHead
 
     public function ignoreAll(PinkaryApi $api): void
     {
-        if ($this->ignoringAll || ($this->items === [] && ! $this->hasMore && $this->unreadCount === 0)) {
+        if ($this->ignoringAll || ($this->items === [] && ! $this->hasMore && $this->notificationCount === 0)) {
             return;
         }
 
@@ -143,10 +151,35 @@ final class Notifications extends NativeComponent implements HasWebHead
         $until = new DateTimeImmutable(now()->toIso8601String());
 
         try {
+            $bulkResponse = $api->attempt(fn () => $api->ignoreAllNotifications($token, $until->format(DATE_ATOM)));
+
+            if ($bulkResponse === null) {
+                $this->errorMessage = 'Notifications could not be ignored. Please try again.';
+
+                return;
+            }
+
+            if ($this->handleUnauthorized($bulkResponse)) {
+                return;
+            }
+
+            if ($bulkResponse->successful()) {
+                $this->refreshAfterIgnoringAll($api, $token);
+
+                return;
+            }
+
+            if (! $bulkResponse->notFound()) {
+                $this->errorMessage = 'Notifications could not be ignored. Please try again.';
+
+                return;
+            }
+
             $items = [];
             $page = 1;
             $hasMore = true;
             $unreadCount = 0;
+            $notificationCount = 0;
 
             while ($hasMore) {
                 $response = $api->attempt(fn () => $api->notifications($token, $page));
@@ -169,6 +202,7 @@ final class Notifications extends NativeComponent implements HasWebHead
 
                 if ($page === 1) {
                     $unreadCount = Payload::int($response->json('meta.unread_count'));
+                    $notificationCount = Payload::int($response->json('meta.total_count'), $unreadCount);
                 }
 
                 $items = [...$items, ...$api->normalizeNotifications($response->json('data', []))];
@@ -185,13 +219,14 @@ final class Notifications extends NativeComponent implements HasWebHead
             $this->page = $loadedPage;
             $this->hasMore = false;
             $this->unreadCount = $unreadCount;
+            $this->notificationCount = $notificationCount;
             UnreadCount::store($this->unreadCount);
             $this->rememberNotifications();
 
             $questionIds = [];
 
             foreach ($notificationsToIgnore as $item) {
-                if (data_get($item, 'type') !== 'QuestionCreated') {
+                if (data_get($item, 'is_pending_question') !== true) {
                     continue;
                 }
 
@@ -201,8 +236,6 @@ final class Notifications extends NativeComponent implements HasWebHead
                     $questionIds[$questionId] = $questionId;
                 }
             }
-
-            $ignoredQuestionIds = [];
 
             foreach ($questionIds as $questionId) {
                 $response = $api->attempt(fn () => $api->ignoreQuestion($token, $questionId));
@@ -223,10 +256,6 @@ final class Notifications extends NativeComponent implements HasWebHead
                     return;
                 }
 
-                if ($response->successful()) {
-                    $ignoredQuestionIds[$questionId] = true;
-                    $this->removeQuestionNotifications($questionId);
-                }
             }
 
             foreach ($notificationsToIgnore as $item) {
@@ -236,12 +265,6 @@ final class Notifications extends NativeComponent implements HasWebHead
                     $this->errorMessage = 'Notifications could not be ignored. Please try again.';
 
                     return;
-                }
-
-                $questionId = Payload::string(data_get($item, 'target.id'));
-
-                if (data_get($item, 'target.kind') === 'question' && isset($ignoredQuestionIds[$questionId])) {
-                    continue;
                 }
 
                 $response = $api->attempt(fn () => $api->deleteNotification($token, $id));
@@ -262,8 +285,14 @@ final class Notifications extends NativeComponent implements HasWebHead
                     return;
                 }
 
-                if ($this->removeNotification($id)) {
-                    $this->unreadCount = max(0, $this->unreadCount - 1);
+                $wasUnread = $this->removeNotification($id);
+
+                if ($wasUnread !== null) {
+                    $this->notificationCount = max(0, $this->notificationCount - 1);
+
+                    if ($wasUnread) {
+                        $this->unreadCount = max(0, $this->unreadCount - 1);
+                    }
                 }
 
                 UnreadCount::store($this->unreadCount);
@@ -319,6 +348,7 @@ final class Notifications extends NativeComponent implements HasWebHead
         $this->page++;
         $this->hasMore = $response->json('links.next') !== null;
         $this->unreadCount = Payload::int($response->json('meta.unread_count'), $this->unreadCount);
+        $this->notificationCount = Payload::int($response->json('meta.total_count'), $this->notificationCount);
         UnreadCount::store($this->unreadCount);
         $this->rememberNotifications();
     }
@@ -326,6 +356,48 @@ final class Notifications extends NativeComponent implements HasWebHead
     public function render(): View
     {
         return view('native.notifications');
+    }
+
+    private function refreshAfterIgnoringAll(PinkaryApi $api, string $token): void
+    {
+        $this->items = [];
+        $this->page = 1;
+        $this->hasMore = false;
+        $this->unreadCount = 0;
+        $this->notificationCount = 0;
+        $this->errorMessage = '';
+        UnreadCount::store(0);
+        $this->rememberNotifications();
+
+        $response = $api->attempt(fn () => $api->notifications($token));
+
+        if ($response === null) {
+            $this->errorMessage = 'Notifications were ignored, but the list could not be refreshed. Please try again.';
+            $this->rememberNotifications();
+
+            return;
+        }
+
+        if ($this->handleUnauthorized($response)) {
+            return;
+        }
+
+        if (! $response->successful()) {
+            $this->errorMessage = 'Notifications were ignored, but the list could not be refreshed. Please try again.';
+            $this->rememberNotifications();
+
+            return;
+        }
+
+        $this->items = $api->normalizeNotifications($response->json('data', []));
+        $this->unreadCount = Payload::int($response->json('meta.unread_count'));
+        $this->notificationCount = Payload::int($response->json('meta.total_count'), $this->unreadCount);
+        $this->hasMore = $response->json('links.next') !== null;
+        $this->loadMoreError = '';
+        $this->loading = false;
+        $this->refreshing = false;
+        UnreadCount::store($this->unreadCount);
+        $this->rememberNotifications();
     }
 
     private function load(string $token): void
@@ -354,6 +426,7 @@ final class Notifications extends NativeComponent implements HasWebHead
 
         $this->items = $api->normalizeNotifications($response->json('data', []));
         $this->unreadCount = Payload::int($response->json('meta.unread_count'));
+        $this->notificationCount = Payload::int($response->json('meta.total_count'), $this->unreadCount);
         UnreadCount::store($this->unreadCount);
         $this->page = 1;
         $this->hasMore = $response->json('links.next') !== null;
@@ -372,6 +445,7 @@ final class Notifications extends NativeComponent implements HasWebHead
             $this->page = $payload['page'];
             $this->hasMore = $payload['hasMore'];
             $this->unreadCount = $payload['unreadCount'] ?? $this->unreadCount;
+            $this->notificationCount = $payload['notificationCount'] ?? $this->unreadCount;
             UnreadCount::store($this->unreadCount);
             $this->loading = false;
             $this->refreshing = true;
@@ -398,6 +472,7 @@ final class Notifications extends NativeComponent implements HasWebHead
             'page' => $this->page,
             'hasMore' => $this->hasMore,
             'unreadCount' => $this->unreadCount,
+            'notificationCount' => $this->notificationCount,
         ]);
     }
 
@@ -437,31 +512,9 @@ final class Notifications extends NativeComponent implements HasWebHead
         }
     }
 
-    private function removeQuestionNotifications(string $questionId): void
+    private function removeNotification(string $id): ?bool
     {
-        $removedUnreadCount = 0;
-        $this->items = array_values(array_filter(
-            $this->items,
-            function (mixed $item) use ($questionId, &$removedUnreadCount): bool {
-                if (data_get($item, 'target.kind') !== 'question' || Payload::string(data_get($item, 'target.id')) !== $questionId) {
-                    return true;
-                }
-
-                if (data_get($item, 'read') === false) {
-                    $removedUnreadCount++;
-                }
-
-                return false;
-            }
-        ));
-        $this->unreadCount = max(0, $this->unreadCount - $removedUnreadCount);
-        UnreadCount::store($this->unreadCount);
-        $this->rememberNotifications();
-    }
-
-    private function removeNotification(string $id): bool
-    {
-        $removedUnread = false;
+        $removedUnread = null;
         $this->items = array_values(array_filter(
             $this->items,
             function (mixed $item) use ($id, &$removedUnread): bool {
@@ -469,7 +522,7 @@ final class Notifications extends NativeComponent implements HasWebHead
                     return true;
                 }
 
-                $removedUnread = $removedUnread || data_get($item, 'read') === false;
+                $removedUnread = $removedUnread === true || data_get($item, 'read') === false;
 
                 return false;
             }
