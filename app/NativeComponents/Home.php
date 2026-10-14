@@ -392,7 +392,7 @@ final class Home extends NativeComponent implements HasWebHead
 
             return [
                 'success' => $response->successful(),
-                'count' => Payload::int($response->json('meta.total_count', $response->json('meta.unread_count', 0))),
+                'count' => Payload::int($response->json('meta.unread_count', 0)),
             ];
         })->finished(static function (array $result) use ($token): void {
             if ($result['success'] && AccountStore::activeToken() === $token) {
