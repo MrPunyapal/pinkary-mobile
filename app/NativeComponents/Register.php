@@ -118,7 +118,7 @@ final class Register extends NativeComponent implements HasWebHead
             $userData = Payload::stringMap($response->json('data') ?? $response->json('user'));
             $username = Payload::string($userData['username'] ?? $this->username);
 
-            $previous = $username !== '' ? AccountStore::tokenForUsername($username) : null;
+            $previous = AccountStore::tokenForProfile($username, $userData);
 
             if (is_string($previous) && $previous !== '' && $previous !== $token) {
                 app(PinkaryApi::class)->attempt(fn () => app(PinkaryApi::class)->logout($previous));

@@ -11,6 +11,7 @@ use App\Support\ApiErrors;
 use App\Support\CurrentUser;
 use App\Support\Payload;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Edge\Web\Contracts\HasWebHead;
@@ -46,6 +47,8 @@ final class EditProfile extends NativeComponent implements HasWebHead
     public bool $avatarBusy = false;
 
     public string $avatarMessage = '';
+
+    public string $avatarInfo = '';
 
     public string $mailPreferenceTime = 'daily';
 
@@ -165,6 +168,16 @@ final class EditProfile extends NativeComponent implements HasWebHead
         }
 
         $this->load($token);
+    }
+
+    public function refreshAvatar(): void
+    {
+        $this->updateAvatarFromProvider(reset: false);
+    }
+
+    public function resetAvatar(): void
+    {
+        $this->updateAvatarFromProvider(reset: true);
     }
 
     public function save(): void
@@ -359,6 +372,7 @@ final class EditProfile extends NativeComponent implements HasWebHead
 
         $this->avatarBusy = true;
         $this->avatarMessage = '';
+        $this->avatarInfo = '';
 
         try {
             $api = app(PinkaryApi::class);
@@ -392,6 +406,7 @@ final class EditProfile extends NativeComponent implements HasWebHead
             $this->fillFromProfile($data);
         }
 
+        $this->load($token);
         $this->successMessage = 'Profile photo updated.';
     }
 
@@ -520,7 +535,7 @@ final class EditProfile extends NativeComponent implements HasWebHead
         $this->linkMessage = '';
 
         $description = mb_trim($this->newDescription);
-        $url = mb_trim($this->newUrl);
+        $url = $this->normalizeLinkUrl($this->newUrl);
 
         if ($description === '') {
             $this->linkMessage = 'Add a short description for the link.';
@@ -534,11 +549,13 @@ final class EditProfile extends NativeComponent implements HasWebHead
             return;
         }
 
-        if (! $this->isLinkUrl($url)) {
-            $this->linkMessage = 'Links must be valid https:// URLs.';
+        if ($url === null) {
+            $this->linkMessage = 'Enter a valid HTTPS URL. You can omit the https:// prefix.';
 
             return;
         }
+
+        $this->newUrl = $url;
 
         $this->linkBusy = true;
 
@@ -617,7 +634,7 @@ final class EditProfile extends NativeComponent implements HasWebHead
         }
 
         $description = mb_trim($this->editDescription);
-        $url = mb_trim($this->editUrl);
+        $url = $this->normalizeLinkUrl($this->editUrl);
 
         if ($description === '') {
             $this->linkMessage = 'Add a short description for the link.';
@@ -631,11 +648,13 @@ final class EditProfile extends NativeComponent implements HasWebHead
             return;
         }
 
-        if (! $this->isLinkUrl($url)) {
-            $this->linkMessage = 'Links must be valid https:// URLs.';
+        if ($url === null) {
+            $this->linkMessage = 'Enter a valid HTTPS URL. You can omit the https:// prefix.';
 
             return;
         }
+
+        $this->editUrl = $url;
 
         $this->linkBusy = true;
 
@@ -738,7 +757,7 @@ final class EditProfile extends NativeComponent implements HasWebHead
         return view('native.edit-profile');
     }
 
-    private function load(string $token): void
+    private function load(string $token): bool
     {
         $this->loading = true;
         $this->errorMessage = '';
@@ -750,6 +769,63 @@ final class EditProfile extends NativeComponent implements HasWebHead
             $this->loading = false;
             $this->errorMessage = 'Your profile could not be loaded. Please try again.';
 
+            return false;
+        }
+
+        if ($this->handleUnauthorized($response)) {
+            return false;
+        }
+
+        if (! $response->successful()) {
+            $this->loading = false;
+            $this->errorMessage = 'Your profile could not be loaded. Please try again.';
+
+            return false;
+        }
+
+        /** @var array<string, mixed>|null $profile */
+        $profile = $response->json('data');
+
+        if (! is_array($profile)) {
+            $this->loading = false;
+            $this->errorMessage = 'Your profile could not be loaded. Please try again.';
+
+            return false;
+        }
+
+        $this->fillFromProfile($profile);
+        CurrentUser::store($profile);
+        $this->loading = false;
+
+        return true;
+    }
+
+    private function updateAvatarFromProvider(bool $reset): void
+    {
+        if ($this->avatarBusy) {
+            return;
+        }
+
+        $token = $this->requireToken();
+
+        if ($token === null) {
+            return;
+        }
+
+        $this->avatarBusy = true;
+        $this->avatarMessage = '';
+        $this->avatarInfo = '';
+
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $reset
+            ? $api->resetAvatar($token)
+            : $api->refreshAvatar($token));
+
+        $this->avatarBusy = false;
+
+        if ($response === null) {
+            $this->avatarMessage = 'Your profile photo could not be updated. Please try again.';
+
             return;
         }
 
@@ -758,8 +834,7 @@ final class EditProfile extends NativeComponent implements HasWebHead
         }
 
         if (! $response->successful()) {
-            $this->loading = false;
-            $this->errorMessage = 'Your profile could not be loaded. Please try again.';
+            $this->avatarMessage = ApiErrors::first($response, 'Your profile photo could not be updated. Please try again.');
 
             return;
         }
@@ -767,11 +842,17 @@ final class EditProfile extends NativeComponent implements HasWebHead
         /** @var array<string, mixed>|null $profile */
         $profile = $response->json('data');
 
-        if (is_array($profile)) {
-            $this->fillFromProfile($profile);
+        if (! is_array($profile)) {
+            $this->avatarMessage = 'Your profile photo changed, but the refreshed profile could not be loaded.';
+
+            return;
         }
 
-        $this->loading = false;
+        CurrentUser::store($profile);
+        $this->fillFromProfile($profile);
+        $this->avatarInfo = $reset
+            ? 'Your photo was reset to your provider avatar.'
+            : 'Your provider avatar has been refreshed.';
     }
 
     /**
@@ -852,17 +933,35 @@ final class EditProfile extends NativeComponent implements HasWebHead
         return array_key_exists($candidate, $options) ? $candidate : $fallback;
     }
 
-    private function isLinkUrl(string $url): bool
+    private function normalizeLinkUrl(string $url): ?string
     {
-        if ($url === '' || mb_strlen($url) > 100) {
-            return false;
+        $url = mb_trim($url);
+
+        if ($url === '') {
+            return null;
         }
 
-        if (! preg_match('#^https://#i', $url)) {
-            return false;
+        if (Str::startsWith($url, '//')) {
+            $url = mb_substr($url, 2);
         }
 
-        return (bool) filter_var($url, FILTER_VALIDATE_URL);
+        if (parse_url($url, PHP_URL_SCHEME) === null) {
+            $url = 'https://'.$url;
+        }
+
+        $parts = parse_url($url);
+
+        if (! is_array($parts)
+            || mb_strtolower(Payload::string($parts['scheme'] ?? '')) !== 'https'
+            || ! isset($parts['host'])
+            || isset($parts['user'])
+            || isset($parts['pass'])
+            || mb_strlen($url) > 100
+            || filter_var($url, FILTER_VALIDATE_URL) === false) {
+            return null;
+        }
+
+        return $url;
     }
 
     private function moveLink(int $id, int $offset): void

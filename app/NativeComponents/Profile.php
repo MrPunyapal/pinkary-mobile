@@ -13,6 +13,7 @@ use App\Support\ApiErrors;
 use App\Support\CurrentUser;
 use App\Support\Payload;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Native\Mobile\Browser;
 use Native\Mobile\Edge\NativeComponent;
@@ -39,9 +40,15 @@ final class Profile extends NativeComponent implements HasWebHead
 
     public bool $showQr = false;
 
+    public bool $qrBusy = false;
+
+    public string $qrErrorMessage = '';
+
     public bool $showAvatar = false;
 
     public string $linkError = '';
+
+    public string $bioError = '';
 
     /** @var list<array<string, mixed>> */
     public array $questions = [];
@@ -329,7 +336,114 @@ final class Profile extends NativeComponent implements HasWebHead
 
         $base = mb_rtrim(Payload::string(config('services.pinkary.url')), '/');
 
-        app(Share::class)->url('Pinkary profile', '@'.$username.' on Pinkary', $base.'/@'.$username);
+        app(Share::class)->url('Pinkary profile', '@'.$username.' on Pinkary', $base.'/@'.rawurlencode($username));
+    }
+
+    public function openBioHashtag(string $hashtag): void
+    {
+        if ($hashtag === '') {
+            return;
+        }
+
+        $this->bioError = '';
+
+        $token = $this->token();
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->search($token, $hashtag));
+
+        if ($response === null) {
+            $this->bioError = 'This hashtag could not be opened. Please try again.';
+
+            return;
+        }
+
+        if ($token !== null && $this->handleUnauthorized($response)) {
+            return;
+        }
+
+        if (! $response->successful()) {
+            $this->bioError = 'This hashtag could not be opened. Please try again.';
+
+            return;
+        }
+
+        foreach (Payload::array($response->json('data.hashtags')) as $result) {
+            if (! is_array($result) || mb_strtolower(Payload::string($result['name'] ?? '')) !== mb_strtolower($hashtag)) {
+                continue;
+            }
+
+            $hashtagId = Payload::int($result['id'] ?? null);
+            $hashtagName = Payload::string($result['name'] ?? '');
+
+            if ($hashtagId > 0 && $hashtagName !== '') {
+                $this->navigate(
+                    $this->route('mobile.hashtag', ['hashtagId' => $hashtagId]),
+                    ['hashtagName' => $hashtagName],
+                );
+
+                return;
+            }
+        }
+
+        $this->bioError = 'This hashtag could not be found.';
+    }
+
+    public function exportQrCode(string $theme = 'dark'): void
+    {
+        if ($this->qrBusy || ! $this->showQr || $this->profile === null
+            || ! (bool) data_get($this->profile, 'is_me', false)
+            || ! in_array($theme, ['dark', 'light'], true)) {
+            return;
+        }
+
+        $username = Payload::string(data_get($this->profile, 'username'));
+
+        if ($username === '') {
+            return;
+        }
+
+        $this->qrBusy = true;
+        $this->qrErrorMessage = '';
+
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->profileQrCode($username, $theme));
+
+        $this->qrBusy = false;
+
+        if ($response === null) {
+            $this->qrErrorMessage = 'The QR code could not be prepared. Please try again.';
+
+            return;
+        }
+
+        if (! $response->successful()) {
+            $this->qrErrorMessage = 'The QR code could not be prepared. Please try again.';
+
+            return;
+        }
+
+        $image = $response->body();
+
+        if (! str_starts_with($image, "\x89PNG\r\n\x1a\n")) {
+            $this->qrErrorMessage = 'The QR code could not be prepared. Please try again.';
+
+            return;
+        }
+
+        $disk = Storage::disk('local');
+        $filename = 'pinkary-profile-qr.png';
+
+        if (! $disk->put($filename, $image)) {
+            $this->qrErrorMessage = 'The QR code could not be saved on this device.';
+
+            return;
+        }
+
+        app(Share::class)->file(
+            'Pinkary profile QR code',
+            'Scan to view @'.$username.' on Pinkary.',
+            $disk->path($filename)
+        );
     }
 
     public function toggleQr(): void
@@ -421,6 +535,7 @@ final class Profile extends NativeComponent implements HasWebHead
         return view('native.profile', [
             'showAvatar' => $this->showAvatar,
             'linkError' => $this->linkError,
+            'bioError' => $this->bioError,
         ]);
     }
 

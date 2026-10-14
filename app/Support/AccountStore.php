@@ -58,7 +58,7 @@ final class AccountStore
     }
 
     /**
-     * @return array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, default_feed: mixed, prefers_anonymous_questions: mixed, mail_preference_time: mixed, token: string}|null
+     * @return array{id: string, user_id: ?string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, default_feed: mixed, prefers_anonymous_questions: mixed, mail_preference_time: mixed, token: string}|null
      */
     public static function active(): ?array
     {
@@ -85,6 +85,18 @@ final class AccountStore
         return null;
     }
 
+    /** @param array<string, mixed> $profile */
+    public static function tokenForProfile(string $username, array $profile): ?string
+    {
+        foreach (self::readAll() as $account) {
+            if (self::matches($account, $username, self::userId($profile))) {
+                return $account['token'];
+            }
+        }
+
+        return null;
+    }
+
     /**
      * @return list<string>
      */
@@ -101,17 +113,31 @@ final class AccountStore
      */
     public static function add(string $username, string $token, array $profile): string
     {
-        [$accounts] = self::read();
+        [$accounts, $activeId] = self::read();
+
+        $userId = self::userId($profile);
+        $id = null;
+
+        foreach ($accounts as $account) {
+            if (self::matches($account, $username, $userId)) {
+                if ($id === null || $account['id'] === $activeId) {
+                    $id = $account['id'];
+                }
+
+                $userId ??= self::userId($account);
+            }
+        }
 
         $accounts = array_values(array_filter(
             $accounts,
-            fn (array $account): bool => mb_strtolower($account['username']) !== mb_strtolower($username)
+            fn (array $account): bool => ! self::matches($account, $username, $userId)
         ));
 
-        $id = Str::random(32);
+        $id ??= Str::random(32);
 
         array_unshift($accounts, [
             'id' => $id,
+            'user_id' => $userId,
             'username' => $username,
             'name' => Payload::string(data_get($profile, 'name', '')),
             'avatar' => data_get($profile, 'avatar'),
@@ -124,6 +150,7 @@ final class AccountStore
         ]);
 
         self::write($accounts, $id);
+        CurrentUser::clear();
 
         return $id;
     }
@@ -135,12 +162,16 @@ final class AccountStore
     {
         [$accounts, $activeId] = self::read();
         $changed = false;
+        $previousUsername = '';
 
         foreach ($accounts as &$account) {
             if ($account['id'] !== $id) {
                 continue;
             }
 
+            $previousUsername = $account['username'];
+            $account['user_id'] = self::userId($profile) ?? $account['user_id'];
+            $account['username'] = Payload::string(data_get($profile, 'username', $account['username']));
             $account['name'] = Payload::string(data_get($profile, 'name', $account['name']));
             $account['avatar'] = data_get($profile, 'avatar', $account['avatar']);
             $account['email'] = data_get($profile, 'email', $account['email']);
@@ -155,6 +186,19 @@ final class AccountStore
         unset($account);
 
         if ($changed) {
+            $updated = self::find($accounts, $id);
+
+            if ($updated !== null) {
+                $updatedUserId = self::userId($updated);
+                $accounts = array_values(array_filter($accounts, fn (array $account): bool => $account['id'] === $id
+                    || (! self::matches($account, $updated['username'], $updatedUserId)
+                        && ! self::matches($account, $previousUsername, $updatedUserId))));
+
+                if (self::find($accounts, $activeId ?? '') === null) {
+                    $activeId = $id;
+                }
+            }
+
             self::write($accounts, $activeId);
         }
     }
@@ -207,8 +251,8 @@ final class AccountStore
     }
 
     /**
-     * @param  list<array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, default_feed: mixed, prefers_anonymous_questions: mixed, mail_preference_time: mixed, token: string}>  $accounts
-     * @return array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, default_feed: mixed, prefers_anonymous_questions: mixed, mail_preference_time: mixed, token: string}|null
+     * @param  list<array{id: string, user_id: ?string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, default_feed: mixed, prefers_anonymous_questions: mixed, mail_preference_time: mixed, token: string}>  $accounts
+     * @return array{id: string, user_id: ?string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, default_feed: mixed, prefers_anonymous_questions: mixed, mail_preference_time: mixed, token: string}|null
      */
     private static function find(array $accounts, string $id): ?array
     {
@@ -222,7 +266,7 @@ final class AccountStore
     }
 
     /**
-     * @return array{0: list<array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, default_feed: mixed, prefers_anonymous_questions: mixed, mail_preference_time: mixed, token: string}>, 1: ?string}
+     * @return array{0: list<array{id: string, user_id: ?string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, default_feed: mixed, prefers_anonymous_questions: mixed, mail_preference_time: mixed, token: string}>, 1: ?string}
      */
     private static function read(): array
     {
@@ -268,14 +312,14 @@ final class AccountStore
         return [$accounts, $activeId];
     }
 
-    /** @return list<array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, default_feed: mixed, prefers_anonymous_questions: mixed, mail_preference_time: mixed, token: string}> */
+    /** @return list<array{id: string, user_id: ?string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, default_feed: mixed, prefers_anonymous_questions: mixed, mail_preference_time: mixed, token: string}> */
     private static function readAll(): array
     {
         return self::read()[0];
     }
 
     /**
-     * @param  list<array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, default_feed: mixed, prefers_anonymous_questions: mixed, mail_preference_time: mixed, token: string}>  $accounts
+     * @param  list<array{id: string, user_id: ?string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, default_feed: mixed, prefers_anonymous_questions: mixed, mail_preference_time: mixed, token: string}>  $accounts
      */
     private static function write(array $accounts, ?string $activeId): void
     {
@@ -293,7 +337,7 @@ final class AccountStore
     }
 
     /**
-     * @return list<array{id: string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, default_feed: mixed, prefers_anonymous_questions: mixed, mail_preference_time: mixed, token: string}>
+     * @return list<array{id: string, user_id: ?string, username: string, name: string, avatar: mixed, email: mixed, member_since: mixed, default_feed: mixed, prefers_anonymous_questions: mixed, mail_preference_time: mixed, token: string}>
      */
     private static function sanitize(mixed $accounts): array
     {
@@ -313,6 +357,7 @@ final class AccountStore
 
             $clean[] = [
                 'id' => $account['id'],
+                'user_id' => self::userId($account),
                 'username' => isset($account['username']) && is_string($account['username']) ? $account['username'] : '',
                 'name' => isset($account['name']) && is_string($account['name']) ? $account['name'] : '',
                 'avatar' => $account['avatar'] ?? null,
@@ -326,6 +371,26 @@ final class AccountStore
         }
 
         return $clean;
+    }
+
+    /** @param array<array-key, mixed> $profile */
+    private static function userId(array $profile): ?string
+    {
+        $id = Payload::int($profile['user_id'] ?? $profile['id'] ?? null);
+
+        return $id > 0 ? (string) $id : null;
+    }
+
+    /** @param array<array-key, mixed> $account */
+    private static function matches(array $account, string $username, ?string $userId): bool
+    {
+        $savedId = self::userId($account);
+
+        if ($savedId !== null && $userId !== null) {
+            return $savedId === $userId;
+        }
+
+        return $username !== '' && mb_strtolower(Payload::string($account['username'] ?? '')) === mb_strtolower($username);
     }
 
     private static function stringOrNull(mixed $value): ?string

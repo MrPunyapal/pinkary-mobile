@@ -167,6 +167,112 @@ final class PinkaryApi
         return $this->request()->withToken($token)->get(self::PREFIX.'/profile');
     }
 
+    public function refreshAvatar(string $token): Response
+    {
+        return $this->request()->withToken($token)->post(self::PREFIX.'/account/avatar/refresh');
+    }
+
+    public function resetAvatar(string $token): Response
+    {
+        return $this->request()->withToken($token)->delete(self::PREFIX.'/account/avatar');
+    }
+
+    public function emailVerificationStatus(string $token): Response
+    {
+        return $this->request()->withToken($token)->get(self::PREFIX.'/account/email-verification');
+    }
+
+    public function sendEmailVerification(string $token): Response
+    {
+        return $this->request()->withToken($token)->post(self::PREFIX.'/account/email-verification/notification');
+    }
+
+    /** @param array{current_password: string, password: string, password_confirmation: string} $data */
+    public function changePassword(string $token, array $data): Response
+    {
+        return $this->request()->withToken($token)->put(self::PREFIX.'/account/password', $data);
+    }
+
+    public function requestPasswordRecovery(string $email): Response
+    {
+        return $this->request()->post(self::PREFIX.'/account/password/recovery', ['email' => $email]);
+    }
+
+    /** @param array{token: string, email: string, password: string, password_confirmation: string} $data */
+    public function resetPassword(array $data): Response
+    {
+        return $this->request()->post(self::PREFIX.'/account/password/reset', $data);
+    }
+
+    public function twoFactorStatus(string $token): Response
+    {
+        return $this->request()->withToken($token)->get(self::PREFIX.'/account/two-factor');
+    }
+
+    /** @param array{current_password: string} $data */
+    public function startTwoFactor(string $token, array $data): Response
+    {
+        return $this->request()->withToken($token)->post(self::PREFIX.'/account/two-factor', $data);
+    }
+
+    /** @param array{current_password: string, code: string} $data */
+    public function confirmTwoFactor(string $token, array $data): Response
+    {
+        return $this->request()->withToken($token)->post(self::PREFIX.'/account/two-factor/confirm', $data);
+    }
+
+    /** @param array{current_password: string} $data */
+    public function disableTwoFactor(string $token, array $data): Response
+    {
+        return $this->request()->withToken($token)->delete(self::PREFIX.'/account/two-factor', $data);
+    }
+
+    /** @param array{current_password: string} $data */
+    public function showTwoFactorRecoveryCodes(string $token, array $data): Response
+    {
+        return $this->request()->withToken($token)->post(self::PREFIX.'/account/two-factor/recovery-codes', $data);
+    }
+
+    /** @param array{current_password: string} $data */
+    public function regenerateTwoFactorRecoveryCodes(string $token, array $data): Response
+    {
+        return $this->request()->withToken($token)->put(self::PREFIX.'/account/two-factor/recovery-codes', $data);
+    }
+
+    public function deleteAccount(string $token, string $password): Response
+    {
+        return $this->request()->withToken($token)->delete(self::PREFIX.'/account', ['password' => $password]);
+    }
+
+    public function githubConnection(string $token): Response
+    {
+        return $this->request()->withToken($token)->get(self::PREFIX.'/account/github');
+    }
+
+    public function startGithubHandoff(string $token): Response
+    {
+        return $this->request()->withToken($token)->post(self::PREFIX.'/account/github/handoff');
+    }
+
+    public function githubHandoffStatus(string $token, string $handoffId): Response
+    {
+        return $this->request()->withToken($token)->get(
+            self::PREFIX.'/account/github/handoff/'.rawurlencode($handoffId)
+        );
+    }
+
+    public function disconnectGithub(string $token): Response
+    {
+        return $this->request()->withToken($token)->delete(self::PREFIX.'/account/github');
+    }
+
+    public function profileQrCode(string $username, string $theme = 'dark'): Response
+    {
+        return $this->request()->get(self::PREFIX.'/users/'.rawurlencode($username).'/qr-code', [
+            'theme' => $theme,
+        ]);
+    }
+
     public function feed(?string $token, string $tab = 'recent', int $page = 1): Response
     {
         return $this->authed($token)->get(self::PREFIX.'/feed', [

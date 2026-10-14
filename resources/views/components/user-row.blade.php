@@ -36,10 +36,23 @@
                         />
                     @endif
                 </native:row>
-                <native:text
-                    class="text-theme-on-surface-variant text-sm"
-                    max-lines="1"
-                >{{ '@'.$username }}</native:text>
+                @if ($followsMe && ! $isMe)
+                    <native:row class="min-w-0 items-center gap-1.5">
+                        <native:text
+                            class="text-theme-on-surface-variant shrink-0 text-sm"
+                            max-lines="1"
+                        >{{ '@'.$username }}</native:text>
+                        <native:text
+                            class="bg-theme-secondary text-theme-on-secondary rounded-full px-2 py-1 text-xs leading-none"
+                            max-lines="1"
+                        >Follows you</native:text>
+                    </native:row>
+                @else
+                    <native:text
+                        class="text-theme-on-surface-variant text-sm"
+                        max-lines="1"
+                    >{{ '@'.$username }}</native:text>
+                @endif
             </native:column>
         </native:row>
     </native:pressable>

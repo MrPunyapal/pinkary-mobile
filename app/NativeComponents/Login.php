@@ -13,7 +13,6 @@ use App\Support\CurrentUser;
 use App\Support\Payload;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
-use Native\Mobile\Browser;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Edge\Web\Contracts\HasWebHead;
 use Native\Mobile\Platform;
@@ -25,6 +24,20 @@ final class Login extends NativeComponent implements HasWebHead
     public string $email = '';
 
     public string $password = '';
+
+    public bool $showPasswordRecovery = false;
+
+    public string $recoveryEmail = '';
+
+    public string $resetToken = '';
+
+    public string $resetEmail = '';
+
+    public string $resetPasswordValue = '';
+
+    public string $resetPasswordConfirmation = '';
+
+    public string $successMessage = '';
 
     public string $errorMessage = '';
 
@@ -55,6 +68,10 @@ final class Login extends NativeComponent implements HasWebHead
 
         $this->addingAccount = (bool) session('pinkary_add_account', false) && $active !== null;
         $this->activeAccountUsername = Payload::string($active['username'] ?? '');
+        $this->resetToken = Payload::string($this->param('resetToken', $this->param('token', '')));
+        $this->resetEmail = Payload::string($this->param('email', ''));
+        $this->showPasswordRecovery = $this->resetToken !== '';
+        $this->recoveryEmail = $this->resetEmail;
     }
 
     public function authenticate(): void
@@ -182,6 +199,12 @@ final class Login extends NativeComponent implements HasWebHead
             return;
         }
 
+        if ($this->showPasswordRecovery) {
+            $this->cancelPasswordRecovery();
+
+            return;
+        }
+
         session()->forget('pinkary_add_account');
 
         if ($this->nativeRouter?->isRootScreen() && Platform::current() !== null) {
@@ -200,7 +223,115 @@ final class Login extends NativeComponent implements HasWebHead
 
     public function forgotPassword(): void
     {
-        $this->openWebPage('/forgot-password');
+        $this->showPasswordRecovery = true;
+        $this->recoveryEmail = $this->email;
+        $this->errorMessage = '';
+        $this->successMessage = '';
+    }
+
+    public function cancelPasswordRecovery(): void
+    {
+        $this->showPasswordRecovery = false;
+        $this->resetToken = '';
+        $this->resetPasswordValue = '';
+        $this->resetPasswordConfirmation = '';
+        $this->errorMessage = '';
+        $this->successMessage = '';
+    }
+
+    public function requestPasswordRecovery(): void
+    {
+        if ($this->busy) {
+            return;
+        }
+
+        $this->errorMessage = '';
+        $this->successMessage = '';
+        $validator = Validator::make(['email' => $this->recoveryEmail], [
+            'email' => ['required', 'email'],
+        ]);
+
+        if ($validator->fails()) {
+            $this->errorMessage = $validator->errors()->first();
+
+            return;
+        }
+
+        $this->busy = true;
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->requestPasswordRecovery($this->recoveryEmail));
+        $this->busy = false;
+
+        if ($response === null) {
+            $this->errorMessage = 'We could not connect. Check your internet connection and try again.';
+
+            return;
+        }
+
+        if (! $response->successful()) {
+            $this->errorMessage = ApiErrors::first($response, 'The reset email could not be requested. Please try again.');
+
+            return;
+        }
+
+        $this->successMessage = Payload::string(
+            $response->json('message'),
+            'If an account exists for that email, a password reset link has been sent.'
+        );
+        $this->resetEmail = $this->recoveryEmail;
+    }
+
+    public function resetPassword(): void
+    {
+        if ($this->busy) {
+            return;
+        }
+
+        $this->errorMessage = '';
+        $this->successMessage = '';
+        $validator = Validator::make([
+            'token' => $this->resetToken,
+            'email' => $this->resetEmail,
+            'password' => $this->resetPasswordValue,
+            'password_confirmation' => $this->resetPasswordConfirmation,
+        ], [
+            'token' => ['required', 'string'],
+            'email' => ['required', 'email'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        if ($validator->fails()) {
+            $this->errorMessage = $validator->errors()->first();
+
+            return;
+        }
+
+        $this->busy = true;
+        $api = app(PinkaryApi::class);
+        $response = $api->attempt(fn () => $api->resetPassword([
+            'token' => $this->resetToken,
+            'email' => $this->resetEmail,
+            'password' => $this->resetPasswordValue,
+            'password_confirmation' => $this->resetPasswordConfirmation,
+        ]));
+        $this->busy = false;
+
+        if ($response === null) {
+            $this->errorMessage = 'We could not connect. Check your internet connection and try again.';
+
+            return;
+        }
+
+        if (! $response->successful()) {
+            $this->errorMessage = ApiErrors::first($response, 'The reset link is invalid or has expired. Request a new one and try again.');
+
+            return;
+        }
+
+        $this->resetToken = '';
+        $this->resetPasswordValue = '';
+        $this->resetPasswordConfirmation = '';
+        $this->successMessage = 'Your password has been reset. You can now sign in.';
     }
 
     public function render(): View
@@ -215,7 +346,7 @@ final class Login extends NativeComponent implements HasWebHead
     {
         $username = Payload::string($userData['username'] ?? '');
 
-        $previous = $username !== '' ? AccountStore::tokenForUsername($username) : null;
+        $previous = AccountStore::tokenForProfile($username, $userData);
 
         if (is_string($previous) && $previous !== '' && $previous !== $token) {
             app(PinkaryApi::class)->attempt(fn () => app(PinkaryApi::class)->logout($previous));
@@ -230,17 +361,6 @@ final class Login extends NativeComponent implements HasWebHead
         session()->forget('pinkary_add_account');
         $this->busy = false;
         $this->replace($this->route('mobile.feed'));
-    }
-
-    private function openWebPage(string $path): void
-    {
-        $url = mb_rtrim(Payload::string(config('services.pinkary.url')), '/').$path;
-
-        if (! preg_match('#^https?://#i', $url)) {
-            return;
-        }
-
-        app(Browser::class)->inApp($url);
     }
 
     /**

@@ -40,6 +40,7 @@
                 :follow-busy="$followBusy"
                 :show-avatar="$showAvatar"
                 :link-error="$linkError"
+                :bio-error="$bioError"
             />
         </native:column>
 
@@ -81,15 +82,22 @@
 @if (($showQr ?? false) && $isMe)
     @php
         $qrTheme = isDark() ? 'dark' : 'light';
-        $qrProfileUrl = mb_rtrim((string) config('services.pinkary.url'), '/').'/@'.data_get($profile, 'username', '');
-        $qrImageUrl = mb_rtrim((string) config('services.pinkary.url'), '/').'/api/v1/users/'.data_get($profile, 'username', '').'/qr-code?theme='.$qrTheme;
+        $qrUsername = (string) data_get($profile, 'username', '');
+        $qrProfileUrl = mb_rtrim((string) config('services.pinkary.url'), '/').'/@'.rawurlencode($qrUsername);
+        $qrImageUrl = mb_rtrim((string) config('services.pinkary.url'), '/').'/api/v1/users/'.rawurlencode($qrUsername).'/qr-code?theme='.rawurlencode($qrTheme);
     @endphp
     <native:bottom-sheet visible @dismiss="toggleQr">
         <native:column class="bg-theme-surface w-full gap-3 px-5 py-4">
             <native:column class="w-full items-center gap-2 {{ $qrTheme === 'dark' ? 'bg-[#050d1b]' : 'bg-white' }} p-3 rounded-md">
                 <native:image src="{{ $qrImageUrl }}" alt="Profile QR code" class="h-56 w-56 rounded-md" />
                 <native:text class="text-sm text-center {{ $qrTheme === 'dark' ? 'text-slate-300' : 'text-slate-600' }}">{{ $qrProfileUrl }}</native:text>
+                @if ($qrErrorMessage !== '')
+                    <native:text class="text-theme-destructive text-sm">{{ $qrErrorMessage }}</native:text>
+                @endif
             </native:column>
+            <native:button variant="primary" :disabled="$qrBusy" @tap="exportQrCode('{{ $qrTheme }}')">
+                {{ $qrBusy ? 'Preparing QR code…' : 'Save or share QR code' }}
+            </native:button>
             <native:button variant="secondary" @tap="toggleQr">Close</native:button>
         </native:column>
     </native:bottom-sheet>

@@ -4,8 +4,8 @@
 
         <native:column class="bg-theme-surface border-theme-outline-variant w-full gap-5 rounded-md border p-5">
             <native:column class="w-full gap-2">
-                <native:text class="text-theme-on-surface text-2xl font-semibold">{{ $addingAccount ? 'Add Account' : 'Log in' }}</native:text>
-                <native:text class="text-theme-on-surface-variant text-sm leading-relaxed">{{ $addingAccount ? 'Sign in with another Pinkary account to switch between them easily.' : 'Continue to your Pinkary account.' }}</native:text>
+                <native:text class="text-theme-on-surface text-2xl font-semibold">{{ $showPasswordRecovery ? 'Reset your password' : ($addingAccount ? 'Add Account' : 'Log in') }}</native:text>
+                <native:text class="text-theme-on-surface-variant text-sm leading-relaxed">{{ $showPasswordRecovery ? 'Request a reset email or enter a reset token to choose a new password.' : ($addingAccount ? 'Sign in with another Pinkary account to switch between them easily.' : 'Continue to your Pinkary account.') }}</native:text>
             </native:column>
 
             @if ($addingAccount && $activeAccountUsername !== '')
@@ -28,6 +28,12 @@
             @if ($errorMessage !== '')
                 <native:column class="bg-theme-destructive/15 border-theme-destructive w-full rounded-md border p-4">
                     <native:text class="text-theme-destructive text-sm">{{ $errorMessage }}</native:text>
+                </native:column>
+            @endif
+
+            @if ($successMessage !== '')
+                <native:column class="bg-theme-primary/10 border-theme-primary/30 w-full rounded-md border p-4">
+                    <native:text class="text-theme-primary text-sm">{{ $successMessage }}</native:text>
                 </native:column>
             @endif
 
@@ -56,6 +62,44 @@
                     <native:pressable class="self-end py-1" @tap="cancelTwoFactor" a11y-label="Use a different account">
                         <native:text class="text-theme-accent text-sm font-medium">Use a different account</native:text>
                     </native:pressable>
+                @elseif ($showPasswordRecovery)
+                    <native:text class="text-theme-on-surface-variant text-sm"
+                        >For privacy, we show the same confirmation whether or not an account exists for that
+                        email.</native:text>
+                    <x-auth-field label="Email for reset link" model="recoveryEmail" keyboard="email" />
+                    <native:button variant="primary" :disabled="$busy" @tap="requestPasswordRecovery">
+                        {{ $busy ? 'Requesting…' : 'Send reset email' }}
+                    </native:button>
+
+                    <native:column class="border-theme-outline-variant w-full gap-3 border-t pt-4">
+                        <native:text class="text-theme-on-surface text-sm font-semibold">Already have a reset token?</native:text>
+                        <native:text class="text-theme-on-surface-variant text-xs">Enter the token and email address from your password reset link.</native:text>
+                        <native:outlined-text-input label="Reset token" native:model="resetToken" />
+                        <x-auth-field label="Email" model="resetEmail" keyboard="email" />
+                        <x-auth-field
+                            label="New password"
+                            model="resetPasswordValue"
+                            :password="true"
+                            :show-password="$showPassword"
+                        />
+                        <x-auth-field
+                            label="Confirm new password"
+                            model="resetPasswordConfirmation"
+                            :password="true"
+                            :show-password="$showPassword"
+                        />
+                        <native:button variant="secondary" :disabled="$busy" @tap="resetPassword">
+                            {{ $busy ? 'Resetting…' : 'Reset password' }}
+                        </native:button>
+                    </native:column>
+
+                    <native:pressable
+                        class="self-start py-2"
+                        @tap="cancelPasswordRecovery"
+                        a11y-label="Return to sign in"
+                    >
+                        <native:text class="text-theme-primary text-sm font-medium">Back to sign in</native:text>
+                    </native:pressable>
                 @else
                     <x-auth-field label="Email" model="email" keyboard="email" :error="$fieldErrors['email'] ?? ''" />
                     <x-auth-field
@@ -81,7 +125,7 @@
                     :disabled="$busy"
                     @tap="submitTwoFactor"
                 >{{ $busy ? 'Checking…' : 'Verify' }}</native:button>
-            @else
+            @elseif (! $showPasswordRecovery)
                 <native:pressable
                     class="w-full h-11 items-center justify-center rounded-md bg-theme-primary {{ $busy ? 'opacity-50' : '' }}"
                     @tap="authenticate"
@@ -91,11 +135,13 @@
                 </native:pressable>
             @endif
 
-            <native:column class="border-theme-outline-variant w-full border-t pt-6">
-                <native:pressable class="w-full items-center py-3" @tap="register">
-                    <native:text class="text-theme-accent text-center text-sm">New to Pinkary? Create an account</native:text>
-                </native:pressable>
-            </native:column>
+            @unless ($showPasswordRecovery || $needsTwoFactor)
+                <native:column class="border-theme-outline-variant w-full border-t pt-6">
+                    <native:pressable class="w-full items-center py-3" @tap="register">
+                        <native:text class="text-theme-accent text-center text-sm">New to Pinkary? Create an account</native:text>
+                    </native:pressable>
+                </native:column>
+            @endunless
         </native:column>
     </native:column>
 </native:scroll-view>

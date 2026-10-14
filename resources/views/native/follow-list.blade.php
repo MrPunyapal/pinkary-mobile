@@ -43,7 +43,7 @@
                         $rowFollowed = (bool) data_get($user, 'followed_by_me', false);
                         $rowIsMe = (bool) data_get($user, 'is_me', false);
                         $rowBusy = in_array($rowUsername, $busyUsernames ?? [], true);
-                        $rowFollowsMe = (bool) data_get($user, 'follows_me', false) && ! $isOwnProfile;
+                        $rowFollowsMe = (bool) data_get($user, 'follows_me', false);
                     @endphp
                     <native:row class="bg-theme-surface border-theme-outline-variant w-full items-center gap-3 rounded-xl border p-3">
                         <native:pressable

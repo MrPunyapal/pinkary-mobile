@@ -18,7 +18,7 @@ final class CurrentUser
             'username' => Payload::string(data_get($profile, 'username', '')),
             'avatar' => data_get($profile, 'avatar'),
             'email' => data_get($profile, 'email'),
-            'member_since' => data_get($profile, 'member_since.human'),
+            'member_since' => data_get($profile, 'member_since.human', data_get($profile, 'member_since')),
             'default_feed' => data_get($profile, 'default_feed'),
             'prefers_anonymous_questions' => data_get($profile, 'prefers_anonymous_questions'),
             'mail_preference_time' => data_get($profile, 'mail_preference_time'),
@@ -28,7 +28,7 @@ final class CurrentUser
 
         $account = AccountStore::active();
 
-        if ($account !== null && $account['username'] === $data['username']) {
+        if ($account !== null) {
             AccountStore::refreshProfile($account['id'], $profile);
         }
     }

@@ -34,16 +34,35 @@
                     <native:column class="min-w-0 flex-1 gap-0.5">
                         <native:text class="text-theme-on-surface text-base font-medium">{{ $name }}</native:text>
                         <native:text class="text-theme-on-surface-variant text-sm">{{ $username !== '' ? '@'.$username : '' }}</native:text>
-                        <native:pressable
-                            class="self-start rounded-full border border-theme-primary px-3 py-1.5 {{ $avatarBusy ? 'opacity-40' : '' }}"
-                            @tap="pickAvatar"
-                            a11y-label="Change profile photo"
-                        >
-                            <native:text class="text-theme-primary text-sm font-medium">{{ $avatarBusy ? 'Uploading…' : 'Change photo' }}</native:text>
-                        </native:pressable>
+                        <native:row class="items-center gap-2">
+                            <native:pressable
+                                class="self-start rounded-full border border-theme-primary px-3 py-1.5 {{ $avatarBusy ? 'opacity-40' : '' }}"
+                                @tap="pickAvatar"
+                                a11y-label="Change profile photo"
+                            >
+                                <native:text class="text-theme-primary text-sm font-medium">{{ $avatarBusy ? 'Uploading…' : 'Change photo' }}</native:text>
+                            </native:pressable>
+                            <native:pressable
+                                class="self-start rounded-full border border-theme-outline-variant px-3 py-1.5 {{ $avatarBusy ? 'opacity-40' : '' }}"
+                                @tap="resetAvatar"
+                                a11y-label="Reset profile photo to provider avatar"
+                            >
+                                <native:text class="text-theme-on-surface-variant text-sm font-medium">Reset photo</native:text>
+                            </native:pressable>
+                            <native:pressable
+                                class="self-start px-2 py-1.5 {{ $avatarBusy ? 'opacity-40' : '' }}"
+                                @tap="refreshAvatar"
+                                a11y-label="Refresh profile photo"
+                            >
+                                <native:text class="text-theme-primary text-sm font-medium">Refresh</native:text>
+                            </native:pressable>
+                        </native:row>
                         <native:text class="text-theme-on-surface-variant text-xs">JPG or PNG, up to 2 MB.</native:text>
                         @if ($avatarMessage !== '')
                             <native:text class="text-theme-destructive text-xs">{{ $avatarMessage }}</native:text>
+                        @endif
+                        @if ($avatarInfo !== '')
+                            <native:text class="text-theme-on-surface-variant text-xs">{{ $avatarInfo }}</native:text>
                         @endif
                     </native:column>
                 </native:row>

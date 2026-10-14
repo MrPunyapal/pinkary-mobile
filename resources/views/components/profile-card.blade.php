@@ -5,6 +5,7 @@
     'followBusy' => false,
     'showAvatar' => false,
     'linkError' => '',
+    'bioError' => '',
 ])
 
 @php
@@ -27,6 +28,8 @@
 
     $company = (bool) data_get($profile, 'verification.company', false);
     $verified = (bool) data_get($profile, 'verification.profile', false);
+    $followsMe = (bool) data_get($profile, 'follows_me', false);
+    $followLabel = $followed ? 'Unfollow' : ($followsMe ? 'Follow back' : 'Follow');
     $sealColor = $company ? '#EAB308' : '#EC4899';
     $followers = (int) data_get($profile, 'stats.followers', 0);
     $following = (int) data_get($profile, 'stats.following', 0);
@@ -102,9 +105,9 @@
                 <native:pressable
                     class="px-4 py-2 rounded-full bg-theme-primary {{ $followBusy ? 'opacity-40' : '' }}"
                     @tap="toggleFollow"
-                    a11y-label="{{ $followed ? 'Unfollow' : 'Follow' }}"
+                    a11y-label="{{ $followLabel }}"
                 >
-                    <native:text class="text-sm font-medium text-white">{{ $followBusy ? '…' : ($followed ? 'Unfollow' : 'Follow') }}</native:text>
+                    <native:text class="text-sm font-medium text-white">{{ $followBusy ? '…' : $followLabel }}</native:text>
                 </native:pressable>
             @endunless
             @if ($isMe)
@@ -136,12 +139,20 @@
             @endif
         </native:row>
 
-        <native:row class="bg-theme-surface-variant border-theme-outline-variant mt-2 items-center rounded-full border px-3 py-1">
-            <native:text class="text-theme-on-surface-variant text-sm">{{ '@'.$username }}</native:text>
+        <native:row class="mt-2 flex-wrap items-center justify-center gap-2">
+            <native:row class="bg-theme-surface-variant border-theme-outline-variant items-center rounded-full border px-3 py-1">
+                <native:text class="text-theme-on-surface-variant text-sm">{{ '@'.$username }}</native:text>
+            </native:row>
+            @if ($followsMe && ! $isMe)
+                <native:text class="bg-theme-secondary text-theme-on-secondary rounded-full px-2 py-1 text-xs leading-none">Follows you</native:text>
+            @endif
         </native:row>
 
         @if (data_get($profile, 'bio'))
-            <native:text class="text-theme-on-surface mt-3 text-center text-sm leading-relaxed">{{ data_get($profile, 'bio') }}</native:text>
+            <x-profile-bio :bio="data_get($profile, 'bio')" />
+            @if ($bioError !== '')
+                <native:text class="text-theme-destructive mt-2 text-center text-xs">{{ $bioError }}</native:text>
+            @endif
         @elseif ($isMe)
             <native:pressable class="mt-3 self-center py-1" @tap="editProfile" a11y-label="Tell people about yourself">
                 <native:text class="text-theme-primary text-center text-sm">Tell people about yourself</native:text>

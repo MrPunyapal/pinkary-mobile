@@ -8,8 +8,6 @@ use App\NativeComponents\Concerns\OpensProfiles;
 use App\NativeComponents\Concerns\ProvidesWebPreviewStyles;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\Services\PinkaryApi;
-use App\Support\AccountStore;
-use App\Support\CurrentUser;
 use App\Support\Payload;
 use Illuminate\Http\Client\Response;
 use Illuminate\View\View;
@@ -44,8 +42,6 @@ final class FollowList extends NativeComponent implements HasWebHead
     /** @var list<string> */
     public array $busyUsernames = [];
 
-    public bool $isOwnProfile = false;
-
     public function hidesDrawer(): bool
     {
         return true;
@@ -66,11 +62,6 @@ final class FollowList extends NativeComponent implements HasWebHead
         }
 
         $token = $this->token();
-
-        $me = CurrentUser::get() ?? AccountStore::active();
-        $myUsername = is_array($me) ? Payload::string($me['username'] ?? '') : '';
-
-        $this->isOwnProfile = $myUsername !== '' && mb_strtolower($myUsername) === mb_strtolower($this->username);
 
         if ($this->username === '') {
             $this->loading = false;
