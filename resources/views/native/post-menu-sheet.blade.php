@@ -44,7 +44,16 @@
                             placeholder="Write your answer..."
                             multiline
                             native:model="editAnswer"
+                            :selection-debounce-ms="400"
+                            @selectionChange="updateMentionSelection(-2)"
                         />
+                        @if ($mentionPostIndex === -2)
+                            @if ($mentionKind === 'hashtag')
+                                <x-hashtag-suggestions :hashtags="$mentionResults" />
+                            @else
+                                <x-mention-suggestions :users="$mentionResults" />
+                            @endif
+                        @endif
                         @if (mb_strlen($editAnswer) > 800)
                             <native:text class="text-xs text-right {{ mb_strlen($editAnswer) >= 1000 ? 'text-theme-destructive' : 'text-theme-on-surface-variant' }}">{{ mb_strlen($editAnswer) }} / 1000</native:text>
                         @endif

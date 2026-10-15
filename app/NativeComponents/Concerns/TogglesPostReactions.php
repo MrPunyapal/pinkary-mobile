@@ -13,6 +13,7 @@ use App\Support\DisplayText;
 use App\Support\FeedCache;
 use App\Support\Payload;
 use App\Support\PostViews;
+use App\NativeComponents\Concerns\UsesComposerMentions;
 use Illuminate\Support\Carbon;
 use Native\Mobile\Attributes\Poll;
 use Native\Mobile\Browser;
@@ -25,6 +26,8 @@ use Throwable;
  */
 trait TogglesPostReactions
 {
+    use UsesComposerMentions;
+
     public string $menuPostId = '';
 
     public string $activeYoutubePostId = '';
@@ -102,6 +105,7 @@ trait TogglesPostReactions
 
         $this->menuPostId = $id;
         $this->menuStep = 'menu';
+        $this->clearMentionSuggestions();
         $this->menuError = '';
         $this->menuBusy = false;
         $this->editAnswer = '';
@@ -194,6 +198,7 @@ trait TogglesPostReactions
     {
         $this->menuPostId = '';
         $this->menuStep = 'menu';
+        $this->clearMentionSuggestions();
         $this->menuError = '';
         $this->menuBusy = false;
         $this->editAnswer = '';
@@ -206,7 +211,31 @@ trait TogglesPostReactions
     public function menuBack(): void
     {
         $this->menuStep = 'menu';
+        $this->clearMentionSuggestions();
         $this->menuError = '';
+    }
+
+    protected function mentionText(int $postIndex): ?string
+    {
+        return $postIndex === -2 && in_array($this->menuStep, ['answer', 'edit'], true)
+            ? $this->editAnswer
+            : null;
+    }
+
+    protected function replaceMentionText(int $postIndex, string $text): void
+    {
+        if ($postIndex === -2 && in_array($this->menuStep, ['answer', 'edit'], true)) {
+            $this->editAnswer = $text;
+        }
+    }
+
+    protected function mentionComposerBusy(): bool
+    {
+        return $this->menuBusy;
+    }
+
+    protected function mentionChanged(int $postIndex): void
+    {
     }
 
     public function menuDeniedFor(string $postId, string $action): bool
@@ -401,6 +430,7 @@ trait TogglesPostReactions
         }
 
         $this->editAnswer = $this->postSource($post, 'answer') ?? '';
+        $this->clearMentionSuggestions();
         $this->menuError = '';
         $this->menuStep = 'edit';
     }
@@ -412,6 +442,7 @@ trait TogglesPostReactions
         }
 
         $this->editAnswer = '';
+        $this->clearMentionSuggestions();
         $this->menuError = '';
         $this->menuStep = 'answer';
     }

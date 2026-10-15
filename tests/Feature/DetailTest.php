@@ -4,8 +4,15 @@ declare(strict_types=1);
 
 use App\NativeComponents\Detail;
 use App\Support\AccountStore;
+use App\Support\DraftStore;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
+use Native\Mobile\Events\Gallery\MediaSelected;
 use Native\Mobile\Testing\Native;
+
+afterEach(function (): void {
+    DraftStore::clearReplyDraft('q1');
+});
 
 function detailFakes(string $answer = 'A thoughtful mobile experience.', array $comments = []): array
 {
@@ -119,6 +126,110 @@ it('renders images attached to comments', function (): void {
     Native::test(Detail::class, ['id' => 'q1'])
         ->assertSee('Comment with an image.')
         ->assertSee('Open image fullscreen');
+});
+
+it('uploads and sends an image from the reply composer', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/images' => Http::response(['data' => [[
+            'url' => 'https://pinkary.test/storage/reply.png',
+            'path' => 'images/2026/reply.png',
+            'original_name' => 'reply.png',
+        ]]]),
+        'https://pinkary.test/api/v1/questions/q1/comments' => Http::response([
+            'data' => commentRow('c9', 'Reply with an image.'),
+        ], 201),
+        'https://pinkary.test/api/v1/questions/q1/comments*' => Http::response([
+            'data' => [],
+            'links' => ['next' => null],
+        ]),
+        'https://pinkary.test/api/v1/questions/q1' => Http::response(['data' => [
+            'id' => 'q1',
+            'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+            'to' => ['name' => 'Pinkary'],
+            'content' => 'What are you building?',
+            'answer' => 'A thoughtful mobile experience.',
+            'metrics' => ['likes' => 5, 'comments' => 0],
+        ]]),
+        'https://pinkary.test/api/v1/captcha*' => Http::response(['data' => [
+            'required' => false,
+            'widget_path' => '/api/v1/captcha/widget',
+            'return_path' => '/api/v1/captcha/result',
+        ]]),
+    ]);
+
+    $path = sys_get_temp_dir().'/pinkary-reply-'.Str::uuid().'.png';
+    file_put_contents($path, 'image');
+
+    try {
+        Native::test(Detail::class, ['id' => 'q1'])
+            ->set('comment', 'Reply with an image.')
+            ->call('onMediaSelected', new MediaSelected(
+                success: true,
+                files: [['path' => $path]],
+                count: 1,
+            ))
+            ->call('postComment');
+
+        Http::assertSent(fn ($request): bool => $request->method() === 'POST'
+            && str_ends_with($request->url(), '/api/v1/questions/q1/comments')
+            && $request['content'] === "Reply with an image.\n![reply.png](images/2026/reply.png)");
+    } finally {
+        if (is_file($path)) {
+            unlink($path);
+        }
+    }
+});
+
+it('suggests and inserts mentions and hashtags in a reply', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake(array_merge(detailFakes(), [
+        'https://pinkary.test/api/v1/search*' => Http::sequence()
+            ->push(['data' => [
+                'users' => [['name' => 'Grace Hopper', 'username' => 'grace']],
+                'hashtags' => [],
+            ]])
+            ->push(['data' => [
+                'users' => [],
+                'hashtags' => [['name' => 'laravel']],
+            ]]),
+    ]));
+
+    $test = Native::test(Detail::class, ['id' => 'q1'])
+        ->set('comment', '@gra')
+        ->call('updateMentionSelection', -1, '@gra', 4, 4)
+        ->assertSee('Grace Hopper')
+        ->call('selectMention', 0)
+        ->set('comment', '#lar')
+        ->call('updateMentionSelection', -1, '#lar', 4, 4)
+        ->assertSee('#laravel')
+        ->call('selectMention', 0);
+
+    expect($test->get('comment'))->toBe('#laravel ');
+    Http::assertSent(fn ($request): bool => str_contains($request->url(), '/api/v1/search?')
+        && $request['q'] === 'lar');
+});
+
+it('restores a reply draft only for its parent post', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    DraftStore::putReplyDraft('q1', [
+        'content' => 'A saved reply.',
+        'isPoll' => true,
+        'pollOptions' => ['Yes', 'No'],
+        'pollDuration' => 3,
+    ]);
+    Http::fake(detailFakes());
+
+    $test = Native::test(Detail::class, ['id' => 'q1']);
+
+    expect($test->get('comment'))->toBe('A saved reply.')
+        ->and($test->get('commentIsPoll'))->toBeTrue()
+        ->and($test->get('commentPollOptions'))->toBe(['Yes', 'No'])
+        ->and($test->get('commentPollDuration'))->toBe(3)
+        ->and(DraftStore::getReplyDraft('q2'))->toBeNull();
 });
 
 it('lets guests translate replies from the thread', function (): void {
@@ -328,6 +439,47 @@ it('posts a comment and appends it last', function (): void {
     expect($test->get('comments'))->toHaveCount(2)
         ->and(array_column($test->get('comments'), 'id'))->toBe(['c1', 'c9'])
         ->and($test->get('comment'))->toBe('');
+});
+
+it('sends reply poll options and duration using the api contract', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake([
+        'https://pinkary.test/api/v1/questions/q1/comments' => Http::response([
+            'data' => commentRow('c9', 'A poll reply.'),
+        ], 201),
+        'https://pinkary.test/api/v1/questions/q1/comments*' => Http::response([
+            'data' => [],
+            'links' => ['next' => null],
+        ]),
+        'https://pinkary.test/api/v1/questions/q1' => Http::response(['data' => [
+            'id' => 'q1',
+            'from' => ['name' => 'Ada Lovelace', 'username' => 'ada'],
+            'to' => ['name' => 'Pinkary'],
+            'content' => 'What are you building?',
+            'answer' => 'A thoughtful mobile experience.',
+            'metrics' => ['likes' => 5, 'comments' => 0],
+        ]]),
+        'https://pinkary.test/api/v1/captcha*' => Http::response(['data' => [
+            'required' => false,
+            'widget_path' => '/api/v1/captcha/widget',
+            'return_path' => '/api/v1/captcha/result',
+        ]]),
+    ]);
+
+    Native::test(Detail::class, ['id' => 'q1'])
+        ->set('comment', 'A poll reply.')
+        ->call('toggleCommentPoll')
+        ->call('updateCommentPollOption', 0, 'Yes')
+        ->call('updateCommentPollOption', 1, 'No')
+        ->call('setCommentPollDuration', 3)
+        ->call('postComment');
+
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/api/v1/questions/q1/comments')
+        && $request['content'] === 'A poll reply.'
+        && $request['poll_options'] === ['Yes', 'No']
+        && $request['poll_duration'] === 3);
 });
 
 it('requires comment content before posting', function (): void {
@@ -646,6 +798,38 @@ function menuFakes(array $post, array $extra = []): array
         'https://pinkary.test/api/v1/questions/q1/comments*' => Http::response(['data' => []]),
     ], $extra);
 }
+
+it('suggests and inserts mentions and hashtags in the answer editor', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    Http::fake(menuFakes(menuPost(), [
+        'https://pinkary.test/api/v1/search*' => Http::sequence()
+            ->push(['data' => [
+                'users' => [['name' => 'Grace Hopper', 'username' => 'grace']],
+                'hashtags' => [],
+            ]])
+            ->push(['data' => [
+                'users' => [],
+                'hashtags' => [['name' => 'laravel']],
+            ]]),
+    ]));
+
+    $test = Native::test(Detail::class, ['id' => 'q1'])
+        ->call('openMenu', 'q1')
+        ->call('startEditMenu')
+        ->set('editAnswer', '@gra')
+        ->call('updateMentionSelection', -2, '@gra', 4, 4)
+        ->assertSee('Grace Hopper')
+        ->call('selectMention', 0)
+        ->set('editAnswer', '#lar')
+        ->call('updateMentionSelection', -2, '#lar', 4, 4)
+        ->assertSee('#laravel')
+        ->call('selectMention', 0);
+
+    expect($test->get('editAnswer'))->toBe('#laravel ');
+    Http::assertSent(fn ($request): bool => str_contains($request->url(), '/api/v1/search?')
+        && $request['q'] === 'lar');
+});
 
 /**
  * @return array<string, mixed>

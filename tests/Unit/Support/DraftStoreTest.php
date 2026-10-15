@@ -16,6 +16,8 @@ beforeEach(function (): void {
 afterEach(function (): void {
     DraftStore::clear();
     DraftStore::clear('grace');
+    DraftStore::clearReplyDraft('q1');
+    DraftStore::clearReplyDraft('q2');
     AccountStore::clear();
 });
 
@@ -58,6 +60,19 @@ it('keeps ask drafts per target username', function (): void {
         ->and(DraftStore::get('grace')['anonymous'])->toBeTrue()
         ->and(DraftStore::get('linus')['content'])->toBe('Ask Linus')
         ->and(DraftStore::get())->toBeNull();
+});
+
+it('keeps reply drafts separate for each parent post', function (): void {
+    DraftStore::putReplyDraft('q1', ['content' => 'Reply for the first post.']);
+    DraftStore::putReplyDraft('q2', ['content' => 'Reply for the second post.']);
+
+    $firstDraft = DraftStore::getReplyDraft('q1');
+    $secondDraft = DraftStore::getReplyDraft('q2');
+
+    expect($firstDraft)->not->toBeNull();
+    expect($firstDraft['content'])->toBe('Reply for the first post.');
+    expect($secondDraft)->not->toBeNull();
+    expect($secondDraft['content'])->toBe('Reply for the second post.');
 });
 
 it('ignores empty drafts', function (): void {

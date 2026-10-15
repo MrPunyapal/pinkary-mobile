@@ -10,7 +10,6 @@ use App\NativeComponents\Concerns\TogglesPostReactions;
 use App\NativeComponents\Concerns\UsesAppMenu;
 use App\NativeComponents\Concerns\UsesCaptcha;
 use App\NativeComponents\Concerns\UsesComposerImages;
-use App\NativeComponents\Concerns\UsesComposerMentions;
 use App\Services\PinkaryApi;
 use App\Support\ApiErrors;
 use App\Support\DisplayText;
@@ -28,7 +27,6 @@ final class Detail extends NativeComponent implements HasWebHead
     use UsesAppMenu;
     use UsesCaptcha;
     use UsesComposerImages;
-    use UsesComposerMentions;
 
     public const int MAX_COMMENT_LENGTH = 1000;
 
@@ -74,21 +72,6 @@ final class Detail extends NativeComponent implements HasWebHead
     public array $commentPollOptions = ['', ''];
 
     public int $commentPollDuration = 1;
-
-    /** @var list<array<string, mixed>> */
-    public array $mentionResults = [];
-
-    public int $mentionPostIndex = -1;
-
-    public string $mentionQuery = '';
-
-    public string $mentionKind = 'user';
-
-    public int $mentionStart = -1;
-
-    public int $mentionEnd = -1;
-
-    public int $mentionRequestVersion = 0;
 
     /** @var list<array{url: string, path: string, name: string, postIndex?: int}> */
     public array $images = [];
@@ -508,24 +491,32 @@ final class Detail extends NativeComponent implements HasWebHead
 
     protected function mentionText(int $postIndex): ?string
     {
+        if ($postIndex === -2) {
+            return in_array($this->menuStep, ['answer', 'edit'], true) ? $this->editAnswer : null;
+        }
+
         return $postIndex === -1 ? $this->comment : null;
     }
 
     protected function replaceMentionText(int $postIndex, string $text): void
     {
-        if ($postIndex === -1) {
+        if ($postIndex === -2 && in_array($this->menuStep, ['answer', 'edit'], true)) {
+            $this->editAnswer = $text;
+        } elseif ($postIndex === -1) {
             $this->comment = $text;
         }
     }
 
     protected function mentionComposerBusy(): bool
     {
-        return $this->commentBusy;
+        return in_array($this->menuStep, ['answer', 'edit'], true) ? $this->menuBusy : $this->commentBusy;
     }
 
-    protected function mentionChanged(): void
+    protected function mentionChanged(int $postIndex): void
     {
-        $this->persistReplyDraft();
+        if ($postIndex === -1) {
+            $this->persistReplyDraft();
+        }
     }
 
     protected function imageText(int $postIndex): ?string

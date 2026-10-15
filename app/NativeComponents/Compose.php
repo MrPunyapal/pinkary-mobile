@@ -57,21 +57,6 @@ final class Compose extends NativeComponent implements HasWebHead
 
     public string $content = '';
 
-    /** @var list<array<string, mixed>> */
-    public array $mentionResults = [];
-
-    public int $mentionPostIndex = -1;
-
-    public string $mentionQuery = '';
-
-    public string $mentionKind = 'user';
-
-    public int $mentionStart = -1;
-
-    public int $mentionEnd = -1;
-
-    public int $mentionRequestVersion = 0;
-
     /** @var list<string> */
     public array $posts = [];
 
@@ -745,7 +730,7 @@ final class Compose extends NativeComponent implements HasWebHead
         return $this->busy;
     }
 
-    protected function mentionChanged(): void
+    protected function mentionChanged(int $postIndex): void
     {
         $this->touchDraft();
     }

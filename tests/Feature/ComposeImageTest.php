@@ -162,6 +162,74 @@ it('inserts markdown without a leading newline on an empty post', function (): v
     expect($test->get('content'))->toBe('![a.png](images/2026/a.png)');
 });
 
+it('publishes an image with its follow-up thread post', function (): void {
+    Http::fake([
+        'https://pinkary.test/api/v1/images' => Http::response(['data' => [[
+            'url' => 'https://pinkary.test/storage/follow-up.png',
+            'path' => 'images/2026/follow-up.png',
+            'original_name' => 'follow-up.png',
+        ]]]),
+        'https://pinkary.test/api/v1/captcha*' => Http::response(['data' => [
+            'required' => false,
+            'widget_path' => '/api/v1/captcha/widget',
+            'return_path' => '/api/v1/captcha/result',
+        ]]),
+        'https://pinkary.test/api/v1/*' => Http::response(['data' => []]),
+    ]);
+
+    $file = pickedFile('follow-up.png');
+
+    try {
+        Native::test(Compose::class)
+            ->set('content', 'Root post.')
+            ->call('addPost')
+            ->call('updatePost', 0, 'Follow-up post.')
+            ->set('imagePostIndex', 0)
+            ->call('onMediaSelected', pickedEvent([$file->getPathname()]))
+            ->call('publish');
+
+        Http::assertSent(fn ($request): bool => $request->method() === 'POST'
+            && str_ends_with($request->url(), '/api/v1/questions')
+            && $request['thread_posts'] === ["Follow-up post.\n![follow-up.png](images/2026/follow-up.png)"]);
+    } finally {
+        @unlink($file->getPathname());
+    }
+});
+
+it('uploads an image from the ask question composer', function (): void {
+    Http::fake([
+        'https://pinkary.test/api/v1/images' => Http::response(['data' => [[
+            'url' => 'https://pinkary.test/storage/question.png',
+            'path' => 'images/2026/question.png',
+            'original_name' => 'question.png',
+        ]]]),
+        'https://pinkary.test/api/v1/captcha*' => Http::response(['data' => [
+            'required' => false,
+            'widget_path' => '/api/v1/captcha/widget',
+            'return_path' => '/api/v1/captcha/result',
+        ]]),
+        'https://pinkary.test/api/v1/questions' => Http::response(['data' => [[]]], 201),
+        'https://pinkary.test/api/v1/*' => Http::response(['data' => []]),
+    ]);
+
+    $file = pickedFile('question.png');
+
+    try {
+        Native::test(Compose::class, ['username' => 'grace'])
+            ->set('content', 'Can you take a look?')
+            ->call('onMediaSelected', pickedEvent([$file->getPathname()]))
+            ->call('publishAsk')
+            ->assertNavigatedTo('/user/grace');
+
+        Http::assertSent(fn ($request): bool => $request->method() === 'POST'
+            && $request->url() === 'https://pinkary.test/api/v1/questions'
+            && $request['to_username'] === 'grace'
+            && $request['content'] === "Can you take a look?\n![question.png](images/2026/question.png)");
+    } finally {
+        @unlink($file->getPathname());
+    }
+});
+
 it('says nothing when the pick is cancelled', function (): void {
     fakeImageUpload([]);
 

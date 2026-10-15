@@ -11,6 +11,21 @@ use Native\Mobile\Edge\NativeComponent;
 /** @mixin NativeComponent */
 trait UsesComposerMentions
 {
+    /** @var list<array<string, mixed>> */
+    public array $mentionResults = [];
+
+    public int $mentionPostIndex = -1;
+
+    public string $mentionQuery = '';
+
+    public string $mentionKind = 'user';
+
+    public int $mentionStart = -1;
+
+    public int $mentionEnd = -1;
+
+    public int $mentionRequestVersion = 0;
+
     public function updateMentionSelection(int $postIndex, string $text, int $selectionStart, int $selectionEnd): void
     {
         if ($this->mentionComposerBusy() || ($currentText = $this->mentionText($postIndex)) === null || $text !== $currentText) {
@@ -101,10 +116,10 @@ trait UsesComposerMentions
         }
 
         $this->clearMentionSuggestions();
-        $this->mentionChanged();
+        $this->mentionChanged($postIndex);
     }
 
-    private function clearMentionSuggestions(): void
+    protected function clearMentionSuggestions(): void
     {
         $this->mentionRequestVersion++;
         $this->mentionResults = [];
@@ -121,5 +136,7 @@ trait UsesComposerMentions
 
     abstract protected function mentionComposerBusy(): bool;
 
-    abstract protected function mentionChanged(): void;
+    protected function mentionChanged(int $postIndex): void
+    {
+    }
 }
