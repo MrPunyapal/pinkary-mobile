@@ -21,6 +21,10 @@ final class PinkaryApi
 
     private const int HASHTAG_QUESTIONS_PER_PAGE = 20;
 
+    private const int USER_DIRECTORY_PER_PAGE = 20;
+
+    private const int USER_RECOMMENDATIONS_PER_PAGE = 5;
+
     private const string UPDATE_MARKER = '__UPDATE__';
 
     /**
@@ -84,6 +88,49 @@ final class PinkaryApi
             }
 
             $normalized[] = $this->normalizeQuestion($fields);
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function normalizeUsers(mixed $users): array
+    {
+        if (! is_array($users)) {
+            return [];
+        }
+
+        $normalized = [];
+
+        foreach ($users as $user) {
+            if (! is_array($user)) {
+                continue;
+            }
+
+            $fields = [];
+
+            foreach ($user as $field => $value) {
+                $fields[(string) $field] = $value;
+            }
+
+            $fields['verification'] = [
+                'profile' => Payload::bool(
+                    data_get($fields, 'verification.profile'),
+                    Payload::bool($fields['verified'] ?? null),
+                ),
+                'company' => Payload::bool(
+                    data_get($fields, 'verification.company'),
+                    Payload::bool($fields['company_verified'] ?? null),
+                ),
+            ];
+            $fields['followed_by_me'] = Payload::bool(
+                $fields['followed_by_me'] ?? null,
+                Payload::bool($fields['followed'] ?? null),
+            );
+
+            $normalized[] = $fields;
         }
 
         return $normalized;
@@ -411,6 +458,31 @@ final class PinkaryApi
     public function hashtagQuestions(?string $token, int $hashtagId, int $page = 1): Response
     {
         return $this->authed($token)->get(self::PREFIX."/hashtags/{$hashtagId}/questions", [
+            'per_page' => self::HASHTAG_QUESTIONS_PER_PAGE,
+            'page' => $page,
+        ]);
+    }
+
+    public function userDirectory(?string $token, int $page = 1): Response
+    {
+        return $this->authed($token)->get(self::PREFIX.'/users/directory', [
+            'per_page' => self::USER_DIRECTORY_PER_PAGE,
+            'page' => $page,
+        ]);
+    }
+
+    public function userRecommendations(?string $token, int $page = 1): Response
+    {
+        return $this->authed($token)->get(self::PREFIX.'/users/recommendations', [
+            'context' => 'generic',
+            'per_page' => self::USER_RECOMMENDATIONS_PER_PAGE,
+            'page' => $page,
+        ]);
+    }
+
+    public function channelQuestions(?string $token, string $slug, int $page = 1): Response
+    {
+        return $this->authed($token)->get(self::PREFIX.'/channels/'.rawurlencode($slug).'/questions', [
             'per_page' => self::HASHTAG_QUESTIONS_PER_PAGE,
             'page' => $page,
         ]);

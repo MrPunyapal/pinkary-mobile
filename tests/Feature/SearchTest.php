@@ -7,6 +7,7 @@ use App\NativeComponents\Search;
 use App\Support\AccountStore;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Native\Mobile\AsyncTask;
 use Native\Mobile\Testing\Native;
 
 beforeEach(function (): void {
@@ -18,6 +19,16 @@ beforeEach(function (): void {
 function searchResults(array $users = [], array $hashtags = []): array
 {
     return ['data' => ['users' => $users, 'hashtags' => $hashtags]];
+}
+
+/** @param array<string, mixed> $responses */
+function fakeSearchApi(array $responses): void
+{
+    AsyncTask::fake();
+    Http::fake(array_merge([
+        'https://pinkary.test/api/v1/users/recommendations*' => Http::response(['data' => [], 'links' => ['next' => null]]),
+        'https://pinkary.test/api/v1/users/directory*' => Http::response(['data' => [], 'links' => ['next' => null]]),
+    ], $responses));
 }
 
 function foundUser(array $overrides = []): array
@@ -34,8 +45,83 @@ function foundUser(array $overrides = []): array
     ], $overrides);
 }
 
+/** @param array<string, mixed> $overrides
+ *  @return array<string, mixed>
+ */
+function discoveredUser(array $overrides = []): array
+{
+    return array_merge([
+        'id' => 3,
+        'name' => 'Katherine Johnson',
+        'username' => 'katherine',
+        'avatar' => null,
+        'verification' => ['profile' => false, 'company' => false],
+        'followed_by_me' => false,
+        'follows_me' => false,
+        'is_me' => false,
+    ], $overrides);
+}
+
+it('shows recommendations and the paginated people directory without a query', function (): void {
+    fakeSearchApi([
+        'https://pinkary.test/api/v1/users/recommendations*' => Http::response([
+            'data' => [discoveredUser()],
+            'links' => ['next' => null],
+        ]),
+        'https://pinkary.test/api/v1/users/directory*' => Http::response([
+            'data' => [discoveredUser(['id' => 4, 'name' => 'Dorothy Vaughan', 'username' => 'dorothy'])],
+            'links' => ['next' => '?page=2'],
+        ]),
+    ]);
+
+    Native::visit('/search')
+        ->assertSee('People to follow')
+        ->assertSee('Katherine Johnson')
+        ->assertSee('Discover people')
+        ->assertSee('Dorothy Vaughan');
+
+    Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/users/recommendations')
+        && $request['context'] === 'generic'
+        && $request['per_page'] === 5
+        && $request['page'] === 1);
+    Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/users/directory')
+        && $request['per_page'] === 20
+        && $request['page'] === 1);
+});
+
+it('loads the next recommendation and directory pages independently', function (): void {
+    fakeSearchApi([
+        'https://pinkary.test/api/v1/users/recommendations*' => Http::sequence()
+            ->push(['data' => [discoveredUser()], 'links' => ['next' => '?page=2']])
+            ->push(['data' => [discoveredUser(['id' => 5, 'name' => 'Mary Jackson', 'username' => 'mary'])], 'links' => ['next' => null]]),
+        'https://pinkary.test/api/v1/users/directory*' => Http::sequence()
+            ->push(['data' => [discoveredUser(['id' => 4, 'name' => 'Dorothy Vaughan', 'username' => 'dorothy'])], 'links' => ['next' => '?page=2']])
+            ->push(['data' => [discoveredUser(['id' => 6, 'name' => 'Annie Easley', 'username' => 'annie'])], 'links' => ['next' => null]]),
+    ]);
+
+    $screen = Native::visit('/search')
+        ->call('loadMoreRecommendations')
+        ->call('loadMoreDirectory')
+        ->assertSee('Mary Jackson')
+        ->assertSee('Annie Easley')
+        ->assertSet('recommendationPage', 2)
+        ->assertSet('directoryPage', 2)
+        ->assertSet('recommendationsHasMore', false)
+        ->assertSet('directoryHasMore', false);
+
+    expect($screen->get('recommendations'))->toHaveCount(2)
+        ->and($screen->get('directoryUsers'))->toHaveCount(2);
+
+    Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/users/recommendations')
+        && $request['page'] === 2
+        && $request['per_page'] === 5);
+    Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/users/directory')
+        && $request['page'] === 2
+        && $request['per_page'] === 20);
+});
+
 it('keeps the query and results in step as it is typed', function (): void {
-    Http::fake(['https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser()]))]);
+    fakeSearchApi(['https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser()]))]);
 
     Native::test(Search::class)
         ->set('query', 'grace')
@@ -47,7 +133,7 @@ it('keeps the query and results in step as it is typed', function (): void {
 });
 
 it('maps flat search flags to the profile row fields', function (): void {
-    Http::fake([
+    fakeSearchApi([
         'https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser([
             'verified' => true,
             'company_verified' => true,
@@ -67,7 +153,7 @@ it('maps flat search flags to the profile row fields', function (): void {
 });
 
 it('labels a mutual-follow action as Follow Back when the API provides it', function (): void {
-    Http::fake([
+    fakeSearchApi([
         'https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser(['follows_me' => true])])),
     ]);
 
@@ -77,7 +163,7 @@ it('labels a mutual-follow action as Follow Back when the API provides it', func
 });
 
 it('replays a recent search and ignores an unusable one', function (): void {
-    Http::fake(['https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser()]))]);
+    fakeSearchApi(['https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser()]))]);
 
     $screen = Native::test(Search::class)
         ->set('query', 'grace')
@@ -93,7 +179,7 @@ it('replays a recent search and ignores an unusable one', function (): void {
 });
 
 it('clears the query but keeps the recent searches on offer', function (): void {
-    Http::fake(['https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser()]))]);
+    fakeSearchApi(['https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser()]))]);
 
     Native::test(Search::class)
         ->set('query', 'grace')
@@ -106,7 +192,7 @@ it('clears the query but keeps the recent searches on offer', function (): void 
 });
 
 it('reports a failed search and keeps the screen usable', function (): void {
-    Http::fake(['https://pinkary.test/api/v1/search*' => Http::failedConnection()]);
+    fakeSearchApi(['https://pinkary.test/api/v1/search*' => Http::failedConnection()]);
 
     Native::test(Search::class)
         ->set('query', 'grace')
@@ -116,7 +202,7 @@ it('reports a failed search and keeps the screen usable', function (): void {
 });
 
 it('drops the dead token when the search is unauthorized', function (): void {
-    Http::fake(['https://pinkary.test/api/v1/search*' => Http::response(null, 401)]);
+    fakeSearchApi(['https://pinkary.test/api/v1/search*' => Http::response(null, 401)]);
 
     Native::test(Search::class)->set('query', 'grace');
 
@@ -124,7 +210,7 @@ it('drops the dead token when the search is unauthorized', function (): void {
 });
 
 it('leaves results empty on an unsuccessful search response', function (): void {
-    Http::fake(['https://pinkary.test/api/v1/search*' => Http::response(['message' => 'Server error.'], 500)]);
+    fakeSearchApi(['https://pinkary.test/api/v1/search*' => Http::response(['message' => 'Server error.'], 500)]);
 
     Native::test(Search::class)
         ->set('query', 'grace')
@@ -133,7 +219,7 @@ it('leaves results empty on an unsuccessful search response', function (): void 
 });
 
 it('follows a person and reflects the new state', function (): void {
-    Http::fake([
+    fakeSearchApi([
         'https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser()])),
         'https://pinkary.test/api/v1/users/grace/follow' => Http::response(['data' => ['followed' => true]]),
     ]);
@@ -151,7 +237,7 @@ it('follows a person and reflects the new state', function (): void {
 });
 
 it('unfollows someone already followed', function (): void {
-    Http::fake([
+    fakeSearchApi([
         'https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser(['followed' => true])])),
         'https://pinkary.test/api/v1/users/grace/follow' => Http::response(['data' => ['followed' => false]]),
     ]);
@@ -168,7 +254,7 @@ it('unfollows someone already followed', function (): void {
 });
 
 it('refuses to follow yourself or an unknown person', function (): void {
-    Http::fake(['https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser(['is_me' => true])]))]);
+    fakeSearchApi(['https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser(['is_me' => true])]))]);
 
     $screen = Native::test(Search::class)->set('query', 'grace')->assertDontSee('Follow');
 
@@ -178,7 +264,7 @@ it('refuses to follow yourself or an unknown person', function (): void {
 });
 
 it('asks for a token before following', function (): void {
-    Http::fake(['https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser()]))]);
+    fakeSearchApi(['https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser()]))]);
 
     $screen = Native::test(Search::class)->set('query', 'grace');
 
@@ -190,7 +276,7 @@ it('asks for a token before following', function (): void {
 });
 
 it('clears a busy row when the follow request fails', function (): void {
-    Http::fake([
+    fakeSearchApi([
         'https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser()])),
         'https://pinkary.test/api/v1/users/grace/follow' => Http::failedConnection(),
     ]);
@@ -205,7 +291,7 @@ it('clears a busy row when the follow request fails', function (): void {
 });
 
 it('drops the dead token when following is unauthorized', function (): void {
-    Http::fake([
+    fakeSearchApi([
         'https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser()])),
         'https://pinkary.test/api/v1/users/grace/follow' => Http::response(null, 401),
     ]);
@@ -216,7 +302,7 @@ it('drops the dead token when following is unauthorized', function (): void {
 });
 
 it('leaves the follow state alone on an unsuccessful response', function (): void {
-    Http::fake([
+    fakeSearchApi([
         'https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser()])),
         'https://pinkary.test/api/v1/users/grace/follow' => Http::response(['message' => 'Server error.'], 500),
     ]);
@@ -229,7 +315,7 @@ it('leaves the follow state alone on an unsuccessful response', function (): voi
 });
 
 it('opens a profile from a result row', function (): void {
-    Http::fake(['https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser()]))]);
+    fakeSearchApi(['https://pinkary.test/api/v1/search*' => Http::response(searchResults([foundUser()]))]);
 
     Native::test(Search::class)
         ->set('query', 'grace')
@@ -240,7 +326,7 @@ it('opens a profile from a result row', function (): void {
 });
 
 it('opens a hashtag feed and returns to the existing search', function (): void {
-    Http::fake([
+    fakeSearchApi([
         'https://pinkary.test/api/v1/search*' => Http::response(searchResults([], [[
             'id' => 42,
             'name' => 'laravel',

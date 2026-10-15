@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\NativeComponents;
 
 use App\NativeComponents\Concerns\OpensProfiles;
+use App\NativeComponents\Concerns\OpensChannels;
 use App\NativeComponents\Concerns\ProvidesWebPreviewStyles;
 use App\NativeComponents\Concerns\TogglesPostReactions;
 use App\NativeComponents\Concerns\UsesAppMenu;
@@ -23,6 +24,7 @@ use Throwable;
 final class Home extends NativeComponent implements HasWebHead
 {
     use OpensProfiles;
+    use OpensChannels;
     use ProvidesWebPreviewStyles;
     use TogglesPostReactions;
     use UsesAppMenu;

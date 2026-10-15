@@ -175,18 +175,24 @@
                             </native:pressable>
                             <native:row class="shrink-0 items-center gap-1.5">
                                 @if (is_array($channel) && ($channel['name'] ?? '') !== '')
-                                    <native:row class="bg-theme-surface-variant items-center gap-1 rounded-md px-1.5 py-0.5">
-                                        <native:icon
-                                            :ios="\App\Icons\Ios::Tag"
-                                            :android="\App\Icons\AndroidOutlined::Sell"
-                                            :size="12"
-                                            color="#EC4899CC"
-                                        />
-                                        <native:text
-                                            class="text-theme-on-surface-variant font-medium text-[11.52]"
-                                            max-lines="1"
-                                        >{{ $channel['name'] }}</native:text>
-                                    </native:row>
+                                    <native:pressable
+                                        class="shrink-0"
+                                        @tap="openChannel({{ json_encode($channel['slug'] ?? '', JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP) }}, {{ json_encode($channel['name'], JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP) }})"
+                                        a11y-label="Open {{ '#'.$channel['name'] }} channel feed"
+                                    >
+                                        <native:row class="bg-theme-surface-variant items-center gap-1 rounded-md px-1.5 py-0.5">
+                                            <native:icon
+                                                :ios="\App\Icons\Ios::Tag"
+                                                :android="\App\Icons\AndroidOutlined::Sell"
+                                                :size="12"
+                                                color="#EC4899CC"
+                                            />
+                                            <native:text
+                                                class="text-theme-on-surface-variant font-medium text-[11.52]"
+                                                max-lines="1"
+                                            >{{ $channel['name'] }}</native:text>
+                                        </native:row>
+                                    </native:pressable>
                                     <native:rect class="bg-theme-outline h-1 w-1 rounded-full" />
                                 @endif
                                 @if ($timestamp !== '')

@@ -1,8 +1,9 @@
+@php $hasQuery = mb_trim($query, "@# \t\n\r\0\x0B") !== ''; @endphp
 <native:scroll-view class="bg-theme-background h-full w-full">
     <native:column class="w-full gap-0">
         <x-search-bar :query="$query" />
 
-        @if ($query === '')
+        @if (! $hasQuery)
             <native:column class="bg-theme-surface border-theme-outline-variant w-full border-b px-4 py-3">
                 <native:text class="text-theme-on-surface text-lg font-semibold">Search</native:text>
             </native:column>
@@ -22,7 +23,7 @@
                 </native:column>
             @endif
 
-            @if ($query === '' && count($recentSearches) > 0)
+            @if (! $hasQuery && count($recentSearches) > 0)
                 <native:column class="bg-theme-surface border-theme-outline-variant w-full border-b px-4 py-3">
                     <native:text class="text-theme-on-surface text-lg font-semibold">Recent searches</native:text>
                 </native:column>
@@ -46,7 +47,65 @@
                     </native:pressable>
                 @endforeach
             @endif
-            @if (count($users) > 0)
+            @if (! $hasQuery)
+                <native:column class="bg-theme-surface border-theme-outline-variant w-full border-b px-4 py-3">
+                    <native:text class="text-theme-on-surface text-lg font-semibold">People to follow</native:text>
+                </native:column>
+                @if ($recommendationsLoading && $recommendationPage === 0)
+                    <x-skeleton-user-row />
+                    <x-skeleton-user-row />
+                    <x-skeleton-user-row />
+                @elseif ($recommendationsError !== '' && count($recommendations) === 0)
+                    <x-empty-state :title="$recommendationsError" />
+                    <x-load-more tap="loadMoreRecommendations" label="Try again" />
+                @elseif (count($recommendations) === 0)
+                    <x-empty-state title="No recommendations right now." />
+                @else
+                    @foreach ($recommendations as $user)
+                        <x-user-row :user="$user" />
+                    @endforeach
+                    @if ($recommendationsHasMore || $recommendationsLoading || $recommendationsError !== '')
+                        <x-load-more
+                            tap="loadMoreRecommendations"
+                            label="More people to follow"
+                            :loading="$recommendationsLoading"
+                            :error="$recommendationsError"
+                        />
+                    @else
+                        <x-list-footer :has-more="false" end-text="You're all caught up." />
+                    @endif
+                @endif
+
+                <native:column class="bg-theme-surface border-theme-outline-variant w-full border-b px-4 py-3">
+                    <native:text class="text-theme-on-surface text-lg font-semibold">Discover people</native:text>
+                </native:column>
+                @if ($directoryLoading && $directoryPage === 0)
+                    <x-skeleton-user-row />
+                    <x-skeleton-user-row />
+                    <x-skeleton-user-row />
+                @elseif ($directoryError !== '' && count($directoryUsers) === 0)
+                    <x-empty-state :title="$directoryError" />
+                    <x-load-more tap="loadMoreDirectory" label="Try again" />
+                @elseif (count($directoryUsers) === 0)
+                    <x-empty-state title="No people to discover right now." />
+                @else
+                    @foreach ($directoryUsers as $user)
+                        <x-user-row :user="$user" />
+                    @endforeach
+                    @if ($directoryHasMore || $directoryLoading || $directoryError !== '')
+                        <x-load-more
+                            tap="loadMoreDirectory"
+                            label="Load more people"
+                            :loading="$directoryLoading"
+                            :error="$directoryError"
+                        />
+                    @else
+                        <x-list-footer :has-more="false" end-text="You're all caught up." />
+                    @endif
+                @endif
+            @endif
+
+            @if ($hasQuery && count($users) > 0)
                 <native:column class="bg-theme-surface border-theme-outline-variant w-full border-b px-4 py-3">
                     <native:text class="text-theme-on-surface text-lg font-semibold">People</native:text>
                 </native:column>
@@ -55,7 +114,7 @@
                 @endforeach
             @endif
 
-            @if (count($hashtags) > 0)
+            @if ($hasQuery && count($hashtags) > 0)
                 <native:column class="bg-theme-surface border-theme-outline-variant w-full border-b px-4 py-3">
                     <native:text class="text-theme-on-surface text-lg font-semibold">Hashtags</native:text>
                 </native:column>
@@ -83,18 +142,13 @@
                 @endforeach
             @endif
 
-            @if ($searched && count($users) === 0 && count($hashtags) === 0)
+            @if ($hasQuery && $searched && count($users) === 0 && count($hashtags) === 0)
                 <x-empty-state
                     title="No users found."
                     subtitle="Try another search or clear the query to return to the discovery list."
                 />
             @endif
 
-            @if (! $searched)
-                <native:column class="w-full items-center gap-2 px-5 py-10">
-                    <native:text class="text-theme-on-surface-variant text-center text-sm">Discover new profiles to follow.</native:text>
-                </native:column>
-            @endif
         @endif
 
         <native:column class="h-20 w-full" />

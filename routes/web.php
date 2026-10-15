@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\NativeComponents\AccountSecurity;
 use App\NativeComponents\Bookmarks;
+use App\NativeComponents\ChannelFeed;
 use App\NativeComponents\Compose;
 use App\NativeComponents\Detail;
 use App\NativeComponents\EditProfile;
@@ -27,6 +28,7 @@ Route::nativeGroup(MobileLayout::class, function (): void {
     Route::native('/', Home::class)->name('mobile.home');
     Route::native('/feed', Home::class)->name('mobile.feed');
     Route::native('/search', Search::class)->name('mobile.search');
+    Route::native('/channel/{slug}', ChannelFeed::class)->name('mobile.channel');
     Route::native('/hashtag/{hashtagId}', HashtagFeed::class)->name('mobile.hashtag');
     Route::native('/bookmarks', Bookmarks::class)->name('mobile.bookmarks');
     Route::native('/notifications', Notifications::class)->name('mobile.notifications');
