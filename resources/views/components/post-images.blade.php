@@ -4,7 +4,7 @@
     <native:pressable
         native:key="post-image-{{ $keyPrefix }}-0"
         class="w-full"
-        @tap="openImageFullscreen({{ json_encode($images[0], JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP) }})"
+        @tap="openImageFullscreen({{ json_encode($images[0], JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP) }}, {{ json_encode(array_values($images), JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP) }}, 0)"
         a11y-label="Open image fullscreen"
     >
         <x-lazy-image :src="$images[0]" alt="Post image" class="h-64 w-full rounded-xl object-contain" />
@@ -16,7 +16,7 @@
                 <native:pressable
                     native:key="post-image-{{ $keyPrefix }}-{{ $index }}"
                     class="mr-2 h-64 w-72"
-                    @tap="openImageFullscreen({{ json_encode($src, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP) }})"
+                    @tap="openImageFullscreen({{ json_encode($src, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP) }}, {{ json_encode(array_values($images), JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP) }}, {{ $index }})"
                     a11y-label="Open image {{ $index + 1 }} of {{ count($images) }} fullscreen"
                 >
                     <x-lazy-image

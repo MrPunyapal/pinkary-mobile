@@ -234,6 +234,10 @@ final class DisplayText
         $host = $url === null ? null : parse_url($url, PHP_URL_HOST);
         $internal = in_array($host, [parse_url(Payload::string(config('services.pinkary.url')), PHP_URL_HOST), 'pinkary.com'], true);
 
+        if ($internal && is_string($path) && preg_match('~^/hashtag/([a-z0-9]+)$~iD', $path, $match)) {
+            return [['text' => $text, 'type' => 'hashtag', 'target' => $match[1]]];
+        }
+
         if ($internal && is_string($path) && preg_match('~^/@([A-Za-z0-9_-]+)$~D', $path, $match)) {
             return [['text' => $text, 'type' => 'mention', 'target' => $match[1]]];
         }

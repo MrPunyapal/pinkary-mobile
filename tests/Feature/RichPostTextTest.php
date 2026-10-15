@@ -131,6 +131,12 @@ it('preserves list items and resolves relative or protocol-relative links', func
     expect(DisplayText::runs('<a href="/@ada">@ada</a>'))->toBe([['text' => '@ada', 'type' => 'mention', 'target' => 'ada']]);
 });
 
+it('recognizes Pinkary hashtag links in rich post text', function (): void {
+    expect(DisplayText::runs('<a href="/hashtag/laravel">#laravel</a>'))->toBe([
+        ['text' => '#laravel', 'type' => 'hashtag', 'target' => 'laravel'],
+    ]);
+});
+
 it('renders rich newlines and a selectable monospace code block through the actual feed', function (): void {
     $code = "    return true;\n\n    // next line";
     Http::fake(['https://pinkary.test/api/v1/feed*' => Http::response(['data' => [[

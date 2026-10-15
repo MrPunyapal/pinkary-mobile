@@ -996,7 +996,7 @@ it('expands long answers with a one-way View more control', function (): void {
         ->assertDontSee('View more');
 });
 
-it('opens post images fullscreen through the in-app browser link handler', function (): void {
+it('opens a single post image in the fullscreen gallery', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
@@ -1013,7 +1013,8 @@ it('opens post images fullscreen through the in-app browser link handler', funct
 
     Native::test(Home::class)
         ->tap('Open image fullscreen')
-        ->assertSee('A post with an image.');
+        ->assertSet('activeImageGallery', ['https://pinkary.test/storage/a.png'])
+        ->assertSet('activeImageIndex', 0);
 });
 
 it('leaves the wordmark left with the search action trailing', function (): void {

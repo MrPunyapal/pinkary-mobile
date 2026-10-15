@@ -247,16 +247,35 @@
 
 <native:modal
     native:key="post-image-preview"
-    :visible="$activeImageUrl !== ''"
+    :visible="$activeImageGallery !== []"
     @dismiss="closeImageFullscreen"
-    a11y-label="Full-screen post image"
+    a11y-label="Full-screen post image gallery"
 >
-    <native:column class="bg-black h-full w-full items-center justify-center">
-        <native:image
-            :src="$activeImageUrl"
-            alt="Full-screen post image"
-            class="h-full w-full object-contain"
-            a11y-label="Full-screen post image"
-        />
+    <native:column class="bg-theme-surface h-full w-full">
+        @if ($activeImageGallery !== [])
+            <native:pager
+                native:key="post-image-gallery"
+                class="h-full w-full flex-1"
+                :count="count($activeImageGallery)"
+                :page="$activeImageIndex"
+                horizontal
+                on-page-change="setImageGalleryPage"
+                a11y-label="Post image gallery"
+            >
+                @foreach ($activeImageGallery as $index => $image)
+                    <native:column
+                        native:key="post-image-gallery-{{ $index }}"
+                        class="bg-theme-surface h-full w-full items-center justify-center"
+                    >
+                        <native:image
+                            :src="$image"
+                            alt="Post image {{ $index + 1 }} of {{ count($activeImageGallery) }}"
+                            class="h-full w-full object-contain"
+                            a11y-label="Post image {{ $index + 1 }} of {{ count($activeImageGallery) }}"
+                        />
+                    </native:column>
+                @endforeach
+            </native:pager>
+        @endif
     </native:column>
 </native:modal>

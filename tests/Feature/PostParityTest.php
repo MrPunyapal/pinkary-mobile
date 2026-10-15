@@ -28,19 +28,31 @@ function parityPost(string $answer, array $overrides = []): array
     ], $overrides);
 }
 
-it('shows mentions and hashtags as plain text, since native text cannot tap them', function (): void {
+it('opens the native hashtag feed when tapping a linked hashtag', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
 
-    $answer = 'Shipping <a href="/@ada">@ada</a> and <a href="/hashtag/laravel">#laravel</a> today.';
-
     Http::fake([
-        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [parityPost($answer)]]),
+        'https://pinkary.test/api/v1/feed*' => Http::response(['data' => [parityPost(
+            'Shipping <a href="/@ada">@ada</a> and <a href="/hashtag/laravel">#laravel</a> today.'
+        )]]),
+        'https://pinkary.test/api/v1/search*' => Http::response(['data' => [
+            'users' => [],
+            'hashtags' => [['id' => 42, 'name' => 'laravel']],
+        ]]),
     ]);
 
-    Native::test(Home::class)
-        ->assertSee('Shipping @ada and #laravel today.')
-        ->assertDontSee('<a href');
+    $screen = Native::test(Home::class)->assertSee('Shipping @ada and #laravel today.');
+    $hashtag = parityByText($screen->tree(), '#laravel');
+
+    expect($hashtag)->not->toBeNull()
+        ->and($hashtag['on_press'] ?? null)->not->toBeNull();
+
+    $screen->press("openHashtag('laravel')")
+        ->assertNavigatedTo('/hashtag/42');
+
+    Http::assertSent(fn ($request): bool => $request->method() === 'GET'
+        && str_ends_with($request->url(), '/api/v1/search?q=laravel'));
 });
 
 function parityFind(array $node, callable $match): ?array
@@ -491,6 +503,43 @@ it('plays YouTube previews inline in the feed', function (): void {
     expect($player)->not->toBeNull();
 });
 
+it('plays supported Vimeo previews inline and keeps the video hash', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    parityFakeFeed([parityPost('Watch Vimeo.', [
+        'preview' => [
+            'url' => 'https://vimeo.com/123456789?h=abc123',
+            'host' => 'vimeo.com',
+            'title' => 'https://vimeo.com/123456789?h=abc123',
+            'image' => null,
+        ],
+    ])]);
+
+    $screen = Native::test(Home::class)->tap('Play Vimeo video');
+    $player = parityFind($screen->tree(), fn (array $node): bool => ($node['type'] ?? '') === 'webview'
+        && ($node['props']['src'] ?? '') === 'https://player.vimeo.com/video/123456789?playsinline=1&autoplay=1&h=abc123');
+
+    expect($player)->not->toBeNull()
+        ->and($player['props']['a11y_label'] ?? null)->toBe('Vimeo video player');
+});
+
+it('opens unsupported Vimeo preview URLs safely in the in-app browser', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    parityFakeFeed([parityPost('Watch this Vimeo page.', [
+        'preview' => [
+            'url' => 'https://vimeo.com/channels/staffpicks',
+            'host' => 'vimeo.com',
+            'title' => 'Vimeo Staff Picks',
+            'image' => null,
+        ],
+    ])]);
+
+    Native::test(Home::class)
+        ->tap('Play Vimeo video')
+        ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => ($params['url'] ?? null) === 'https://vimeo.com/channels/staffpicks');
+});
+
 it('drops the border from answer images and rounds them like the web', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
@@ -534,6 +583,21 @@ it('keeps multiple images in an ordered horizontal gallery without cropping them
     expect($gallery['children'])->toHaveCount(2);
     expect($gallery['children'][0]['children'][0]['props'])->toMatchArray(['src' => 'https://example.test/one.png', 'fit' => 1]);
     expect($gallery['children'][1]['children'][0]['props'])->toMatchArray(['src' => 'https://example.test/two.png', 'fit' => 1]);
+
+    $screen->tap('Open image 2 of 2 fullscreen')
+        ->assertSet('activeImageGallery', ['https://example.test/one.png', 'https://example.test/two.png'])
+        ->assertSet('activeImageIndex', 1);
+
+    $modal = parityFind($screen->tree(), fn (array $node): bool => ($node['type'] ?? null) === 'modal'
+        && ($node['props']['visible'] ?? false));
+    $pager = $modal === null ? null : parityFind($modal, fn (array $node): bool => ($node['type'] ?? null) === 'pager');
+
+    expect($pager)->not->toBeNull()
+        ->and($pager['props'])->toMatchArray(['count' => 2, 'page' => 1, 'horizontal' => true])
+        ->and($pager['props']['on_page_change'] ?? null)->not->toBeNull()
+        ->and($pager['children'])->toHaveCount(2);
+
+    $screen->call('setImageGalleryPage', 0)->assertSet('activeImageIndex', 0);
 });
 
 it('insets the asker box and the avatar lane 8px like the web per-thread padding', function (): void {

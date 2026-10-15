@@ -31,7 +31,10 @@ trait TogglesPostReactions
 
     public string $youtubeEmbedUrl = '';
 
-    public string $activeImageUrl = '';
+    /** @var list<string> */
+    public array $activeImageGallery = [];
+
+    public int $activeImageIndex = 0;
 
     /** @var 'menu'|'confirm-delete'|'confirm-ignore'|'confirm-report'|'answer'|'edit'|'likers' */
     public string $menuStep = 'menu';
@@ -111,7 +114,12 @@ trait TogglesPostReactions
     public function openPostPreview(string $id, string $feedItemId = ''): void
     {
         $post = $this->findPostForMenu($id);
-        $url = Payload::string(data_get($post, 'preview.url'));
+        $url = DisplayText::url(Payload::string(data_get($post, 'preview.url'))) ?? '';
+
+        if ($url === '') {
+            return;
+        }
+
         $playerId = $feedItemId !== '' ? $feedItemId : $id;
         $videoId = $this->youtubeVideoId($url);
 
@@ -143,18 +151,43 @@ trait TogglesPostReactions
         $this->youtubeEmbedUrl = '';
     }
 
-    public function openImageFullscreen(string $url): void
+    /** @param list<mixed> $images */
+    public function openImageFullscreen(string $url, array $images = [], int $index = 0): void
     {
         $url = DisplayText::url($url) ?? '';
 
-        if ($url !== '') {
-            $this->activeImageUrl = $url;
+        if ($url === '') {
+            return;
+        }
+
+        $gallery = array_values(array_filter(
+            array_map(fn (mixed $image): ?string => is_string($image) ? DisplayText::url($image) : null, $images),
+            is_string(...),
+        ));
+        $activeIndex = array_search($url, $gallery, true);
+
+        if ($activeIndex === false) {
+            $gallery = [$url];
+            $activeIndex = 0;
+        } elseif (($gallery[$index] ?? null) === $url) {
+            $activeIndex = $index;
+        }
+
+        $this->activeImageGallery = $gallery;
+        $this->activeImageIndex = $activeIndex;
+    }
+
+    public function setImageGalleryPage(int $index): void
+    {
+        if (isset($this->activeImageGallery[$index])) {
+            $this->activeImageIndex = $index;
         }
     }
 
     public function closeImageFullscreen(): void
     {
-        $this->activeImageUrl = '';
+        $this->activeImageGallery = [];
+        $this->activeImageIndex = 0;
     }
 
     public function closeMenu(): void
@@ -790,33 +823,6 @@ trait TogglesPostReactions
 
     /**
      * @param  list<array<string, mixed>>  $posts
-     * @param  list<array<string, mixed>>  $next
-     * @return list<array<string, mixed>>
-     */
-    private function mergeFeedPage(array $posts, array $next): array
-    {
-        $identities = [];
-
-        foreach ($posts as $post) {
-            $identities[$this->feedItemIdentity($post)] = true;
-        }
-
-        foreach ($next as $post) {
-            $identity = $this->feedItemIdentity($post);
-
-            if (isset($identities[$identity])) {
-                continue;
-            }
-
-            $identities[$identity] = true;
-            $posts[] = $post;
-        }
-
-        return array_values($posts);
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $posts
      * @return array<string, mixed>|null
      */
     private static function postAt(array $posts, int $index, int|string|null $key): ?array
@@ -937,6 +943,33 @@ trait TogglesPostReactions
         }
 
         return $normalized;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $posts
+     * @param  list<array<string, mixed>>  $next
+     * @return list<array<string, mixed>>
+     */
+    private function mergeFeedPage(array $posts, array $next): array
+    {
+        $identities = [];
+
+        foreach ($posts as $post) {
+            $identities[$this->feedItemIdentity($post)] = true;
+        }
+
+        foreach ($next as $post) {
+            $identity = $this->feedItemIdentity($post);
+
+            if (isset($identities[$identity])) {
+                continue;
+            }
+
+            $identities[$identity] = true;
+            $posts[] = $post;
+        }
+
+        return array_values($posts);
     }
 
     private function sendPostViews(?string $token, string $viewer, bool $force): void
