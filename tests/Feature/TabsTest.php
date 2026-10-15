@@ -447,9 +447,10 @@ it('removes a notification once it is opened', function (): void {
         ->assertSee('No pending notifications.');
 });
 
-it('ignores notifications across pages and keeps newer notifications', function (): void {
+it('bulk ignores notifications and keeps newer notifications', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+    $this->freezeTime();
 
     $question = array_merge(notificationRow('n1', 'Pending question.'), [
         'type' => 'QuestionCreated',
@@ -461,11 +462,6 @@ it('ignores notifications across pages and keeps newer notifications', function 
         'type' => 'UserFollowed',
         'read' => true,
         'target' => ['kind' => 'user', 'username' => 'ada'],
-    ]);
-    $answer = array_merge(notificationRow('n3', 'Answered notification.'), [
-        'read' => false,
-        'created_at' => now()->subHours(2)->toIso8601String(),
-        'target' => ['kind' => 'question', 'id' => 'q2'],
     ]);
     $newFollow = array_merge(notificationRow('n4', 'New notification.'), [
         'type' => 'UserFollowed',
@@ -479,19 +475,17 @@ it('ignores notifications across pages and keeps newer notifications', function 
         'links' => ['next' => 'https://pinkary.test/api/v1/notifications?page=2'],
         'meta' => ['unread_count' => 3],
     ];
+    $refreshedPage = [
+        'data' => [$newFollow],
+        'links' => ['next' => null],
+        'meta' => ['unread_count' => 1, 'total_count' => 1],
+    ];
 
     Http::fake([
         'https://pinkary.test/api/v1/notifications?page=1' => Http::sequence()
             ->push($firstPage)
-            ->push($firstPage),
-        'https://pinkary.test/api/v1/notifications?page=2' => Http::response([
-            'data' => [$answer, $newFollow],
-            'links' => ['next' => null],
-            'meta' => ['unread_count' => 3],
-        ]),
-        'https://pinkary.test/api/v1/questions/q1/ignore' => Http::response(['data' => ['ignored' => true]]),
-        'https://pinkary.test/api/v1/notifications/n2' => Http::response(null, 204),
-        'https://pinkary.test/api/v1/notifications/n3' => Http::response(null, 204),
+            ->push($refreshedPage),
+        'https://pinkary.test/api/v1/notifications/ignore' => Http::response(['data' => ['ignored' => true]]),
     ]);
 
     $test = Native::test(Notifications::class)
@@ -511,16 +505,10 @@ it('ignores notifications across pages and keeps newer notifications', function 
         ->and(data_get($cached, 'items.0.id'))->toBe('n4')
         ->and(data_get($cached, 'unreadCount'))->toBe(1);
 
-    Http::assertSent(fn ($request): bool => $request->method() === 'GET'
-        && $request->url() === 'https://pinkary.test/api/v1/notifications?page=2');
     Http::assertSent(fn ($request): bool => $request->method() === 'POST'
-        && str_ends_with($request->url(), '/api/v1/questions/q1/ignore'));
-    Http::assertSent(fn ($request): bool => $request->method() === 'DELETE'
-        && str_ends_with($request->url(), '/api/v1/notifications/n2'));
-    Http::assertSent(fn ($request): bool => $request->method() === 'DELETE'
-        && str_ends_with($request->url(), '/api/v1/notifications/n3'));
-    Http::assertNotSent(fn ($request): bool => str_ends_with((string) $request->url(), '/api/v1/notifications/read'));
-    Http::assertNotSent(fn ($request): bool => str_ends_with((string) $request->url(), '/api/v1/notifications/n4'));
+        && $request->url() === 'https://pinkary.test/api/v1/notifications/ignore'
+        && $request['until_datetime'] === now()->format(DATE_ATOM));
+    Http::assertSentCount(3);
 });
 
 it('ignores read notifications when the unread count is zero', function (): void {
@@ -540,8 +528,12 @@ it('ignores read notifications when the unread count is zero', function (): void
     Http::fake([
         'https://pinkary.test/api/v1/notifications?page=1' => Http::sequence()
             ->push($page)
-            ->push($page),
-        'https://pinkary.test/api/v1/notifications/n1' => Http::response(null, 204),
+            ->push([
+                'data' => [],
+                'links' => ['next' => null],
+                'meta' => ['unread_count' => 0, 'total_count' => 0],
+            ]),
+        'https://pinkary.test/api/v1/notifications/ignore' => Http::response(['data' => ['ignored' => true]]),
     ]);
 
     $test = Native::test(Notifications::class)
@@ -556,11 +548,12 @@ it('ignores read notifications when the unread count is zero', function (): void
         ->and($test->get('unreadCount'))->toBe(0)
         ->and(data_get($cached, 'items'))->toBe([]);
 
-    Http::assertSent(fn ($request): bool => $request->method() === 'DELETE'
-        && str_ends_with($request->url(), '/api/v1/notifications/n1'));
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
+        && $request->url() === 'https://pinkary.test/api/v1/notifications/ignore');
+    Http::assertSentCount(3);
 });
 
-it('keeps notifications cached when ignoring one fails', function (): void {
+it('keeps notifications cached when the ignore-all request fails', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
 
@@ -571,10 +564,8 @@ it('keeps notifications cached when ignoring one fails', function (): void {
     ];
 
     Http::fake([
-        'https://pinkary.test/api/v1/notifications?page=1' => Http::sequence()
-            ->push($page)
-            ->push($page),
-        'https://pinkary.test/api/v1/notifications/n1' => Http::response(['message' => 'Unavailable.'], 500),
+        'https://pinkary.test/api/v1/notifications?page=1' => Http::response($page),
+        'https://pinkary.test/api/v1/notifications/ignore' => Http::response(['message' => 'Unavailable.'], 500),
     ]);
 
     $test = Native::test(Notifications::class)
@@ -587,6 +578,10 @@ it('keeps notifications cached when ignoring one fails', function (): void {
         ->and($test->get('unreadCount'))->toBe(1)
         ->and($test->get('ignoringAll'))->toBeFalse()
         ->and(data_get($cached, 'items.0.id'))->toBe('n1');
+
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
+        && $request->url() === 'https://pinkary.test/api/v1/notifications/ignore');
+    Http::assertSentCount(2);
 });
 
 it('keeps the bookmarks empty state text-only like the web', function (): void {
@@ -852,7 +847,7 @@ it('adds and deletes profile links with a confirm tap', function (): void {
         && str_ends_with($request->url(), '/api/v1/links/9'));
 });
 
-it('rejects non-https link URLs without sending', function (): void {
+it('rejects HTTP profile links without sending', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
     Http::fake([
@@ -861,7 +856,7 @@ it('rejects non-https link URLs without sending', function (): void {
 
     Native::test(EditProfile::class)
         ->set('newDescription', 'Blog')
-        ->set('newUrl', 'not-a-url')
+        ->set('newUrl', 'http://blog.example.com')
         ->call('addLink')
         ->assertSee('https://');
 
