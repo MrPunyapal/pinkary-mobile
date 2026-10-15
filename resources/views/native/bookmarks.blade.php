@@ -26,6 +26,7 @@
         @foreach ($posts as $post)
             <x-thread-post
                 :post="$post"
+                :feed-item-id="$this->feedItemIdentity($post)"
                 :expanded-ids="$expanded"
                 :viewer-username="$viewerUsername"
                 :active-youtube-post-id="$activeYoutubePostId"

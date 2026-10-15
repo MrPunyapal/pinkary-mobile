@@ -23,6 +23,7 @@
     @else
         <x-thread-post
             :post="$post"
+            :feed-item-id="$this->feedItemIdentity($post)"
             :expanded-ids="$expanded"
             :viewer-username="$viewerUsername"
             :full="true"

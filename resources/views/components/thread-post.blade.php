@@ -1,4 +1,4 @@
-@props(['post', 'expandedIds' => [], 'viewerUsername' => null, 'full' => false, 'activeYoutubePostId' => '', 'youtubeEmbedUrl' => ''])
+@props(['post', 'expandedIds' => [], 'viewerUsername' => null, 'feedItemId' => null, 'full' => false, 'activeYoutubePostId' => '', 'youtubeEmbedUrl' => ''])
 
 @php
     $threadPosts = array_values(array_filter(
@@ -7,7 +7,7 @@
     ));
     $threadMore = (bool) data_get($post, 'thread.more', false);
     $threadMoreId = (string) data_get($post, 'thread.more_id', '');
-    $feedItemId = $this->feedItemIdentity($post);
+    $feedItemId = $feedItemId ?: (string) data_get($post, 'id', '');
     $linkAfterFirst = $threadMore && $threadMoreId !== ''
         && ($threadPosts[0]['id'] ?? null) === data_get($post, 'thread.root_id');
 
