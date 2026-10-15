@@ -46,7 +46,7 @@ function foundUser(array $overrides = []): array
 }
 
 /** @param array<string, mixed> $overrides
- *  @return array<string, mixed>
+ * @return array<string, mixed>
  */
 function discoveredUser(array $overrides = []): array
 {

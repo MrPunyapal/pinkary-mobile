@@ -63,7 +63,12 @@
                     @endif
                     <x-image-preview :images="$this->imagesForPost(-1)" class="mt-2 flex flex-wrap gap-2" />
                     <native:row class="w-full items-center gap-2">
-                        <x-composer-image-picker :post-index="-1" label="Add an image to your reply" :enabled="$this->supportsImagePicker()" :can-add="$this->canAddImage()" />
+                        <x-composer-image-picker
+                            :post-index="-1"
+                            label="Add an image to your reply"
+                            :enabled="$this->supportsImagePicker()"
+                            :can-add="$this->canAddImage()"
+                        />
                         <native:pressable
                             class="h-8 w-8 items-center justify-center"
                             @tap="toggleCommentPoll"

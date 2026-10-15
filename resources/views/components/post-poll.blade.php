@@ -25,7 +25,8 @@
         @if ($disabled)
             <x-post-poll-option :text="data_get($option, 'text', '')" :percent="$percent" :mine="$mine" disabled />
         @else
-            <native:pressable @tap="votePoll('{{ $postId }}', {{ $optionId }})"
+            <native:pressable
+                @tap="votePoll('{{ $postId }}', {{ $optionId }})"
                 a11y-label="Vote for {{ data_get($option, 'text', '') }}"
             >
                 <x-post-poll-option :text="data_get($option, 'text', '')" :percent="$percent" :mine="$mine" />
@@ -36,8 +37,7 @@
         <native:text class="text-theme-destructive w-full text-xs">{{ $error }}</native:text>
     @endif
     <native:row class="w-full items-center gap-1.5 pt-2">
-        <native:text class="text-theme-on-surface-variant text-sm"
-            >{{ $totalVotes }} {{ $totalVotes === 1 ? 'vote' : 'votes' }}</native:text>
+        <native:text class="text-theme-on-surface-variant text-sm">{{ $totalVotes }} {{ $totalVotes === 1 ? 'vote' : 'votes' }}</native:text>
         @if ($expired)
             <native:text class="text-theme-on-surface-variant text-sm">·</native:text>
             <native:text class="text-sm text-red-500" dark-color="#F87171">Poll expired</native:text>

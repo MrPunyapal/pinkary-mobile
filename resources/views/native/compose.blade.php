@@ -46,7 +46,12 @@
                         @endif
                         <x-image-preview :images="$this->imagesForPost(-1)" class="mt-2" />
                         <native:row class="w-full items-center gap-1 pl-3.5">
-                            <x-composer-image-picker :post-index="-1" label="Add an image to the question" :enabled="$this->supportsImagePicker()" :can-add="$this->canAddImage()" />
+                            <x-composer-image-picker
+                                :post-index="-1"
+                                label="Add an image to the question"
+                                :enabled="$this->supportsImagePicker()"
+                                :can-add="$this->canAddImage()"
+                            />
                             @if ($uploadingImages)
                                 <native:text class="text-theme-on-surface-variant text-xs">Uploading image…</native:text>
                             @endif
@@ -119,7 +124,12 @@
                         <native:column class="w-full">
                             <x-image-preview :images="$this->imagesForPost(-1)" class="mt-2 flex flex-wrap gap-2" />
                             <native:row class="mt-1 w-full items-center gap-1 pl-3.5">
-                                <x-composer-image-picker :post-index="-1" label="Add an image to the first post" :enabled="$this->supportsImagePicker()" :can-add="$this->canAddImage()" />
+                                <x-composer-image-picker
+                                    :post-index="-1"
+                                    label="Add an image to the first post"
+                                    :enabled="$this->supportsImagePicker()"
+                                    :can-add="$this->canAddImage()"
+                                />
                                 <native:pressable
                                     class="h-7 w-7 items-center justify-center"
                                     @tap="togglePoll"
@@ -241,7 +251,12 @@
                             <x-image-preview :images="$this->imagesForPost($index)" class="mt-2 flex flex-wrap gap-2" />
 
                             <native:row class="w-full items-center gap-1 pl-3.5">
-                                <x-composer-image-picker :post-index="$index" label="Add an image to post {{ $index + 2 }}" :enabled="$this->supportsImagePicker()" :can-add="$this->canAddImage()" />
+                                <x-composer-image-picker
+                                    :post-index="$index"
+                                    label="Add an image to post {{ $index + 2 }}"
+                                    :enabled="$this->supportsImagePicker()"
+                                    :can-add="$this->canAddImage()"
+                                />
                                 <native:pressable
                                     class="h-7 w-7 items-center justify-center"
                                     @tap="togglePostPoll({{ $index }})"

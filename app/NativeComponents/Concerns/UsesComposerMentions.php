@@ -26,6 +26,12 @@ trait UsesComposerMentions
 
     public int $mentionRequestVersion = 0;
 
+    abstract protected function mentionText(int $postIndex): ?string;
+
+    abstract protected function replaceMentionText(int $postIndex, string $text): void;
+
+    abstract protected function mentionComposerBusy(): bool;
+
     public function updateMentionSelection(int $postIndex, string $text, int $selectionStart, int $selectionEnd): void
     {
         if ($this->mentionComposerBusy() || ($currentText = $this->mentionText($postIndex)) === null || $text !== $currentText) {
@@ -130,13 +136,5 @@ trait UsesComposerMentions
         $this->mentionEnd = -1;
     }
 
-    abstract protected function mentionText(int $postIndex): ?string;
-
-    abstract protected function replaceMentionText(int $postIndex, string $text): void;
-
-    abstract protected function mentionComposerBusy(): bool;
-
-    protected function mentionChanged(int $postIndex): void
-    {
-    }
+    protected function mentionChanged(int $postIndex): void {}
 }

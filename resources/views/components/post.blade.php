@@ -127,7 +127,12 @@
 
                 @if ($questionText !== '')
                     {{-- Numeric line-height classes are unsupported; leading-loose gives 28px at text-sm. --}}
-                    <x-post-text :html="data_get($post, 'content')" :post-id="$postId" :question="true" :key-prefix="$postKey" />
+                    <x-post-text
+                        :html="data_get($post, 'content')"
+                        :post-id="$postId"
+                        :question="true"
+                        :key-prefix="$postKey"
+                    />
                     @if ($viewerUsername === '')
                         <native:row class="w-full items-center pt-1">
                             <x-post-action type="translate" :post-id="$postId" field="content" />
@@ -196,9 +201,11 @@
                                     <native:rect class="bg-theme-outline h-1 w-1 rounded-full" />
                                 @endif
                                 @if ($timestamp !== '')
-                                    <native:text class="text-theme-on-surface-variant shrink-0 text-xs" max-lines="1"
+                                    <native:text
+                                        class="text-theme-on-surface-variant shrink-0 text-xs"
+                                        max-lines="1"
                                         a11y-label="{{ ($edited ? 'Edited on ' : 'Posted on ').$absoluteTimestamp }}"
-                                        >{{ $edited ? 'Edited: ' : '' }}{{ $timestamp }}</native:text>
+                                    >{{ $edited ? 'Edited: ' : '' }}{{ $timestamp }}</native:text>
                                 @endif
                             </native:row>
                         </native:row>
@@ -286,7 +293,12 @@
                         @endif
 
                         @if ($hasPoll)
-                            <x-post-poll :poll="$poll" :post-id="$postId" :key-prefix="$postKey" :error="(string) data_get($post, 'poll_error', '')" />
+                            <x-post-poll
+                                :poll="$poll"
+                                :post-id="$postId"
+                                :key-prefix="$postKey"
+                                :error="(string) data_get($post, 'poll_error', '')"
+                            />
                         @endif
 
                         <native:row class="w-full items-center gap-3 pt-3">
