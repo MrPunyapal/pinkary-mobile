@@ -104,7 +104,7 @@ it('offers a photo button wired to the picker', function (): void {
     fakeImageUpload([]);
 
     Native::test(Compose::class)
-        ->assertSee('Upload an image');
+        ->assertSee('Add an image to the first post');
 });
 
 it('taps through to the Camera.PickMedia bridge function', function (): void {
@@ -114,7 +114,7 @@ it('taps through to the Camera.PickMedia bridge function', function (): void {
         ->respondTo('Camera.PickMedia', ['status' => 'success']);
 
     Native::test(Compose::class)
-        ->tap('Upload an image');
+        ->tap('Add an image to the first post');
 
     $bridge->assertCalled('Camera.PickMedia', fn (array $params): bool => $params['mediaType'] === 'image'
         && $params['multiple'] === true
@@ -127,7 +127,7 @@ it('hides the button on a build whose bridge cannot pick', function (): void {
     Native::fakeBridge()->withoutCapability('Camera.PickMedia');
 
     Native::test(Compose::class)
-        ->assertDontSee('Upload an image');
+        ->assertDontSee('Add an image to the first post');
 });
 
 it('inserts image markdown into the post', function (): void {
