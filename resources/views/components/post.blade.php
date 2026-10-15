@@ -51,7 +51,7 @@
 
     $laneAuthor = $comment ? data_get($post, 'from', []) : data_get($post, 'to', []);
     $laneText = $comment ? ($answerText !== '' ? $answerText : $questionText) : $answerShown;
-    $hasPreview = is_array($preview) && $previewUrl !== '';
+    $hasPreview = $images === [] && is_array($preview) && $previewUrl !== '';
     $hasPoll = is_array($poll) && $poll !== [];
     $hasLaneMedia = $images !== [] || $hasPreview || $hasPoll;
     $showLane = $comment ? ($laneText !== '' || $hasLaneMedia) : ($hasAnswer || $canAnswer || $hasLaneMedia);
