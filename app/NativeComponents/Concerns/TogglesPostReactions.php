@@ -133,6 +133,13 @@ trait TogglesPostReactions
             return;
         }
 
+        if ($this->isYoutubeUrl($url)) {
+            $this->activeYoutubePostId = $playerId;
+            $this->youtubeEmbedUrl = $url;
+
+            return;
+        }
+
         $videoId = $this->vimeoVideoId($url);
 
         if ($videoId !== null) {
@@ -1838,6 +1845,17 @@ trait TogglesPostReactions
         }
 
         return preg_match('/^[A-Za-z0-9_-]{11}$/', $videoId) === 1 ? $videoId : null;
+    }
+
+    private function isYoutubeUrl(string $url): bool
+    {
+        $host = mb_strtolower((string) parse_url($url, PHP_URL_HOST));
+
+        return $host === 'youtu.be'
+            || $host === 'youtube.com'
+            || str_ends_with($host, '.youtube.com')
+            || $host === 'youtube-nocookie.com'
+            || str_ends_with($host, '.youtube-nocookie.com');
     }
 
     private function vimeoVideoId(string $url): ?string

@@ -504,6 +504,31 @@ it('plays YouTube previews inline in the feed', function (): void {
         ->and($player['props']['javascript'] ?? false)->toBeTrue()
         ->and($player['props']['dom_storage'] ?? false)->toBeTrue()
         ->and($player['props']['src'] ?? '')->not->toContain('autoplay=1');
+
+    $screen->assertNativeNotCalled('Browser.OpenInApp');
+});
+
+it('keeps unsupported YouTube links inside the app', function (): void {
+    config(['services.pinkary.url' => 'https://pinkary.test']);
+    AccountStore::add('ada', 'test-token', ['username' => 'ada']);
+
+    $url = 'https://www.youtube.com/clip/clip-token';
+    parityFakeFeed([parityPost('Watch this clip.', [
+        'preview' => [
+            'url' => $url,
+            'host' => 'www.youtube.com',
+            'title' => 'YouTube clip',
+            'image' => null,
+        ],
+    ])]);
+
+    $screen = Native::test(Home::class)->tap('Play YouTube video');
+    $player = parityFind($screen->tree(), fn (array $node): bool => ($node['type'] ?? '') === 'webview'
+        && ($node['props']['src'] ?? '') === $url);
+
+    expect($player)->not->toBeNull();
+
+    $screen->assertNativeNotCalled('Browser.OpenInApp');
 });
 
 it('plays supported Vimeo previews inline and keeps the video hash', function (): void {
