@@ -8,7 +8,7 @@
             @if ($menuStep === 'confirm-delete')
                 <native:column class="w-full gap-2 py-2">
                     <native:text class="text-theme-on-surface text-base font-semibold">Delete this post?</native:text>
-                    <native:text class="text-theme-on-surface-variant text-sm">This will remove the post from your feed.</native:text>
+                    <native:text class="text-theme-on-surface-variant text-sm">Are you sure you want to delete this post?</native:text>
                     <native:row class="w-full items-center gap-3 pt-2">
                         <native:button variant="secondary" @tap="menuBack">Cancel</native:button>
                         <native:button
@@ -183,7 +183,7 @@
                         </native:row>
                     </native:pressable>
                 @endif
-                @if ($this->canIgnoreMenuPost())
+                @if ($canIgnoreMenu)
                     <native:pressable class="w-full py-3" @tap="askIgnoreMenu" a11y-label="Ignore this question">
                         <native:row class="w-full items-center gap-3">
                             <native:icon
@@ -197,7 +197,7 @@
                         </native:row>
                     </native:pressable>
                 @endif
-                @if ($this->canReportMenuPost())
+                @if ($canReportMenu)
                     <native:pressable class="w-full py-3" @tap="askReportMenu" a11y-label="Report this question">
                         <native:row class="w-full items-center gap-3">
                             <native:icon
@@ -211,30 +211,6 @@
                         </native:row>
                     </native:pressable>
                 @endif
-                <native:pressable class="w-full py-3" @tap="shareMenuPost" a11y-label="Share or copy post link">
-                    <native:row class="w-full items-center gap-3">
-                        <native:icon
-                            :ios="\App\Icons\Ios::SquareAndArrowUp"
-                            :android="\App\Icons\AndroidOutlined::Share"
-                            :size="20"
-                            color="#64748B"
-                            dark-color="#94A3B8"
-                        />
-                        <native:text class="text-theme-on-surface text-sm font-medium">Share or copy link</native:text>
-                    </native:row>
-                </native:pressable>
-                <native:pressable class="w-full py-3" @tap="shareToXMenu" a11y-label="Share post on X">
-                    <native:row class="w-full items-center gap-3">
-                        <native:icon
-                            :ios="\App\Icons\Ios::At"
-                            :android="\App\Icons\AndroidOutlined::Tag"
-                            :size="20"
-                            color="#64748B"
-                            dark-color="#94A3B8"
-                        />
-                        <native:text class="text-theme-on-surface text-sm font-medium">Post on X</native:text>
-                    </native:row>
-                </native:pressable>
                 @if ($canViewMenuLikes)
                     <native:pressable class="w-full py-3" @tap="openLikersMenu" a11y-label="View likes">
                         <native:row class="w-full items-center gap-3">

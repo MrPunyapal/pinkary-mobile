@@ -733,44 +733,6 @@ trait TogglesPostReactions
         $this->toggleUserFollow($this->likers, $username);
     }
 
-    public function shareMenuPost(): void
-    {
-        $post = $this->menuPostData();
-
-        if ($post === null) {
-            return;
-        }
-
-        $this->shareQuestion(
-            Payload::string(data_get($post, 'to.username', '')),
-            $this->menuPostId,
-            $this->postSource($post, 'answer') ?? $this->postSource($post, 'content'),
-        );
-    }
-
-    public function shareToXMenu(): void
-    {
-        $post = $this->menuPostData();
-
-        if ($post === null) {
-            return;
-        }
-
-        $url = $this->questionUrl(Payload::string(data_get($post, 'to.username', '')), $this->menuPostId);
-
-        if ($url === null) {
-            return;
-        }
-
-        $text = $this->plainText($this->postSource($post, 'answer') ?? $this->postSource($post, 'content'));
-        $message = (bool) data_get($post, 'is_update', false) ? 'See it on Pinkary' : 'See response on Pinkary';
-        $text = $text === '' ? $message.':' : $text."\n\n".$message.':';
-
-        $this->openExternalLink(
-            'https://twitter.com/intent/tweet?text='.urlencode($text).'&url='.urlencode($url)
-        );
-    }
-
     public function openHashtag(string $hashtagName): void
     {
         $hashtagName = mb_trim($hashtagName, "# \t\n\r\0\x0B");
@@ -1793,7 +1755,9 @@ trait TogglesPostReactions
 
         try {
             $api = app(PinkaryApi::class);
-            $response = $api->attempt(fn () => $api->ignoreQuestion($token, $id));
+            $response = $api->attempt(fn () => $action === 'delete'
+                ? $api->deleteQuestion($token, $id)
+                : $api->ignoreQuestion($token, $id));
 
             if ($response === null) {
                 $this->menuError = $fallback;

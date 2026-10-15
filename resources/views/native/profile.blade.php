@@ -112,7 +112,9 @@
     $canAnswerMenu = $menuPostId !== '' && $this->canAnswerMenuPost();
     $canDeleteMenu = $menuPostId !== '' && $this->canDeleteMenuPost();
     $canViewMenuLikes = $menuPostId !== '' && $this->canViewMenuLikes();
+    $canIgnoreMenu = $menuPostId !== '' && $this->canIgnoreMenuPost();
+    $canReportMenu = $menuPostId !== '' && $this->canReportMenuPost();
 @endphp
-@include('native.post-menu-sheet')
+@include('native.post-menu-sheet', ['canIgnoreMenu' => $canIgnoreMenu, 'canReportMenu' => $canReportMenu])
 
 @include('native.app-menu-sheet')
