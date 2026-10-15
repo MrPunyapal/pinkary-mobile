@@ -617,3 +617,255 @@ it('clears sensitive fields when leaving account security', function (): void {
         ->and($test->get('deletePassword'))->toBe('')
         ->and($test->get('deleteConfirmation'))->toBe('');
 });
+
+it('does not repeat sensitive requests while busy and toggles password visibility', function (): void {
+    signInAccountSecurityUser();
+    Http::fake(accountSecurityResponses());
+
+    $test = Native::test(AccountSecurity::class)
+        ->set('busy', true)
+        ->set('githubBusy', true)
+        ->set('githubEligible', true)
+        ->set('githubHandoffId', 'handoff-123')
+        ->set('confirmGithubDisconnect', true)
+        ->set('currentPassword', 'current-password')
+        ->set('newPassword', 'new-password')
+        ->set('passwordConfirmation', 'new-password')
+        ->set('twoFactorPassword', 'current-password')
+        ->set('twoFactorCode', '123456')
+        ->set('recoveryCodesPassword', 'current-password')
+        ->set('disableTwoFactorPassword', 'current-password')
+        ->set('deletePassword', 'current-password')
+        ->set('deleteConfirmation', 'DELETE')
+        ->call('changePassword')
+        ->call('startTwoFactor')
+        ->call('confirmTwoFactor')
+        ->call('showRecoveryCodes')
+        ->call('regenerateRecoveryCodes')
+        ->call('disableTwoFactor')
+        ->call('deleteAccount')
+        ->call('connectGithub')
+        ->call('pollGithubHandoff')
+        ->call('disconnectGithub')
+        ->call('togglePasswordVisibility')
+        ->assertSet('showPassword', true)
+        ->call('togglePasswordVisibility')
+        ->assertSet('showPassword', false);
+
+    expect($test->get('busy'))->toBeTrue()
+        ->and($test->get('githubBusy'))->toBeTrue();
+
+    Http::assertNotSent(fn (Request $request): bool => in_array($request->method(), ['POST', 'PUT', 'DELETE'], true));
+});
+
+it('shows the reason GitHub cannot be connected', function (string $reason, string $message): void {
+    signInAccountSecurityUser();
+    Http::fake(accountSecurityResponses([
+        accountSecurityEndpoint('github') => Http::response([
+            'connected' => false,
+            'eligible' => false,
+            'eligibility_reason' => $reason,
+        ]),
+    ]));
+
+    Native::test(AccountSecurity::class)->assertSee($message);
+})->with([
+    'provider unavailable' => ['provider_unavailable', 'GitHub connection is unavailable right now.'],
+    'already connected' => ['already_connected', 'A GitHub account is already connected.'],
+    'other reason' => ['pending_review', 'GitHub connection is not available for this account right now.'],
+]);
+
+it('reports a GitHub status error and can refresh it', function (): void {
+    signInAccountSecurityUser();
+    Http::fake(accountSecurityResponses([
+        accountSecurityEndpoint('github') => Http::sequence()
+            ->push(['message' => 'GitHub is temporarily unavailable.'], 503)
+            ->push(['connected' => false, 'eligible' => true]),
+    ]));
+
+    $test = Native::test(AccountSecurity::class)
+        ->assertSee('GitHub is temporarily unavailable.')
+        ->call('refreshGithubStatus')
+        ->assertDontSee('GitHub is temporarily unavailable.');
+
+    expect($test->get('githubEligible'))->toBeTrue();
+});
+
+it('rejects a malformed GitHub authorization URL', function (): void {
+    signInAccountSecurityUser();
+    Http::fake(accountSecurityResponses([
+        accountSecurityEndpoint('github') => Http::response(['connected' => false, 'eligible' => true]),
+        accountSecurityEndpoint('github/handoff') => Http::response([
+            'id' => 'handoff-123',
+            'browser_url' => 'not a valid URL',
+        ]),
+    ]));
+
+    Native::test(AccountSecurity::class)
+        ->call('connectGithub')
+        ->assertSee('Pinkary returned an invalid GitHub authorization link.');
+});
+
+it('clears a failed GitHub handoff and lets the user retry', function (): void {
+    signInAccountSecurityUser();
+    Http::fake(accountSecurityResponses([
+        accountSecurityEndpoint('github/handoff/handoff-123') => Http::response(['status' => 'failed']),
+    ]));
+
+    $test = Native::test(AccountSecurity::class)
+        ->set('githubHandoffId', 'handoff-123')
+        ->call('pollGithubHandoff')
+        ->assertSee('GitHub authorization did not complete. You can try again.');
+
+    expect($test->get('githubHandoffId'))->toBe('');
+});
+
+it('keeps the active account when account deletion fails', function (): void {
+    signInAccountSecurityUser();
+    Http::fake(accountSecurityResponses([
+        mb_rtrim((string) config('services.pinkary.url'), '/').'/api/v1/account' => Http::response([
+            'message' => 'Account deletion is unavailable.',
+        ], 503),
+    ]));
+
+    $test = Native::test(AccountSecurity::class)
+        ->set('deletePassword', 'current-password')
+        ->set('deleteConfirmation', 'DELETE')
+        ->call('deleteAccount')
+        ->assertSee('Account deletion is unavailable.');
+
+    expect(AccountStore::activeToken())->toBe('security-token')
+        ->and($test->get('busy'))->toBeFalse()
+        ->and($test->get('deletePassword'))->toBe('')
+        ->and($test->get('deleteConfirmation'))->toBe('');
+});
+
+it('clears the password and reports an error when two-factor setup fails', function (): void {
+    signInAccountSecurityUser();
+    Http::fake(accountSecurityResponses([
+        accountSecurityEndpoint('two-factor') => Http::sequence()
+            ->push(['enabled' => false])
+            ->push(['message' => 'The current password is incorrect.'], 422),
+    ]));
+
+    $test = Native::test(AccountSecurity::class)
+        ->set('twoFactorPassword', 'wrong-password')
+        ->call('startTwoFactor')
+        ->assertSee('The current password is incorrect.');
+
+    expect($test->get('busy'))->toBeFalse()
+        ->and($test->get('twoFactorPassword'))->toBe('')
+        ->and($test->get('twoFactorPending'))->toBeFalse();
+});
+
+it('reports when a GitHub connection request cannot reach the server', function (): void {
+    signInAccountSecurityUser();
+    Http::fake(accountSecurityResponses([
+        accountSecurityEndpoint('github') => Http::response(['connected' => false, 'eligible' => true]),
+        accountSecurityEndpoint('github/handoff') => fn () => Http::failedConnection(),
+    ]));
+
+    $test = Native::test(AccountSecurity::class)
+        ->call('connectGithub')
+        ->assertSee('GitHub connection could not be started. Check your internet connection and try again.');
+
+    expect($test->get('githubBusy'))->toBeFalse()
+        ->and($test->get('githubHandoffId'))->toBe('');
+
+    $test->assertNativeNotCalled('Browser.OpenInApp');
+});
+
+it('returns to login when the GitHub handoff has expired from the account session', function (): void {
+    signInAccountSecurityUser();
+    Http::fake(accountSecurityResponses([
+        accountSecurityEndpoint('github/handoff/handoff-123') => Http::response(null, 401),
+    ]));
+
+    Native::test(AccountSecurity::class)
+        ->set('githubHandoffId', 'handoff-123')
+        ->call('pollGithubHandoff')
+        ->assertReplacedWith('/login');
+
+    expect(AccountStore::count())->toBe(0);
+});
+
+it('keeps recovery codes hidden when the server rejects the password', function (): void {
+    signInAccountSecurityUser();
+    Http::fake(accountSecurityResponses([
+        accountSecurityEndpoint('two-factor') => Http::response(['enabled' => true]),
+        accountSecurityEndpoint('two-factor/recovery-codes') => Http::response([
+            'message' => 'The current password is incorrect.',
+        ], 422),
+    ]));
+
+    $test = Native::test(AccountSecurity::class)
+        ->set('recoveryCodesPassword', 'wrong-password')
+        ->call('showRecoveryCodes')
+        ->assertSee('The current password is incorrect.');
+
+    expect($test->get('recoveryCodes'))->toBe([])
+        ->and($test->get('recoveryCodesPassword'))->toBe('')
+        ->and($test->get('busy'))->toBeFalse();
+});
+
+it('shows the API error when GitHub connection cannot be started', function (): void {
+    signInAccountSecurityUser();
+    Http::fake(accountSecurityResponses([
+        accountSecurityEndpoint('github') => Http::response(['connected' => false, 'eligible' => true]),
+        accountSecurityEndpoint('github/handoff') => Http::response([
+            'message' => 'GitHub authorization is temporarily unavailable.',
+        ], 503),
+    ]));
+
+    $test = Native::test(AccountSecurity::class)
+        ->call('connectGithub')
+        ->assertSee('GitHub authorization is temporarily unavailable.');
+
+    expect($test->get('githubBusy'))->toBeFalse()
+        ->and($test->get('githubHandoffId'))->toBe('');
+
+    $test->assertNativeNotCalled('Browser.OpenInApp');
+});
+
+it('keeps the GitHub handoff when its status cannot be loaded', function (): void {
+    signInAccountSecurityUser();
+    Http::fake(accountSecurityResponses([
+        accountSecurityEndpoint('github/handoff/handoff-123') => Http::response([
+            'message' => 'GitHub status is temporarily unavailable.',
+        ], 503),
+    ]));
+
+    $test = Native::test(AccountSecurity::class)
+        ->set('githubHandoffId', 'handoff-123')
+        ->call('pollGithubHandoff')
+        ->assertSee('GitHub status is temporarily unavailable.');
+
+    expect($test->get('githubBusy'))->toBeFalse()
+        ->and($test->get('githubHandoffId'))->toBe('handoff-123');
+});
+
+it('keeps GitHub connected when the disconnect request fails', function (): void {
+    signInAccountSecurityUser();
+    Http::fake(accountSecurityResponses([
+        accountSecurityEndpoint('github') => function (Request $request): PromiseInterface {
+            if ($request->method() === 'DELETE') {
+                return Http::response(['message' => 'GitHub could not be disconnected.'], 503);
+            }
+
+            return Http::response([
+                'connected' => true,
+                'eligible' => false,
+                'github_username' => 'ada-lovelace',
+            ]);
+        },
+    ]));
+
+    $test = Native::test(AccountSecurity::class)
+        ->call('askDisconnectGithub')
+        ->call('disconnectGithub')
+        ->assertSee('GitHub could not be disconnected.');
+
+    expect($test->get('githubBusy'))->toBeFalse()
+        ->and($test->get('githubConnected'))->toBeTrue()
+        ->and($test->get('confirmGithubDisconnect'))->toBeFalse();
+});
