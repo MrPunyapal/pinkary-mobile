@@ -377,7 +377,7 @@ final class Profile extends NativeComponent implements HasWebHead
             $hashtagId = Payload::int($result['id'] ?? null);
             $hashtagName = Payload::string($result['name'] ?? '');
 
-            if ($hashtagId > 0 && $hashtagName !== '') {
+            if ($hashtagId > 0) {
                 $this->navigate(
                     $this->route('mobile.hashtag', ['hashtagId' => $hashtagId]),
                     ['hashtagName' => $hashtagName],

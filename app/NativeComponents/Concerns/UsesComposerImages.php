@@ -211,8 +211,15 @@ trait UsesComposerImages
             $this->replaceImageText($postIndex, str_replace([$snippet."\n", $snippet], '', $text));
         }
 
-        unset($this->images[$index]);
-        $this->images = array_values($this->images);
+        $images = [];
+
+        foreach ($this->images as $imageIndex => $candidate) {
+            if ($imageIndex !== $index) {
+                $images[] = $candidate;
+            }
+        }
+
+        $this->images = $images;
         $this->imagesChanged();
     }
 

@@ -62,7 +62,7 @@ final class AppearancePreference
                 return;
             }
 
-            self::$defaultTheme = $theme;
+            self::$defaultTheme = Payload::stringMap($theme);
         }
 
         $tokens = self::$defaultTheme;

@@ -285,8 +285,15 @@ final class Detail extends NativeComponent implements HasWebHead
             return;
         }
 
-        unset($this->commentPollOptions[$index]);
-        $this->commentPollOptions = array_values($this->commentPollOptions);
+        $options = [];
+
+        foreach ($this->commentPollOptions as $optionIndex => $option) {
+            if ($optionIndex !== $index) {
+                $options[] = $option;
+            }
+        }
+
+        $this->commentPollOptions = $options;
         $this->persistReplyDraft();
     }
 

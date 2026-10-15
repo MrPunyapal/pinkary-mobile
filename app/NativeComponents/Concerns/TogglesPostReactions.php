@@ -560,7 +560,7 @@ trait TogglesPostReactions
                 return;
             }
 
-            $saved = $api->normalizeQuestion(Payload::array($response->json('data')));
+            $saved = $api->normalizeQuestion(Payload::stringMap($response->json('data')));
             $values = array_intersect_key($saved, array_flip([
                 'answer',
                 'answer_source',
@@ -909,7 +909,7 @@ trait TogglesPostReactions
                 $changed = true;
             }
 
-            $thread = Payload::array(data_get($posts[$index] ?? null, 'thread'));
+            $thread = Payload::array(data_get($posts[$index], 'thread'));
             $ancestors = Payload::array($thread['posts'] ?? null);
             $ancestorsChanged = false;
 
@@ -997,7 +997,7 @@ trait TogglesPostReactions
             $posts[] = $post;
         }
 
-        return array_values($posts);
+        return $posts;
     }
 
     private function sendPostViews(?string $token, string $viewer, bool $force): void
@@ -1754,7 +1754,7 @@ trait TogglesPostReactions
 
         $this->removePostForMenu($id);
 
-        if ($hasRootPost && isset($this->page, $this->hasMore) && $this->hasMore) {
+        if ($hasRootPost && isset($this->page, $this->hasMore) && is_int($this->page) && $this->hasMore) {
             $this->page = max(0, $this->page - 1);
         }
     }

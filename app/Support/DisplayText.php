@@ -203,7 +203,7 @@ final class DisplayText
 
         try {
             return Carbon::parse($iso)
-                ->setTimezone((string) config('app.timezone'))
+                ->setTimezone(Payload::string(config('app.timezone')))
                 ->format('F j, Y \\a\\t g:i A T');
         } catch (Throwable) {
             return '';

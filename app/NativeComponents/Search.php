@@ -142,10 +142,15 @@ final class Search extends NativeComponent implements HasWebHead
         }
 
         $this->users = $api->normalizeUsers($response->json('data.users', []));
-        $this->hashtags = array_values(array_filter(
-            Payload::array($response->json('data.hashtags', [])),
-            is_array(...),
-        ));
+        $hashtags = [];
+
+        foreach (Payload::array($response->json('data.hashtags', [])) as $hashtag) {
+            if (is_array($hashtag)) {
+                $hashtags[] = Payload::stringMap($hashtag);
+            }
+        }
+
+        $this->hashtags = $hashtags;
         $this->searched = true;
         $this->rememberRecent($query);
     }
@@ -417,7 +422,10 @@ final class Search extends NativeComponent implements HasWebHead
         return null;
     }
 
-    /** @param array{collection: 'search'|'recommendations'|'directory', index: int, user: array<string, mixed>} $target */
+    /**
+     * @param  array{collection: 'search'|'recommendations'|'directory', index: int, user: array<string, mixed>}  $target
+     * @param  array<string, mixed>  $user
+     */
     private function storeFollowTarget(array $target, array $user): void
     {
         match ($target['collection']) {
