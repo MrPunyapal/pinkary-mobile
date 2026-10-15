@@ -108,7 +108,7 @@ final class Register extends NativeComponent implements HasWebHead
             'terms' => $this->terms,
             ...$this->captchaPayload(),
         ]));
-        $this->captchaAttempted($response);
+        $this->captchaAttempted($response, 'register', null);
 
         if ($response === null) {
             $this->busy = false;

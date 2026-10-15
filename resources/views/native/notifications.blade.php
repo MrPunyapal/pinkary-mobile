@@ -3,8 +3,10 @@
 @endphp
 
 <native:column class="bg-theme-background h-full w-full">
-    <x-page-heading title="Notifications">
-        @if (! $loading && $errorMessage === '' && (count($items) > 0 || $notificationCount > 0))
+    <x-page-heading title="Notifications" />
+
+    @if (! $loading && $errorMessage === '' && (count($items) > 0 || $notificationCount > 0))
+        <native:row class="w-full justify-end px-4 py-2">
             <native:pressable
                 class="h-9 w-20 shrink-0 items-center justify-center rounded-full border border-theme-outline-variant {{ $ignoringAll ? 'opacity-40' : '' }}"
                 @tap="ignoreAll"
@@ -13,8 +15,8 @@
                 <native:text class="text-theme-on-surface-variant text-sm font-medium" max-lines="1"
                     >Ignore all</native:text>
             </native:pressable>
-        @endif
-    </x-page-heading>
+        </native:row>
+    @endif
 
     @if ($refreshing ?? false)
         <x-refresh-bar />

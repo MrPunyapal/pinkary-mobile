@@ -119,9 +119,6 @@ final class Detail extends NativeComponent implements HasWebHead
 
         $this->restoreReplyDraft();
         $this->load($this->token());
-        if (($token = $this->token()) !== null) {
-            $this->loadCaptcha('comment', $token);
-        }
     }
 
     public function retry(): void
@@ -400,7 +397,7 @@ final class Detail extends NativeComponent implements HasWebHead
                 $pollOptions,
                 $this->commentPollDuration,
             ));
-            $this->captchaAttempted($response);
+            $captchaRejected = $this->captchaAttempted($response, 'comment', $token);
         } finally {
             $this->commentBusy = false;
         }
@@ -416,7 +413,9 @@ final class Detail extends NativeComponent implements HasWebHead
         }
 
         if (! $response->successful()) {
-            $this->commentError = ApiErrors::first($response, 'Your comment could not be posted. Please try again.');
+            $this->commentError = $captchaRejected
+                ? ''
+                : ApiErrors::first($response, 'Your comment could not be posted. Please try again.');
 
             return;
         }

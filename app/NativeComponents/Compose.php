@@ -130,7 +130,6 @@ final class Compose extends NativeComponent implements HasWebHead
 
         $this->hydrateAvatar();
         $this->anonymous = $this->defaultAnonymousPreference();
-        $this->loadCaptcha('post', $token);
         $this->restoreDraft();
         $this->validateState();
 
@@ -587,7 +586,7 @@ final class Compose extends NativeComponent implements HasWebHead
                 $threadPolls,
                 $this->captchaPayload(),
             ));
-            $this->captchaAttempted($response);
+            $captchaRejected = $this->captchaAttempted($response, 'post', $token);
         } finally {
             $this->busy = false;
         }
@@ -604,7 +603,9 @@ final class Compose extends NativeComponent implements HasWebHead
         }
 
         if (! $response->successful()) {
-            $this->errorMessage = ApiErrors::first($response, 'The thread could not be published. Please try again.');
+            $this->errorMessage = $captchaRejected
+                ? ''
+                : ApiErrors::first($response, 'The thread could not be published. Please try again.');
             $this->persistDraft();
 
             return;
@@ -666,7 +667,7 @@ final class Compose extends NativeComponent implements HasWebHead
         $api = app(PinkaryApi::class);
         try {
             $response = $api->attempt(fn () => $api->askQuestion($token, $this->askUsername, $content, $this->anonymous, $this->captchaPayload()));
-            $this->captchaAttempted($response);
+            $captchaRejected = $this->captchaAttempted($response, 'post', $token);
         } finally {
             $this->busy = false;
         }
@@ -683,7 +684,9 @@ final class Compose extends NativeComponent implements HasWebHead
         }
 
         if (! $response->successful()) {
-            $this->errorMessage = ApiErrors::first($response, 'Your question could not be sent. Please try again.');
+            $this->errorMessage = $captchaRejected
+                ? ''
+                : ApiErrors::first($response, 'Your question could not be sent. Please try again.');
             $this->persistDraft();
 
             return;

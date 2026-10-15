@@ -202,12 +202,12 @@
                                 </native:pressable>
                             @endif
 
-                            <native:row class="w-full items-center justify-between">
-                                <native:row class="flex-wrap items-center gap-2">
-                                    <native:text class="text-theme-on-surface-variant text-xs">Duration</native:text>
+                            <native:column class="w-full gap-2">
+                                <native:row class="w-full items-center gap-1.5">
+                                    <native:text class="text-theme-on-surface-variant shrink-0 text-xs">Duration</native:text>
                                     @foreach (\App\NativeComponents\Compose::POLL_DURATIONS as $days => $label)
                                         <native:pressable
-                                            class="px-2.5 py-1.5 rounded-md {{ $pollDuration === $days ? 'bg-theme-primary' : 'border border-theme-outline-variant' }}"
+                                            class="shrink-0 rounded-md px-2 py-1.5 {{ $pollDuration === $days ? 'bg-theme-primary' : 'border border-theme-outline-variant' }}"
                                             @tap="setPollDuration({{ $days }})"
                                             a11y-label="Poll duration {{ $label }}"
                                         >
@@ -215,10 +215,12 @@
                                         </native:pressable>
                                     @endforeach
                                 </native:row>
-                                <native:pressable class="shrink-0 py-1" @tap="togglePoll" a11y-label="Remove poll">
-                                    <native:text class="text-theme-primary text-xs font-medium">Remove poll</native:text>
-                                </native:pressable>
-                            </native:row>
+                                <native:row class="w-full justify-end">
+                                    <native:pressable class="py-1" @tap="togglePoll" a11y-label="Remove poll">
+                                        <native:text class="text-theme-primary text-xs font-medium">Remove poll</native:text>
+                                    </native:pressable>
+                                </native:row>
+                            </native:column>
                         </native:column>
                     @endif
                 </native:column>
@@ -341,12 +343,12 @@
                                     </native:pressable>
                                 @endif
 
-                                <native:row class="w-full items-center justify-between">
-                                    <native:row class="flex-wrap items-center gap-2">
-                                        <native:text class="text-theme-on-surface-variant text-xs">Duration</native:text>
+                                <native:column class="w-full gap-2">
+                                    <native:row class="w-full items-center gap-1.5">
+                                        <native:text class="text-theme-on-surface-variant shrink-0 text-xs">Duration</native:text>
                                         @foreach (\App\NativeComponents\Compose::THREAD_POLL_DURATIONS as $days => $label)
                                             <native:pressable
-                                                class="px-2.5 py-1.5 rounded-md {{ ($postPolls[$index]['duration'] ?? 1) === $days ? 'bg-theme-primary' : 'border border-theme-outline-variant' }}"
+                                                class="shrink-0 rounded-md px-2 py-1.5 {{ ($postPolls[$index]['duration'] ?? 1) === $days ? 'bg-theme-primary' : 'border border-theme-outline-variant' }}"
                                                 @tap="setPostPollDuration({{ $index }}, {{ $days }})"
                                                 a11y-label="Post {{ $index + 2 }} poll duration {{ $label }}"
                                             >
@@ -354,14 +356,16 @@
                                             </native:pressable>
                                         @endforeach
                                     </native:row>
-                                    <native:pressable
-                                        class="shrink-0 py-1"
-                                        @tap="togglePostPoll({{ $index }})"
-                                        a11y-label="Remove poll from post {{ $index + 2 }}"
-                                    >
-                                        <native:text class="text-theme-primary text-xs font-medium">Remove poll</native:text>
-                                    </native:pressable>
-                                </native:row>
+                                    <native:row class="w-full justify-end">
+                                        <native:pressable
+                                            class="py-1"
+                                            @tap="togglePostPoll({{ $index }})"
+                                            a11y-label="Remove poll from post {{ $index + 2 }}"
+                                        >
+                                            <native:text class="text-theme-primary text-xs font-medium">Remove poll</native:text>
+                                        </native:pressable>
+                                    </native:row>
+                                </native:column>
                             </native:column>
                         @endif
                     </native:column>

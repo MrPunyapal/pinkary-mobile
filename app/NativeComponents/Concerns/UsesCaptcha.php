@@ -107,17 +107,18 @@ trait UsesCaptcha
         $this->captchaError = '';
 
         $this->async(static function () use ($action, $token): array {
-            $response = app(PinkaryApi::class)->captcha($action, $token);
+            $api = app(PinkaryApi::class);
+            $response = $api->attempt(fn () => $api->captcha($action, $token));
 
-            return ['success' => $response->successful(), 'data' => $response->json('data', [])];
-        })->finished(function (array $result): void {
+            return ['success' => $response?->successful() ?? false, 'data' => $response?->json('data', []) ?? []];
+        })->timeout(20)->finished(function (array $result): void {
             $this->captchaLoading = false;
             $data = Payload::array($result['data'] ?? null);
             $required = $data['required'] ?? null;
             $widgetPath = Payload::string($data['widget_path'] ?? null);
             $returnPath = Payload::string($data['return_path'] ?? null);
 
-            if (! $result['success'] || ! is_bool($required)
+            if (! Payload::bool($result['success'] ?? false) || ! is_bool($required)
                 || ! $this->validCaptchaPath($widgetPath) || ! $this->validCaptchaPath($returnPath)) {
                 $this->captchaError = 'Could not load the security check. Please retry.';
 
@@ -137,6 +138,8 @@ trait UsesCaptcha
     private function captchaReadyForSubmission(): bool
     {
         if ($this->captchaLoading) {
+            $this->captchaError = 'The security check is still loading. Please wait.';
+
             return false;
         }
 
@@ -165,22 +168,32 @@ trait UsesCaptcha
             : [];
     }
 
-    private function captchaAttempted(?Response $response): void
+    private function captchaAttempted(?Response $response, string $action, ?string $token): bool
     {
+        $this->captchaAction = $action;
+        $this->captchaAccountToken = $token;
+
         if ($this->captchaToken !== '') {
             $this->resetCaptcha();
         }
 
         $errors = $response?->json('errors', []);
+        $captchaErrors = ['cf-turnstile-response' => true, 'captcha_state' => true];
 
-        if (is_array($errors) && (isset($errors['cf-turnstile-response']) || isset($errors['captcha_state']))) {
-            $this->captchaRequired = true;
-            $this->captchaError = 'Please complete a new security check and try again.';
-
-            if ($this->captchaWidgetPath === '') {
-                $this->loadCaptcha($this->captchaAction, $this->captchaAccountToken);
-            }
+        if (! is_array($errors) || array_intersect_key($errors, $captchaErrors) === []) {
+            return false;
         }
+
+        $this->captchaRequired = true;
+        $this->captchaError = 'Complete the security check below to continue.';
+
+        if ($this->captchaWidgetPath === '') {
+            $this->loadCaptcha($this->captchaAction, $this->captchaAccountToken);
+        } else {
+            $this->resetCaptcha();
+        }
+
+        return array_diff_key($errors, $captchaErrors) === [];
     }
 
     private function resetCaptcha(): void
