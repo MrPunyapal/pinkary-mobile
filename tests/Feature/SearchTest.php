@@ -31,6 +31,11 @@ function fakeSearchApi(array $responses): void
     ], $responses));
 }
 
+function requestHasPath(Request $request, string $path): bool
+{
+    return parse_url($request->url(), PHP_URL_PATH) === $path;
+}
+
 function foundUser(array $overrides = []): array
 {
     return array_merge([
@@ -80,11 +85,11 @@ it('shows recommendations and the paginated people directory without a query', f
         ->assertSee('Discover people')
         ->assertSee('Dorothy Vaughan');
 
-    Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/users/recommendations')
+    Http::assertSent(fn (Request $request): bool => requestHasPath($request, '/api/v1/users/recommendations')
         && $request['context'] === 'generic'
         && $request['per_page'] === 5
         && $request['page'] === 1);
-    Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/users/directory')
+    Http::assertSent(fn (Request $request): bool => requestHasPath($request, '/api/v1/users/directory')
         && $request['per_page'] === 20
         && $request['page'] === 1);
 });
@@ -112,10 +117,10 @@ it('loads the next recommendation and directory pages independently', function (
     expect($screen->get('recommendations'))->toHaveCount(2)
         ->and($screen->get('directoryUsers'))->toHaveCount(2);
 
-    Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/users/recommendations')
+    Http::assertSent(fn (Request $request): bool => requestHasPath($request, '/api/v1/users/recommendations')
         && $request['page'] === 2
         && $request['per_page'] === 5);
-    Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/users/directory')
+    Http::assertSent(fn (Request $request): bool => requestHasPath($request, '/api/v1/users/directory')
         && $request['page'] === 2
         && $request['per_page'] === 20);
 });
