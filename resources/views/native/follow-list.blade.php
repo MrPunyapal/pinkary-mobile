@@ -68,7 +68,7 @@
                                             />
                                         @endif
                                     </native:row>
-                                    @if ($rowFollowsMe)
+                                    @if ($rowFollowsMe && ! $rowIsMe)
                                         <native:row class="min-w-0 items-center gap-1.5">
                                             <native:text
                                                 class="text-theme-on-surface-variant shrink-0 text-sm"

@@ -77,7 +77,7 @@
                 @endif
 
                 <native:column class="bg-theme-surface border-theme-outline-variant w-full border-b px-4 py-3">
-                    <native:text class="text-theme-on-surface text-lg font-semibold">Discover people</native:text>
+                    <native:text class="text-theme-on-surface text-lg font-semibold">Discover new profiles to follow.</native:text>
                 </native:column>
                 @if ($directoryLoading && $directoryPage === 0)
                     <x-skeleton-user-row />

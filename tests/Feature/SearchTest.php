@@ -82,7 +82,7 @@ it('shows recommendations and the paginated people directory without a query', f
     Native::visit('/search')
         ->assertSee('People to follow')
         ->assertSee('Katherine Johnson')
-        ->assertSee('Discover people')
+        ->assertSee('Discover new profiles to follow.')
         ->assertSee('Dorothy Vaughan');
 
     Http::assertSent(fn (Request $request): bool => requestHasPath($request, '/api/v1/users/recommendations')

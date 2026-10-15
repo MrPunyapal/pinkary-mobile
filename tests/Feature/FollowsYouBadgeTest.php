@@ -63,6 +63,14 @@ it('omits the badge on your own follower list', function (): void {
         ->assertDontSee('Follows you');
 });
 
+it('does not badge yourself in someone elses follower list', function (): void {
+    fakeFollowList('followers', followerPayload(['username' => 'me', 'is_me' => true]));
+
+    Native::test(FollowList::class, ['username' => 'alice'])
+        ->assertSee('Grace Hopper')
+        ->assertDontSee('Follows you');
+});
+
 it('badges the following list too', function (): void {
     fakeFollowList('following', followerPayload());
 
