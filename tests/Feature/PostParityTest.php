@@ -498,9 +498,12 @@ it('plays YouTube previews inline in the feed', function (): void {
 
     $screen = Native::test(Home::class)->call('openPostPreview', 'q1');
     $player = parityFind($screen->tree(), fn (array $n): bool => ($n['type'] ?? '') === 'webview'
-        && ($n['props']['src'] ?? '') === 'https://www.youtube-nocookie.com/embed/abc123def45?playsinline=1&autoplay=1');
+        && ($n['props']['src'] ?? '') === 'https://www.youtube.com/embed/abc123def45?playsinline=1&controls=1');
 
-    expect($player)->not->toBeNull();
+    expect($player)->not->toBeNull()
+        ->and($player['props']['javascript'] ?? false)->toBeTrue()
+        ->and($player['props']['dom_storage'] ?? false)->toBeTrue()
+        ->and($player['props']['src'] ?? '')->not->toContain('autoplay=1');
 });
 
 it('plays supported Vimeo previews inline and keeps the video hash', function (): void {

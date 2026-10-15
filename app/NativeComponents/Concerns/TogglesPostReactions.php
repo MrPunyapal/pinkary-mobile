@@ -128,7 +128,7 @@ trait TogglesPostReactions
 
         if ($videoId !== null) {
             $this->activeYoutubePostId = $playerId;
-            $this->youtubeEmbedUrl = 'https://www.youtube-nocookie.com/embed/'.$videoId.'?playsinline=1&autoplay=1';
+            $this->youtubeEmbedUrl = 'https://www.youtube.com/embed/'.$videoId.'?playsinline=1&controls=1';
 
             return;
         }
