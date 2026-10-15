@@ -13,6 +13,8 @@ use Throwable;
 
 final class DisplayText
 {
+    private const int MAX_DISPLAYED_LINK_TEXT_LENGTH = 50;
+
     public static function plain(mixed $html): string
     {
         return implode('', array_column(self::runs($html), 'text'));
@@ -237,7 +239,7 @@ final class DisplayText
         }
 
         if ($url !== null) {
-            return [['text' => $text, 'type' => 'link', 'target' => $url]];
+            return [['text' => self::displayedLinkText($text, $url), 'type' => 'link', 'target' => $url]];
         }
 
         $pieces = preg_split('~((?<![\p{L}\p{N}_@])@[A-Za-z0-9_-]+|(?<![\p{L}\p{N}_])#[\p{L}\p{N}_]+|(?<![\p{L}\p{N}_@./])(?:https?://[^\s<>]+|(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,63}(?:[/:?#][^\s<>]*)?))~iu', $text, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) ?: [];
@@ -262,7 +264,7 @@ final class DisplayText
             }
             $url = self::url(preg_match('~^https?://~i', $label) ? $label : 'https://'.$label);
             if ($url !== null && preg_match('~^(?:https?://|(?:[a-z0-9-]+\.)+[a-z]{2,63}(?:[/:?#]|$))~i', $label)) {
-                $runs[] = ['text' => $label, 'type' => 'link', 'target' => $url];
+                $runs[] = ['text' => self::displayedLinkText($label, $url), 'type' => 'link', 'target' => $url];
                 if ($label !== $piece) {
                     $runs[] = ['text' => mb_substr($piece, mb_strlen($label)), 'type' => 'text', 'target' => ''];
                 }
@@ -272,5 +274,26 @@ final class DisplayText
         }
 
         return $runs;
+    }
+
+    private static function displayedLinkText(string $text, string $url): string
+    {
+        $displayText = preg_replace('/^https?:\/\//i', '', $text) ?? $text;
+        $displayText = mb_rtrim($displayText, '/');
+        $displayUrl = preg_replace('/^https?:\/\//i', '', $url) ?? $url;
+        $displayUrl = mb_rtrim($displayUrl, '/');
+
+        if ($displayText !== $displayUrl) {
+            return $text;
+        }
+
+        if (mb_strlen($displayText) <= self::MAX_DISPLAYED_LINK_TEXT_LENGTH) {
+            return $displayText;
+        }
+
+        $trimmed = mb_substr($displayText, 0, self::MAX_DISPLAYED_LINK_TEXT_LENGTH);
+        $trimmed = preg_replace('/&[#a-zA-Z0-9]*$/', '', $trimmed) ?? $trimmed;
+
+        return $trimmed.'...';
     }
 }

@@ -79,11 +79,23 @@ it('shares and translates source text instead of rich HTML', function (): void {
 it('keeps bare links tappable with their full target and excludes surrounding punctuation', function (string $text, string $label, string $url): void {
     expect(DisplayText::runs($text))->toContain(['text' => $label, 'type' => 'link', 'target' => $url]);
 })->with([
-    'production example' => ['and more laravel.com/blog/migrating-pinkary-from-laravel-forge-to-laravel-cloud', 'laravel.com/blog/migrating-pinkary-from-laravel-forge-to-laravel-cloud', 'https://laravel.com/blog/migrating-pinkary-from-laravel-forge-to-laravel-cloud'],
+    'production example' => ['and more laravel.com/blog/migrating-pinkary-from-laravel-forge-to-laravel-cloud', 'laravel.com/blog/migrating-pinkary-from-laravel-fo...', 'https://laravel.com/blog/migrating-pinkary-from-laravel-forge-to-laravel-cloud'],
     'www' => ['Visit www.example.com/docs.', 'www.example.com/docs', 'https://www.example.com/docs'],
-    'parentheses' => ['See (https://example.com/docs).', 'https://example.com/docs', 'https://example.com/docs'],
-    'balanced path' => ['https://example.com/wiki/Thing_(one)', 'https://example.com/wiki/Thing_(one)', 'https://example.com/wiki/Thing_(one)'],
+    'parentheses' => ['See (https://example.com/docs).', 'example.com/docs', 'https://example.com/docs'],
+    'balanced path' => ['https://example.com/wiki/Thing_(one)', 'example.com/wiki/Thing_(one)', 'https://example.com/wiki/Thing_(one)'],
 ]);
+
+it('truncates long link labels without changing the target or leaving a partial entity', function (): void {
+    $url = 'https://example.com/'.str_repeat('a', 33).'?x=1&amp;b=2';
+    $expectedTarget = 'https://example.com/'.str_repeat('a', 33).'?x=1&b=2';
+    $runs = DisplayText::runs($url);
+
+    expect($runs)->toContain([
+        'text' => 'example.com/'.str_repeat('a', 33).'?x=1...',
+        'type' => 'link',
+        'target' => $expectedTarget,
+    ]);
+});
 
 it('does not treat emails as links or mentions', function (): void {
     expect(DisplayText::runs('Email ada@example.com'))->toBe([
