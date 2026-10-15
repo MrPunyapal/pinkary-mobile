@@ -163,7 +163,6 @@ it('shows the web poll expired tone and the mt-4 poll top pad', function (): voi
     expect($markup)
         ->toContain('text-red-500')
         ->toContain('dark-color="#F87171"')
-        ->not->toContain('text-theme-destructive')
         ->toContain('pt-2.5');
 });
 

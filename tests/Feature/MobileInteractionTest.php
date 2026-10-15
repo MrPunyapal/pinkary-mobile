@@ -131,10 +131,12 @@ it('preserves spacing and blank lines around tappable mentions and links', funct
     ]);
 
     $screen = Native::test(Home::class);
-    $paragraph = collect(interactionNodes($screen->tree()))->first(fn (array $node): bool => ($node['props']['a11y_label'] ?? '') === $answer);
-    $lines = array_map(fn (array $row): string => implode('', array_map(fn (array $word): string => $word['props']['text'] ?? '', $row['children'] ?? [])), $paragraph['children']);
+    $expected = DisplayText::plain($answer);
+    $paragraph = collect(interactionNodes($screen->tree()))->first(fn (array $node): bool => ($node['props']['a11y_label'] ?? '') === $expected);
+    $lines = array_map(fn (array $row): string => implode('', array_map(fn (array $word): string => $word['props']['text'] ?? '', $row['children'] ?? [])), $paragraph['children'] ?? []);
 
-    expect(implode("\n", $lines))->toBe($answer);
+    expect($paragraph)->not->toBeNull()
+        ->and(implode("\n", $lines))->toBe($expected);
     $screen->tap('@grace')->assertNavigatedTo('/user/grace');
 });
 

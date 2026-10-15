@@ -27,14 +27,15 @@ it('renders the wordmark over http and tints it per theme', function (): void {
     expect(json_encode(Native::test(Login::class)->tree()))->not->toContain(public_path('img'));
 });
 
-it('offers the web forgot-password page without a dead remember-me control', function (): void {
+it('opens native password recovery without a dead remember-me control', function (): void {
     config(['services.pinkary.url' => 'https://pinkary.test']);
 
     Native::test(Login::class)
         ->assertSee('Forgot password?')
         ->assertDontSee('Remember me')
         ->tap('Forgot password?')
-        ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => ($params['url'] ?? '') === 'https://pinkary.test/forgot-password');
+        ->assertSee('Send reset email')
+        ->assertSee('Already have a reset token?');
 });
 
 it('keeps the plain login card for guests', function (): void {

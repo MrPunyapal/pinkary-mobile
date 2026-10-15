@@ -271,7 +271,7 @@ it('titles the search screen in content, and only before a query', function (): 
         ->assertDontSee('Discover new profiles to follow.');
 
     expect(file_get_contents(resource_path('views/native/search.blade.php')))
-        ->toContain('@if ($query === \'\')')
+        ->toContain('@if (! $hasQuery)')
         ->not->toContain('a11y-label="Go back"');
 });
 

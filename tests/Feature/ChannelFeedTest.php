@@ -60,10 +60,10 @@ it('opens a channel feed from a post chip and paginates channel posts', function
 
     expect($feed->get('posts'))->toHaveCount(2);
 
-    Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/channels/laravel/questions')
+    Http::assertSent(fn (Request $request): bool => str_ends_with((string) parse_url($request->url(), PHP_URL_PATH), '/channels/laravel/questions')
         && $request['page'] === 1
         && $request['per_page'] === 20);
-    Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/channels/laravel/questions')
+    Http::assertSent(fn (Request $request): bool => str_ends_with((string) parse_url($request->url(), PHP_URL_PATH), '/channels/laravel/questions')
         && $request['page'] === 2
         && $request['per_page'] === 20);
 });

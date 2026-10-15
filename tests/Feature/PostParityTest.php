@@ -48,7 +48,7 @@ it('opens the native hashtag feed when tapping a linked hashtag', function (): v
     expect($hashtag)->not->toBeNull()
         ->and($hashtag['on_press'] ?? null)->not->toBeNull();
 
-    $screen->press("openHashtag('laravel')")
+    $screen->press('openHashtag("laravel")')
         ->assertNavigatedTo('/hashtag/42');
 
     Http::assertSent(fn ($request): bool => $request->method() === 'GET'

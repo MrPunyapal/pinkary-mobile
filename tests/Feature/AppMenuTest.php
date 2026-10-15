@@ -140,11 +140,16 @@ it('logs the account out and returns to the login screen', function (): void {
 });
 
 it('logs every account out after one confirmation', function (): void {
-    AccountStore::add('ada', 'token-a', ['username' => 'ada']);
+    $ada = AccountStore::add('ada', 'token-a', ['username' => 'ada']);
     AccountStore::add('grace', 'token-b', ['username' => 'grace']);
+    AccountStore::activate($ada);
     CurrentUser::store(['username' => 'ada', 'name' => 'Ada']);
     UnreadCount::store(3);
-    Http::fake(['https://pinkary.test/api/v1/auth/logout' => Http::response(null, 204)]);
+    Http::fake([
+        'https://pinkary.test/api/v1/auth/logout' => Http::response(null, 204),
+        'https://pinkary.test/api/v1/users/recommendations*' => Http::response(['data' => [], 'links' => ['next' => null]]),
+        'https://pinkary.test/api/v1/users/directory*' => Http::response(['data' => [], 'links' => ['next' => null]]),
+    ]);
 
     Native::test(Search::class)
         ->call('openAppMenu')

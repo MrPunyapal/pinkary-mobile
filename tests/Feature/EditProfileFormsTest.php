@@ -197,9 +197,9 @@ it('validates a new link before creating it', function (string $description, str
 })->with([
     'blank description' => ['  ', 'https://example.com', 'Add a short description for the link.'],
     'long description' => [str_repeat('x', 101), 'https://example.com', 'Link descriptions may not be greater than 100 characters.'],
-    'no scheme' => ['Site', 'example.com', 'Links must be valid https:// URLs.'],
-    'plain http' => ['Site', 'http://example.com', 'Links must be valid https:// URLs.'],
-    'over-long url' => ['Site', 'https://example.com/'.str_repeat('a', 100), 'Links must be valid https:// URLs.'],
+    'plain http' => ['Site', 'http://example.com', 'Enter a valid HTTPS URL. You can omit the https:// prefix.'],
+    'missing host' => ['Site', 'https://', 'Enter a valid HTTPS URL. You can omit the https:// prefix.'],
+    'over-long url' => ['Site', 'https://example.com/'.str_repeat('a', 100), 'Enter a valid HTTPS URL. You can omit the https:// prefix.'],
 ]);
 
 it('adds a valid link to the list', function (): void {
@@ -213,7 +213,7 @@ it('adds a valid link to the list', function (): void {
 
     $screen = Native::test(EditProfile::class)
         ->set('newDescription', 'Website')
-        ->set('newUrl', 'https://example.com')
+        ->set('newUrl', 'example.com')
         ->call('addLink')
         ->assertSet('linkMessage', 'Link added.')
         ->assertSet('newDescription', '')
@@ -221,6 +221,9 @@ it('adds a valid link to the list', function (): void {
 
     expect($screen->get('links'))->toHaveCount(1)
         ->and($screen->get('links')[0]['id'])->toBe(9);
+
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
+        && $request['url'] === 'https://example.com');
 });
 
 it('reports an unsuccessful link creation', function (Closure $response, string $expected): void {
@@ -283,8 +286,11 @@ it('validates an edited link the same way as a new one', function (): void {
     $screen->set('editDescription', str_repeat('x', 101))->call('saveEdit', 9)
         ->assertSet('linkMessage', 'Link descriptions may not be greater than 100 characters.');
 
-    $screen->set('editDescription', 'Fine')->set('editUrl', 'nope')->call('saveEdit', 9)
-        ->assertSet('linkMessage', 'Links must be valid https:// URLs.');
+    $screen->set('editDescription', 'Fine')->set('editUrl', 'http://example.com')->call('saveEdit', 9)
+        ->assertSet('linkMessage', 'Enter a valid HTTPS URL. You can omit the https:// prefix.');
+
+    Http::assertNotSent(fn (Request $request): bool => $request->method() === 'PUT'
+        && str_ends_with($request->url(), '/api/v1/links/9'));
 
     $screen->call('cancelEdit')->assertSet('editingLinkId', null);
 });

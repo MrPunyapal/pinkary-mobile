@@ -210,6 +210,7 @@ it('uploads a valid profile photo as multipart form data', function (): void {
     Http::fake([
         'https://pinkary.test/api/v1/profile' => Http::sequence()
             ->push(['data' => editedProfilePayload()])
+            ->push(['data' => editedProfilePayload(['avatar' => 'https://pinkary.test/storage/avatars/ada.png'])])
             ->push(['data' => editedProfilePayload(['avatar' => 'https://pinkary.test/storage/avatars/ada.png'])]),
     ]);
 

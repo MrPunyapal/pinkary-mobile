@@ -60,7 +60,9 @@ it('names the signed-in account on the identity line', function (): void {
 
 it('says Log Out on its own and names the account when others are stored', function (): void {
     Http::fake([
-        'https://pinkary.test/api/v1/profile' => Http::response(['data' => settingsProfilePayload()]),
+        'https://pinkary.test/api/v1/profile' => Http::sequence()
+            ->push(['data' => settingsProfilePayload()])
+            ->push(['data' => settingsProfilePayload(['id' => 2, 'username' => 'grace'])]),
     ]);
 
     AccountStore::add('ada', 'test-token', ['username' => 'ada']);
@@ -70,7 +72,7 @@ it('says Log Out on its own and names the account when others are stored', funct
 
     AccountStore::add('grace', 'token-2', ['username' => 'grace']);
     Native::test(Settings::class)
-        ->assertSee('Log out of @pinkaryuser');
+        ->assertSee('Log out of @grace');
 
     AccountStore::clear();
 });
